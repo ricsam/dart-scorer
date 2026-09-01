@@ -313,6 +313,7 @@ function App() {
     if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
   })
+  const [keyboardCompact, setKeyboardCompact] = useState(false)
 
   const dartInput = useMemo(() => parseDartEntry(expression), [expression])
   const entryTotal = dartInput.hits.reduce((sum, hit) => sum + hit.value, 0)
@@ -321,12 +322,52 @@ function App() {
     ? `Only ${dartsRemaining} dart${dartsRemaining === 1 ? '' : 's'} left in this visit.`
     : expression.trim() ? dartInput.error : null
   const scoreInputRef = useRef<HTMLInputElement>(null)
+  const viewportBaselineRef = useRef(0)
 
   useEffect(() => {
     window.localStorage.setItem('oche-theme', theme)
     document.documentElement.style.colorScheme = theme
     document.documentElement.dataset.theme = theme
   }, [theme])
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+
+    viewportBaselineRef.current = Math.max(window.innerHeight, viewport.height)
+    let animationFrame = 0
+
+    const updateKeyboardLayout = () => {
+      window.cancelAnimationFrame(animationFrame)
+      animationFrame = window.requestAnimationFrame(() => {
+        const viewportHeight = Math.round(viewport.height)
+        const scoreEntryFocused = document.activeElement === scoreInputRef.current
+        const keyboardIsVisible = viewport.height < viewportBaselineRef.current - 100
+        const useCompactLayout = scoreEntryFocused && keyboardIsVisible
+
+        document.documentElement.style.setProperty('--visual-viewport-height', `${viewportHeight}px`)
+        if (!keyboardIsVisible) viewportBaselineRef.current = Math.max(viewportBaselineRef.current, viewport.height)
+
+        setKeyboardCompact(useCompactLayout)
+        if (useCompactLayout) window.scrollTo(0, 0)
+      })
+    }
+
+    updateKeyboardLayout()
+    viewport.addEventListener('resize', updateKeyboardLayout)
+    viewport.addEventListener('scroll', updateKeyboardLayout)
+    document.addEventListener('focusin', updateKeyboardLayout)
+    document.addEventListener('focusout', updateKeyboardLayout)
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+      viewport.removeEventListener('resize', updateKeyboardLayout)
+      viewport.removeEventListener('scroll', updateKeyboardLayout)
+      document.removeEventListener('focusin', updateKeyboardLayout)
+      document.removeEventListener('focusout', updateKeyboardLayout)
+      document.documentElement.style.removeProperty('--visual-viewport-height')
+    }
+  }, [])
 
   useEffect(() => {
     const closeModal = (event: KeyboardEvent) => {
@@ -657,7 +698,7 @@ function App() {
   const quickDarts = ['T20', 'T19', 'T18', 'T17', 'T16', 'D20', 'D18', 'D16', 'D12', 'D10', '20', '19', '18', '17', '16', '25', 'BULL', 'MISS']
 
   return (
-    <div className={`app-shell ${theme}`}>
+    <div className={`app-shell ${theme}${keyboardCompact ? ' keyboard-compact' : ''}`}>
       <header className="topbar">
         <div className="brand" aria-label="Oche darts scorer">
           <span className="brand-mark"><i /><i /><i /></span>
