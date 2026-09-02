@@ -30,15 +30,6 @@ Create a production build with:
 npm run build
 ```
 
-## Kubernetes deployment
+## Deployment
 
-The static production build can be deployed without a private image registry. Build it, create the generated asset ConfigMap, and apply the workload:
-
-```bash
-npm run build
-kubectl create namespace dart-scorer --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n dart-scorer create configmap site-assets --from-file=dist --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f k8s/deployment.yaml
-```
-
-The deployment mounts the generated site from `site-assets` into an unprivileged Nginx container.
+The app is published to [GitHub Pages](https://ricsam.github.io/dart-scorer/). Every push to `main` builds and deploys the static site through the `Deploy to GitHub Pages` workflow.
