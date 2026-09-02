@@ -7,18 +7,20 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:responsive": "playwright test"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "~5.9.3",
+    "lucide-react": "^0.468.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "lucide-react": "^0.468.0"
+    "typescript": "~5.9.3",
+    "vite": "latest"
   },
   "devDependencies": {
     "@eslint/js": "latest",
+    "@playwright/test": "^1.62.1",
     "@types/node": "latest",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
