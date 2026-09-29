@@ -1,6 +1,16 @@
 node_modules
 dist
+dist-online
+dist-server
+data/
+*.db
+*.db-shm
+*.db-wal
 *.local
+.env
+.env.*.local
 .DS_Store
 playwright-report/
 test-results/
+.e2e/
+.e2e-shots/

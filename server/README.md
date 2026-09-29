@@ -1,0 +1,78 @@
+# Oche server
+
+Node server for the signed-in ("online") edition: Google sign-in, rooms, live matches with
+server-sent events, Elo ratings, leaderboards and statistics. It also serves the built SPA.
+The HTTP contract lives in [`src/shared/api.ts`](../src/shared/api.ts); the darts rules are the
+shared engine in [`src/game`](../src/game).
+
+- [Hono](https://hono.dev) on `@hono/node-server`, SQLite through Node's built-in `node:sqlite`
+  (Node 24+; no native modules), `jose` to verify Google ID tokens.
+- One process owns the database and the live-update hub (in-memory SSE fan-out and rate limits),
+  so run a single replica.
+
+## Running
+
+```sh
+npm run dev:online        # server (Node watch + tsx, DEV_LOGIN=true) + Vite on http://localhost:5173
+npm run dev:server        # server only
+npm run build:server      # bundle → dist-server/index.mjs
+npm run build:online      # SPA → dist-online/
+npm start                 # node dist-server/index.mjs (serves dist-online/ too)
+npx vitest run            # unit + server tests (in-memory DB, fake Google)
+npx tsc -p tsconfig.server.json
+```
+
+## Configuration
+
+| Variable | Default | |
+| --- | --- | --- |
+| `PORT` / `HOST` | `8787` / `0.0.0.0` | Listen address. |
+| `NODE_ENV` | | `production` disables dev login. |
+| `PUBLIC_URL` | `http://localhost:5173` | Browser-facing origin. Used for the OAuth redirect URI (`${PUBLIC_URL}/auth/google/callback`), the Origin check on mutations, and — when `https` — `Secure`/`__Host-` cookies and HSTS. |
+| `DATABASE_PATH` | `data/oche.db` | SQLite file (parent directory is created; `:memory:` works). WAL mode. |
+| `STATIC_DIR` | `dist-online` | Built SPA; empty string disables static serving. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Google sign-in is enabled only when both are set. Authorized redirect URI: `${PUBLIC_URL}/auth/google/callback`. |
+| `DEV_LOGIN` | | `true` enables `POST /auth/dev-login` (any email, no password) — ignored when `NODE_ENV=production`. |
+| `TRUST_PROXY` | | `true` takes the client IP (for rate limits) from `CF-Connecting-IP`, else the first `X-Forwarded-For` entry. Set it behind Cloudflare/Traefik, otherwise every visitor shares the proxy's IP. |
+
+Secrets come only from the environment; nothing secret is logged (no tokens, codes or query strings).
+
+## Endpoints
+
+Everything in `src/shared/api.ts`, plus:
+
+- `GET /auth/google?returnTo=/path` → Google (PKCE S256 + state + nonce);
+  `GET /auth/google/callback` → session cookie and redirect to `returnTo`, or
+  `/login?error=<code>` with `access_denied`, `state_mismatch`, `state_expired`, `invalid_request`,
+  `google_failed`, `email_unverified` or `google_unavailable`.
+- `POST /auth/logout` (204), `POST /auth/dev-login` (`{ user }`).
+- `GET /healthz` (process up) and `GET /readyz` (database answers).
+- SSE: `GET /api/matches/:id/events` (event `match`; additionally `match-deleted` with
+  `{ matchId }` just before the stream closes when the match is deleted) and
+  `GET /api/rooms/:id/events` (event `room`). Streams start with `retry: 3000`, send a heartbeat
+  comment every 25 s. Logout immediately closes only that session's streams (other sessions
+  remain connected); removal or room deletion closes streams immediately without draining queued
+  events. Session expiry/revocation and membership are checked before each write and heartbeat.
+
+## Behaviour notes
+
+- Sessions: 32 random bytes in `__Host-oche_session` (https) or `oche_session`, HttpOnly,
+  SameSite=Lax; only the SHA-256 is stored. 60-day lifetime, renewed when under 30 days remain.
+- Mutations (`POST`/`PATCH`/`DELETE` under `/api` and `/auth`) need a matching `Origin` (when sent)
+  and `Content-Type: application/json` bodies of at most 64 KB (403 / 415 / 413).
+- Rate limits (in memory): 30 `/auth` requests per IP per minute, 300 mutations per user per
+  minute, 60 public invite previews per IP per minute, 20 concurrent SSE streams per user.
+  Each rate-limit map is capped at 10,000 keys and fails closed for new keys until expiry.
+- Rooms and matches the viewer can't see are 404. Limits: room names 1–40 characters, 20 owned
+  rooms per user, 100 members per room, 10 live matches per room; guest names 1–18, display
+  names 1–24 characters.
+- Matches: only `submit`, `undo`, `resetLeg`, `nextLeg` and `rewind` actions. Every accepted
+  change (including finishing) increments `version`; a stale `baseVersion` gets 409 with the
+  current match, a no-op action returns 200 with the version unchanged. Submit entries use
+  `evaluateOnlineEntry` before applying the reducer: invalid or physically impossible darts
+  return 400 without changing the version. Numeric shorthand such as 36 and 60 remains valid.
+- Ratings: per room, Elo with K = 32 over all pairs of signed-in players (K/(n−1) scaling),
+  replayed from scratch in completion order whenever a match is finished or a finished match is
+  deleted. Stored at full precision; the API rounds to integers.
+- Career totals (`/api/me/stats`) include results from rooms the user has since left; recent
+  matches only list rooms the user can still see.
