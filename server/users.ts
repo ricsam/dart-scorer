@@ -6,7 +6,7 @@ import { randomId } from './ids'
 export const USER_NAME_MAX_LENGTH = 24
 
 export function toUser(row: UserRow): User {
-  return { id: row.id, name: row.name, email: row.email, avatarUrl: row.avatar_url, createdAt: row.created_at }
+  return { id: row.id, name: row.name, email: row.email, avatarUrl: row.avatar_url, createdAt: row.created_at, guest: row.is_guest === 1 }
 }
 
 export function toUserRef(row: { id: string; name: string; avatar_url: string | null }): UserRef {
@@ -40,6 +40,7 @@ export function upsertIdentity(db: Db, input: { subject: string; email: string; 
     }
     const row: UserRow = {
       id: randomId(),
+      is_guest: 0, claimed: 1, guest_room_id: null, guest_name_key: null,
       google_sub: input.subject,
       email: input.email,
       name: input.name,

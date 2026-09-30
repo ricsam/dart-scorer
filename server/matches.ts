@@ -31,6 +31,7 @@ import {
   readJson,
   validId,
 } from './http'
+import { ensureGuest } from './guests'
 import { randomId } from './ids'
 import { recomputeRoomRatings } from './ratings'
 
@@ -51,7 +52,7 @@ export function parseSettings(value: unknown): MatchSettings {
   }
 }
 
-type PlayerInput = { userId: string } | { guestName: string }
+type PlayerInput = { userId: string } | { guestId: string } | { guestName: string }
 
 export function parsePlayers(value: unknown): PlayerInput[] {
   if (!Array.isArray(value)) throw badRequest('players must be an array.')
@@ -61,7 +62,12 @@ export function parsePlayers(value: unknown): PlayerInput[] {
     if (!isObject(item)) throw badRequest(`players[${index}] must be an object.`)
     const hasUser = item.userId !== undefined
     const hasGuest = item.guestName !== undefined
-    if (hasUser === hasGuest) throw badRequest(`players[${index}] needs either userId or guestName.`)
+    const hasGuestId = item.guestId !== undefined
+    if (Number(hasUser) + Number(hasGuest) + Number(hasGuestId) !== 1) throw badRequest(`players[${index}] needs exactly one of userId, guestId or guestName.`)
+    if (hasGuestId) {
+      if (typeof item.guestId !== 'string' || !validId(item.guestId)) throw badRequest('guestId is not valid.')
+      return { guestId: item.guestId }
+    }
     if (hasUser) {
       if (typeof item.userId !== 'string' || !validId(item.userId)) throw badRequest(`players[${index}].userId is not valid.`)
       if (seen.has(item.userId)) throw badRequest('A player can only be added once.')
@@ -100,7 +106,7 @@ export function parseAction(value: unknown): GameAction {
 
 /** Players in the match, its creator and the room owner may score (while it is live). */
 function isScorer(view: MatchView, userId: string) {
-  return view.players.some((player) => player.userId === userId) || view.row.created_by === userId || view.roomOwnerId === userId
+  return view.players.some((player) => player.userId === userId || player.guestId === userId) || view.row.created_by === userId || view.roomOwnerId === userId
 }
 
 function conflict(view: MatchView, viewerId: string): ApiException {
@@ -125,14 +131,19 @@ export function matchRoutes(services: Services) {
       if (live >= MAX_LIVE_MATCHES_PER_ROOM) throw badRequest(`A room can have at most ${MAX_LIVE_MATCHES_PER_ROOM} live matches. Finish or delete one first.`)
 
       const roster = players.map((player) => {
-        if ('guestName' in player) return { userId: null, name: player.guestName }
-        const member = db.get<Pick<UserRow, 'id' | 'name'>>(
-          'SELECT u.id, u.name FROM room_members m JOIN users u ON u.id = m.user_id WHERE m.room_id = ? AND m.user_id = ?',
-          roomId, player.userId,
+        if ('guestName' in player) {
+          const guest = ensureGuest(services, roomId, player.guestName)
+          return { userId: null, guestId: guest.id, name: guest.name }
+        }
+        const guestInput = 'guestId' in player
+        const member = db.get<UserRow>(
+          'SELECT u.* FROM room_members m JOIN users u ON u.id = m.user_id WHERE m.room_id = ? AND m.user_id = ?',
+          roomId, guestInput ? player.guestId : player.userId,
         )
-        if (!member) throw badRequest('Every signed-in player must be a member of this room.')
-        return { userId: member.id, name: member.name }
+        if (!member || Boolean(member.is_guest) !== guestInput || (guestInput && member.guest_room_id !== roomId)) throw badRequest('Every player must be a member of this room with the correct identity type.')
+        return { userId: guestInput ? null : member.id, guestId: guestInput ? member.id : null, name: member.name }
       })
+      if (new Set(roster.map((player) => player.userId ?? player.guestId)).size !== roster.length) throw badRequest('A player can only be added once.')
 
       const state = createGameState({
         game: settings.game,
@@ -149,7 +160,7 @@ export function matchRoutes(services: Services) {
         id, roomId, user.id, JSON.stringify(settings), JSON.stringify(state), now, now,
       )
       roster.forEach((player, slot) => {
-        db.run('INSERT INTO match_players (match_id, slot, user_id, name) VALUES (?, ?, ?, ?)', id, slot, player.userId, player.name)
+        db.run('INSERT INTO match_players (match_id, slot, user_id, guest_id, name) VALUES (?, ?, ?, ?, ?)', id, slot, player.userId, player.guestId, player.name)
       })
       return id
     })

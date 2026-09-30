@@ -32,6 +32,10 @@ export const DEFAULT_LIMITS: Limits = {
 
 export type UserRow = {
   id: string
+  is_guest: number
+  claimed: number
+  guest_room_id: string | null
+  guest_name_key: string | null
   google_sub: string
   email: string
   name: string

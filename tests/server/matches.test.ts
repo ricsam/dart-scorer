@@ -60,9 +60,9 @@ describe('match creation', () => {
       results: null,
     })
     expect(match.players).toEqual([
-      { slot: 0, userId: max.userId, name: 'Max', avatarUrl: null, guest: false },
-      { slot: 1, userId: null, name: 'Grandpa', avatarUrl: null, guest: true },
-      { slot: 2, userId: owner.userId, name: 'Olivia', avatarUrl: null, guest: false },
+      { slot: 0, userId: max.userId, guestId: null, name: 'Max', avatarUrl: null, guest: false },
+      { slot: 1, userId: null, guestId: expect.any(String), name: 'Grandpa', avatarUrl: null, guest: true },
+      { slot: 2, userId: owner.userId, guestId: null, name: 'Olivia', avatarUrl: null, guest: false },
     ])
     expect(match.state.players.map((p) => [p.id, p.name, p.score, p.opened])).toEqual([
       ['slot-0', 'Max', 301, false], ['slot-1', 'Grandpa', 301, false], ['slot-2', 'Olivia', 301, false],

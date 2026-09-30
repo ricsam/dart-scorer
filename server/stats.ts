@@ -135,7 +135,7 @@ export function statsRoutes(services: Services) {
     const since = span === null ? null : new Date(services.now().getTime() - span).toISOString()
     const allRows = roomResults(db, room.id, null)
     const periodRows = since === null ? allRows : allRows.filter((row) => row.completed_at >= since)
-    const members = memberRows(db, room.id).map(toUserRef)
+    const members = memberRows(db, room.id).filter((member) => !member.is_guest).map(toUserRef)
     const entries = sortEntries(buildEntries(db, room.id, members, periodRows, allRows))
     return c.json<LeaderboardResponse>({ period, entries })
   })
@@ -145,7 +145,7 @@ export function statsRoutes(services: Services) {
     const room = requireRoom(db, c.req.param('roomId'), user.id)
     const targetId = c.req.param('userId')
     const player = roomMembers(db, room.id).find((member) => member.id === targetId)
-    if (!player) throw notFound('Player not found in this room.')
+    if (!player || player.guest) throw notFound('Player not found in this room.')
 
     const allRows = roomResults(db, room.id, null)
     const ref: UserRef = { id: player.id, name: player.name, avatarUrl: player.avatarUrl }

@@ -11,8 +11,9 @@ import type {
   RoomSummary,
   UserRef,
 } from '../src/shared/api'
-import { requireUser } from './auth'
-import type { AppEnv, Services } from './context'
+import { requireUser, startSession } from './auth'
+import { ensureGuest, guestNameKey, parseGuestName, MAX_ROOM_MEMBERS } from './guests'
+import type { AppEnv, Services, UserRow } from './context'
 import { nowIso } from './context'
 import {
   DEFAULT_SETTINGS,
@@ -34,7 +35,7 @@ import { toUserRef } from './users'
 
 export const ROOM_NAME_MAX_LENGTH = 40
 export const MAX_OWNED_ROOMS = 20
-export const MAX_ROOM_MEMBERS = 100
+export { MAX_ROOM_MEMBERS } from './guests'
 
 function uniqueInviteCode(db: Db) {
   for (;;) {
@@ -96,7 +97,7 @@ function roomSummaries(db: Db, userId: string): RoomSummary[] {
       liveMatches: row.live_count,
       completedMatches: row.completed_count,
       myRating: displayRating(ratings.get(userId)?.rating ?? INITIAL_RATING),
-      myRank: rankIn(ratings, members.map((member) => member.id), userId),
+      myRank: rankIn(ratings, members.filter((member) => !member.is_guest).map((member) => member.id), userId),
       lastActivityAt: row.last_activity_at,
     }
   })
@@ -117,6 +118,7 @@ export function roomRoutes(services: Services) {
 
   app.post('/rooms', async (c) => {
     const user = requireUser(c)
+    if (user.is_guest) throw forbidden('Guests cannot create rooms.')
     const body = expectObject(await readJson(c))
     const name = expectText(body.name, 'Room name', 1, ROOM_NAME_MAX_LENGTH)
     const room = db.transaction(() => {
@@ -241,11 +243,14 @@ export function roomRoutes(services: Services) {
     const memberCount = db.get<{ count: number }>('SELECT COUNT(*) AS count FROM room_members WHERE room_id = ?', room.id)?.count ?? 0
     const owner: UserRef = userRef(db, room.owner_id)
     const member = viewer ? !!db.get('SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?', room.id, viewer.id) : false
-    return c.json<InvitePreview>({ room: { id: room.id, name: room.name, memberCount, owner }, member })
+    return c.json<InvitePreview>({ room: { id: room.id, name: room.name, memberCount, owner }, member,
+      guests: roomMembers(db, room.id).filter((member) => member.guest && !member.claimed).map(({ id, name }) => ({ id, name })),
+    })
   })
 
   app.post('/invites/:code/join', (c) => {
     const user = requireUser(c)
+    if (user.is_guest) throw forbidden('Leave your guest session before joining another room.')
     const room = roomByInvite(c.req.param('code'))
     const joined = db.transaction(() => {
       if (db.get('SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?', room.id, user.id)) return false
@@ -258,6 +263,48 @@ export function roomRoutes(services: Services) {
     })
     if (joined) publishRoomRefresh(services, room.id)
     return c.json<JoinResponse>({ roomId: room.id })
+  })
+
+  app.post('/rooms/:roomId/guests', async (c) => {
+    const user = requireUser(c)
+    const roomId = requireRoom(db, c.req.param('roomId'), user.id).id
+    const body = expectObject(await readJson(c))
+    const name = parseGuestName(body.name)
+    const guest = db.transaction(() => {
+      requireRoom(db, roomId, user.id)
+      return ensureGuest(services, roomId, name)
+    })
+    publishRoomRefresh(services, roomId)
+    return c.json({ guest: roomMembers(db, roomId).find((member) => member.id === guest.id)! }, 201)
+  })
+
+  app.post('/invites/:code/guest', async (c) => {
+    const body = expectObject(await readJson(c))
+    const hasName = body.name !== undefined
+    const hasId = body.guestId !== undefined
+    if (hasName === hasId) throw badRequest('Provide either name or guestId.')
+    const name = hasName ? parseGuestName(body.name) : null
+    if (hasId && (typeof body.guestId !== 'string' || !validId(body.guestId))) throw badRequest('guestId is not valid.')
+    const viewer = c.get('user')
+    const result = db.transaction(() => {
+      const room = roomByInvite(c.req.param('code')) // recheck after asynchronous body read
+      if (viewer) {
+        if (!viewer.is_guest || viewer.guest_room_id !== room.id) throw forbidden('Leave your current session first.')
+        requireRoom(db, room.id, viewer.id)
+        if ((hasId && body.guestId !== viewer.id) || (name !== null && guestNameKey(name) !== viewer.guest_name_key)) throw forbidden('Leave your current session first.')
+        return { roomId: room.id, guestId: viewer.id, existing: true }
+      }
+      const guest = name !== null ? ensureGuest(services, room.id, name) : db.get<UserRow>(
+        'SELECT u.* FROM users u JOIN room_members m ON m.user_id = u.id WHERE u.id = ? AND u.is_guest = 1 AND u.guest_room_id = ? AND m.room_id = ?',
+        body.guestId as string, room.id, room.id,
+      )
+      if (!guest) throw notFound('Guest not found.')
+      if (guest.claimed || db.run('UPDATE users SET claimed = 1 WHERE id = ? AND claimed = 0', guest.id).changes !== 1) throw forbidden('This guest has already been claimed. Choose another name.')
+      startSession(c, services, guest.id)
+      return { roomId: room.id, guestId: guest.id, existing: false }
+    })
+    publishRoomRefresh(services, result.roomId)
+    return c.json<JoinResponse>({ roomId: result.roomId })
   })
 
   return app

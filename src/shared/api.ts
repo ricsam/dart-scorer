@@ -18,6 +18,8 @@ export type User = {
   /** Display name, editable by the user (defaults to the Google given name). */
   name: string
   email: string
+  /** A room-scoped player without an account; never ranked. */
+  guest: boolean
   avatarUrl: string | null
   createdAt: string
 }
@@ -56,6 +58,8 @@ export type MatchPlayer = {
   slot: number
   /** `null` for guest players, who are not ranked. */
   userId: string | null
+  /** Room guest identity; null for registered players and unlinked legacy guests. */
+  guestId: string | null
   name: string
   avatarUrl: string | null
   guest: boolean
@@ -122,8 +126,8 @@ export type MatchResponse = { match: MatchDetail }
 
 /** POST /api/rooms/:roomId/matches */
 export type CreateMatchRequest = {
-  /** 2–8 players in throwing order: room members by id or named guests. */
-  players: ({ userId: string } | { guestName: string })[]
+  /** 2–8 players in throwing order. Named guests create/reuse a room guest. */
+  players: ({ userId: string } | { guestId: string } | { guestName: string })[]
   settings: MatchSettings
 }
 
@@ -146,6 +150,9 @@ export type MatchEvent = { match: MatchDetail }
 export type MemberRole = 'owner' | 'member'
 
 export type RoomMember = UserRef & {
+  guest: boolean
+  /** Whether a guest has been connected to a device; always true for accounts. */
+  claimed: boolean
   role: MemberRole
   joinedAt: string
   rating: number
@@ -205,7 +212,13 @@ export type InvitePreview = {
   room: { id: string; name: string; memberCount: number; owner: UserRef }
   /** True when the signed-in viewer is already a member. */
   member: boolean
+  /** Only unclaimed room guests can be connected to a new device. */
+  guests: { id: string; name: string }[]
 }
+/** POST /api/invites/:code/guest — create or explicitly claim a guest and start a session. */
+export type JoinGuestRequest = { name: string } | { guestId: string }
+/** POST /api/rooms/:roomId/guests */
+export type AddGuestResponse = { guest: RoomMember }
 /** POST /api/invites/:code/join */
 export type JoinResponse = { roomId: string }
 

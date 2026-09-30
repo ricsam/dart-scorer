@@ -20,7 +20,7 @@
 .user-menu-button:hover, .user-menu-button[aria-expanded='true'] { border-color: #356246; background: #11271a; }
 .user-menu-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: 230px; padding: 6px; border: 1px solid #2a4535; border-radius: 8px; background: #0e1a13; box-shadow: 0 16px 50px rgba(0, 0, 0, .55); }
 .user-menu-identity { padding: 8px 10px 10px; border-bottom: 1px solid #213027; margin-bottom: 4px; }
-.user-menu-identity strong { display: block; font-size: 12px; }
+.user-menu-identity strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
 .user-menu-identity small { display: block; margin-top: 2px; overflow: hidden; color: #718077; font-size: 10px; text-overflow: ellipsis; }
 .user-menu-panel button { width: 100%; display: flex; align-items: center; gap: 9px; padding: 9px 10px; border: 0; border-radius: 5px; background: transparent; color: #c3cdc6; cursor: pointer; font-size: 12px; text-align: left; }
 .user-menu-panel button:hover { background: rgba(31, 227, 116, .07); color: var(--green); }
@@ -123,9 +123,16 @@
 .fine-print a { color: #8fa197; }
 .dev-login { width: 100%; max-width: 320px; display: grid; gap: 8px; padding: 14px; border: 1px dashed #4a5a3a; border-radius: 8px; background: rgba(226, 163, 93, .04); }
 .dev-login .eyebrow { justify-content: center; color: #e2a35d; }
-.dev-login input, .field input, .guest-add input, .copy-field input, .inline-form input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid #34483b; border-radius: 6px; background: #09130d; color: #edf2ee; font-size: 13px; }
-.dev-login input:focus, .field input:focus, .guest-add input:focus, .inline-form input:focus { border-color: #3d8155; outline: none; box-shadow: 0 0 0 3px rgba(31, 227, 116, .1); }
+.dev-login input, .field input, .guest-add input, .copy-field input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid #34483b; border-radius: 6px; background: #09130d; color: #edf2ee; font-size: 13px; }
+.dev-login input:focus, .field input:focus, .guest-add input:focus { border-color: #3d8155; outline: none; box-shadow: 0 0 0 3px rgba(31, 227, 116, .1); }
 .join-card .join-icon { color: var(--green); }
+.guest-join { display: grid; gap: 12px; width: 100%; min-width: 0; text-align: left; }
+.guest-join select { width: 100%; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid #34483b; border-radius: 6px; background: #09130d; color: #edf2ee; font: inherit; }
+.guest-join select:focus { outline: 2px solid var(--green); outline-offset: 2px; }
+.join-divider { width: 100%; padding-top: 14px; border-top: 1px solid var(--border); color: #74827a; font-size: 10px; letter-spacing: .1em; }
+.guest-info { display: grid; gap: 12px; }
+.guest-info h2 { margin: 0; }
+.light .guest-join select { background: #fff; color: #183323; border-color: #a4baad; }
 .join-meta { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
 
 /* ── Home ───────────────────────────────────────────────────────────────── */
@@ -358,12 +365,13 @@
 .leg-card > span { color: #7f8d84; font-size: 11px; }
 
 /* ── Profile & prose ────────────────────────────────────────────────────── */
-.profile-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; }
-.profile-identity { display: grid; gap: 4px; }
-.profile-identity h1 { display: flex; align-items: center; margin: 0; font-family: 'Barlow Condensed'; font-size: 32px; }
+.profile-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; }
+.profile-identity { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.profile-identity h1 { margin: 0; font-family: 'Barlow Condensed'; font-size: 32px; }
 .profile-identity > span { color: #8b998f; font-size: 12px; }
-.profile-identity > small { color: #5f6d64; font-size: 10px; }
-.inline-form { display: grid; grid-template-columns: minmax(0, 280px) 38px 38px; gap: 6px; }
+.nickname-form { display: grid; gap: 12px; max-width: 480px; }
+.nickname-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.nickname-saved { margin: 0; color: var(--green); font-size: 12px; }
 .profile-rooms { display: grid; gap: 6px; }
 .profile-room { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 70px); align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #1f3127; border-radius: 7px; text-decoration: none; }
 .profile-room:hover { border-color: #3d7c55; }
@@ -390,7 +398,7 @@
 .light .user-menu-panel button { color: #34423a; }
 .light .user-menu-panel button:hover { color: #0e7638; background: #eef8f1; }
 .light .online-footer { border-color: #d4dfd7; color: #7a877f; }
-.light .eyebrow, .light .section-label, .light .text-link, .light .leg-card small { color: #0e7638 !important; }
+.light .eyebrow, .light .section-label, .light .text-link, .light .leg-card small, .light .nickname-saved { color: #0e7638 !important; }
 .light .panel { background: rgba(255, 255, 255, .85); }
 .light .ghost-button { border-color: #c3d1c7; color: #3e4c44; }
 .light .ghost-button:hover:not(:disabled) { color: #0e7638; border-color: #69b982; background: #eef8f1; }
@@ -435,7 +443,7 @@
 .light .member-row, .light .stats-table th, .light .stats-table td { border-color: #e3eae5; }
 .light .member-name small, .light .stats-table tbody th, .light .leg-card > span { color: #66756c; }
 .light .role-pill { color: #0e7638; border-color: #9fcfae; }
-.light .dev-login input, .light .field input, .light .guest-add input, .light .copy-field input, .light .inline-form input { background: #fff; border-color: #bdccc2; color: #17211b; }
+.light .dev-login input, .light .field input, .light .guest-add input, .light .copy-field input { background: #fff; border-color: #bdccc2; color: #17211b; }
 .light .copy-field input { color: #0b5a2b; }
 .light .member-picker button { color: #34423a; }
 .light .member-picker button.picked { background: #e7f7ec; border-color: #4fb173; color: #0b3a1d; }
@@ -502,7 +510,7 @@
   .new-match .segmented { width: 100%; }
   .sheet-actions > button { flex: 1; }
   .sheet-summary { width: 100%; }
-  .profile-head { grid-template-columns: auto 1fr; }
+  .profile-head { grid-template-columns: auto minmax(0, 1fr); }
   .profile-head > .ghost-button { grid-column: 1 / -1; }
   .profile-room { grid-template-columns: minmax(0, 1fr) repeat(3, 52px); }
   .login-card { padding: 28px 18px 24px; }

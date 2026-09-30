@@ -14,8 +14,11 @@ Type `T20`, `D18`, `25`, `BULL` or `MISS`; separate darts with spaces. Numeric s
 ## Online edition
 
 - Google sign-in using authorization code + PKCE; no Google access/refresh tokens retained.
+- Choose a dart nickname from **Account menu → Edit dart nickname** (also on **My stats**). Names are 1–24 characters and stay saved across sign-ins without changing your Google account. Rooms, leaderboards and new matches use your nickname; existing matches keep the name recorded when they started.
 - Create persistent rooms, share an invite link or QR code, rotate invite links, rename rooms, remove members or leave.
-- Select room members and optional unranked guests; choose throw order, format and first-to-1–11 legs.
+- Invite visitors can **Join as a guest** with a display name or connect to an existing unclaimed guest slot. Room members can add the same kind of guest from Members or New match for shared-device play; guests persist in the room roster and are always unranked.
+- Select room players, choose throw order, format and first-to-1–11 legs. A guest on their own device can score when selected, just like an account player.
+- Guest identities are scoped to one room and kept by a browser session cookie. Claimed slots cannot be taken over by name, including after sign-out or expiry. Signing in starts a separate account identity; it does not merge or retroactively rank guest matches. Share invites only with trusted players: invite holders can see and claim unclaimed guest names.
 - Score from a shared device or follow live from another phone. Players, the match creator and the room host can score; other room members can watch.
 - Live matches persist after reload and server restart. Conflicting entries from two devices are rejected rather than silently overwriting each other.
 - Save the result after the final leg to update the leaderboard; Undo is available before saving. Saved matches are immutable; hosts can delete erroneous results and ratings are recalculated.

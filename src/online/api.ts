@@ -1,5 +1,7 @@
 import type {
   ApiError,
+  AddGuestResponse,
+  JoinGuestRequest,
   CareerStatsResponse,
   CreateMatchRequest,
   DevLoginRequest,
@@ -61,6 +63,7 @@ export const api = {
 
   rooms: () => request<RoomsResponse>('GET', '/api/rooms'),
   createRoom: (name: string) => request<RoomResponse>('POST', '/api/rooms', { name }),
+  addGuest: (roomId: string, name: string) => request<AddGuestResponse>('POST', `/api/rooms/${encode(roomId)}/guests`, { name }),
   room: (roomId: string) => request<RoomResponse>('GET', `/api/rooms/${encode(roomId)}`),
   renameRoom: (roomId: string, name: string) => request<RoomResponse>('PATCH', `/api/rooms/${encode(roomId)}`, { name }),
   deleteRoom: (roomId: string) => request<void>('DELETE', `/api/rooms/${encode(roomId)}`),
@@ -74,6 +77,7 @@ export const api = {
 
   invite: (code: string) => request<InvitePreview>('GET', `/api/invites/${encode(code)}`),
   join: (code: string) => request<JoinResponse>('POST', `/api/invites/${encode(code)}/join`),
+  joinGuest: (code: string, body: JoinGuestRequest) => request<JoinResponse>('POST', `/api/invites/${encode(code)}/guest`, body),
 
   match: (matchId: string) => request<MatchResponse>('GET', `/api/matches/${encode(matchId)}`),
   matchAction: (matchId: string, body: MatchActionRequest) => request<MatchResponse>('POST', `/api/matches/${encode(matchId)}/actions`, body),

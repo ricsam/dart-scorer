@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { randomId } from './ids'
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite'
 
 type Row = Record<string, unknown>
@@ -161,6 +162,16 @@ const MIGRATIONS: string[] = [
   CREATE INDEX match_results_room_user ON match_results(room_id, user_id, completed_at);
   CREATE INDEX match_results_user ON match_results(user_id, completed_at);
   `,
+  // 2 — room-scoped guests; historical results and game state are left untouched.
+  `
+  ALTER TABLE users ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN guest_room_id TEXT;
+  ALTER TABLE users ADD COLUMN guest_name_key TEXT;
+  ALTER TABLE users ADD COLUMN claimed INTEGER NOT NULL DEFAULT 1;
+  CREATE UNIQUE INDEX users_guest_name ON users(guest_room_id, guest_name_key) WHERE is_guest = 1;
+  ALTER TABLE match_players ADD COLUMN guest_id TEXT REFERENCES users(id);
+  CREATE INDEX match_players_guest ON match_players(guest_id);
+  `,
 ]
 
 export const SCHEMA_VERSION = MIGRATIONS.length
@@ -173,8 +184,31 @@ export function migrate(db: Db) {
   for (let version = current; version < MIGRATIONS.length; version += 1) {
     db.transaction(() => {
       db.raw.exec(MIGRATIONS[version])
+      if (version === 1) migrateLegacyGuests(db)
       db.raw.exec(`PRAGMA user_version = ${version + 1}`)
     })
+  }
+}
+
+function migrateLegacyGuests(db: Db) {
+  const rows = db.all<{ match_id: string; slot: number; name: string; room_id: string; created_at: string }>(
+    'SELECT p.match_id, p.slot, p.name, m.room_id, m.created_at FROM match_players p JOIN matches m ON m.id = p.match_id WHERE p.user_id IS NULL ORDER BY m.created_at, p.match_id, p.slot',
+  )
+  for (const row of rows) {
+    const key = row.name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase()
+    if (!key) continue
+    let guest = db.get<{ id: string }>('SELECT id FROM users WHERE is_guest = 1 AND guest_room_id = ? AND guest_name_key = ?', row.room_id, key)
+    // Ambiguous same-name slots in one legacy match remain anonymous rather than merging players.
+    if (guest && db.get('SELECT 1 FROM match_players WHERE match_id = ? AND guest_id = ?', row.match_id, guest.id)) continue
+    if (!guest) {
+      const members = db.all<{ name: string }>('SELECT u.name FROM room_members m JOIN users u ON u.id = m.user_id WHERE m.room_id = ?', row.room_id)
+      if (members.length >= 100 || members.some((member) => member.name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase() === key)) continue
+      const id = randomId()
+      db.run("INSERT INTO users (id, google_sub, email, name, created_at, last_login_at, is_guest, guest_room_id, guest_name_key, claimed) VALUES (?, ?, '', ?, ?, ?, 1, ?, ?, 0)", id, `guest:${id}`, row.name, row.created_at, row.created_at, row.room_id, key)
+      db.run("INSERT INTO room_members (room_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)", row.room_id, id, row.created_at)
+      guest = { id }
+    }
+    db.run('UPDATE match_players SET guest_id = ? WHERE match_id = ? AND slot = ?', guest.id, row.match_id, row.slot)
   }
 }
 

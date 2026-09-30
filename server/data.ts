@@ -94,8 +94,8 @@ export function requireMatchRow(db: Db, matchId: string | undefined, userId: str
 }
 
 export function memberRows(db: Db, roomId: string) {
-  return db.all<Pick<UserRow, 'id' | 'name' | 'avatar_url'> & { role: MemberRole; joined_at: string }>(
-    `SELECT u.id, u.name, u.avatar_url, m.role, m.joined_at
+  return db.all<Pick<UserRow, 'id' | 'name' | 'avatar_url' | 'is_guest' | 'claimed'> & { role: MemberRole; joined_at: string }>(
+    `SELECT u.id, u.name, u.avatar_url, u.is_guest, u.claimed, m.role, m.joined_at
      FROM room_members m JOIN users u ON u.id = m.user_id
      WHERE m.room_id = ? ORDER BY m.joined_at, m.rowid`,
     roomId,
@@ -108,6 +108,8 @@ export function roomMembers(db: Db, roomId: string): RoomMember[] {
     const rating = ratings.get(row.id)
     return {
       ...toUserRef(row),
+      guest: row.is_guest === 1,
+      claimed: row.is_guest !== 1 || row.claimed === 1,
       role: row.role,
       joinedAt: row.joined_at,
       rating: displayRating(rating?.rating ?? INITIAL_RATING),
@@ -158,14 +160,15 @@ export function resultStats(row: ResultRow): PlayerStats {
 }
 
 export function buildMatchView(db: Db, row: MatchRow): MatchView {
-  const players = db.all<{ slot: number; user_id: string | null; name: string; avatar_url: string | null }>(
-    `SELECT p.slot, p.user_id, p.name, u.avatar_url
+  const players = db.all<{ slot: number; user_id: string | null; guest_id: string | null; name: string; avatar_url: string | null }>(
+    `SELECT p.slot, p.user_id, p.guest_id, p.name, u.avatar_url
      FROM match_players p LEFT JOIN users u ON u.id = p.user_id
      WHERE p.match_id = ? ORDER BY p.slot`,
     row.id,
   ).map((player): MatchPlayer => ({
     slot: player.slot,
     userId: player.user_id,
+    guestId: player.guest_id,
     name: player.name,
     avatarUrl: player.user_id ? player.avatar_url : null,
     guest: player.user_id === null,
@@ -200,7 +203,7 @@ export function loadMatchView(db: Db, matchId: string): MatchView | undefined {
 
 export function canScore(view: MatchView, viewerId: string) {
   return view.row.status === 'live' && (
-    view.players.some((player) => player.userId === viewerId)
+    view.players.some((player) => player.userId === viewerId || player.guestId === viewerId)
     || view.row.created_by === viewerId
     || view.roomOwnerId === viewerId
   )

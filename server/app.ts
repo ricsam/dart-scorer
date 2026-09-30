@@ -105,7 +105,7 @@ export function createApp(deps: AppDeps): App {
   })
 
   app.use('/api/invites/*', async (c, next) => {
-    if (c.req.method === 'GET') assertRateLimit(inviteLimiter, clientIp(c, config.trustProxy))
+    if (c.req.method === 'GET' || c.req.path.endsWith('/guest')) assertRateLimit(inviteLimiter, clientIp(c, config.trustProxy))
     await next()
   })
 

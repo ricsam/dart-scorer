@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Check, LogOut, Pencil, X } from 'lucide-react'
+import { Check, LogOut } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { formatAverage, formatBestLeg, formatDate, formatPercent, formatRating } from '../format'
 import { useDocumentTitle, useResource } from '../hooks'
@@ -13,21 +13,26 @@ export function ProfilePage() {
   const { user, setUser, signOut } = useSession()
   const { navigate } = useRouter()
   const stats = useResource(`career:${user?.id}`, () => api.myStats())
-  const [editing, setEditing] = useState(false)
   const [name, setName] = useState(user?.name ?? '')
   const [error, setError] = useState<string | null>(null)
+  const [signOutError, setSignOutError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   if (!user) return null
 
+  const changed = name.trim() !== user.name
   const save = async (event: FormEvent) => {
     event.preventDefault()
+    if (busy || !name.trim() || !changed) return
     setBusy(true)
     setError(null)
+    setSaved(false)
     try {
       const { user: updated } = await api.updateMe(name.trim())
       setUser(updated)
-      setEditing(false)
+      setName(updated.name)
+      setSaved(true)
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -42,21 +47,39 @@ export function ProfilePage() {
       <div className="profile-head panel">
         <Avatar user={user} size={64} />
         <div className="profile-identity">
-          {editing ? (
-            <form className="inline-form" onSubmit={save}>
-              <input autoFocus value={name} maxLength={24} onChange={(event) => setName(event.target.value)} aria-label="Display name" />
-              <button className="icon-button" disabled={busy || !name.trim()} aria-label="Save name"><Check size={16} /></button>
-              <button type="button" className="icon-button" onClick={() => { setEditing(false); setName(user.name) }} aria-label="Cancel"><X size={16} /></button>
-            </form>
-          ) : (
-            <h1>{user.name} <button className="inline-icon" onClick={() => { setName(user.name); setEditing(true) }} aria-label="Edit display name"><Pencil size={15} /></button></h1>
-          )}
+          <h1>{user.name}</h1>
           <span>{user.email} · member since {formatDate(user.createdAt)}</span>
-          <small>Your display name is what other players see in rooms and on leaderboards.</small>
-          {error && <div className="form-error" role="alert">{error}</div>}
+          {signOutError && <div className="form-error" role="alert">{signOutError}</div>}
         </div>
-        <button className="ghost-button" onClick={async () => { try { await signOut(); navigate('/') } catch (caught) { setError(errorMessage(caught)) } }}><LogOut size={15} /> SIGN OUT</button>
+        <button className="ghost-button" disabled={busy} onClick={async () => { try { await signOut(); navigate('/') } catch (caught) { setSignOutError(errorMessage(caught)) } }}><LogOut size={15} /> SIGN OUT</button>
       </div>
+
+      <section className="panel" aria-labelledby="nickname-heading">
+        <div className="panel-head"><h2 id="nickname-heading">Your player name</h2></div>
+        <form className="nickname-form" onSubmit={save} aria-busy={busy}>
+          <label className="field" htmlFor="dart-nickname">
+            <span>Dart nickname</span>
+            <input
+              id="dart-nickname"
+              name="nickname"
+              autoComplete="nickname"
+              value={name}
+              required
+              maxLength={24}
+              disabled={busy}
+              aria-describedby={`nickname-hint${error ? ' nickname-error' : ''}`}
+              onChange={(event) => { setName(event.target.value); setError(null); setSaved(false) }}
+            />
+          </label>
+          <p id="nickname-hint" className="field-hint">1–24 characters. This is the name other players see in rooms, on leaderboards and in new matches. It won’t change your Google account name.</p>
+          {error && <div id="nickname-error" className="form-error" role="alert">{error}</div>}
+          <div className="nickname-actions">
+            <button className="primary-button" disabled={busy || !name.trim() || !changed}><Check size={16} /> {busy ? 'SAVING…' : 'SAVE NICKNAME'}</button>
+            <button type="button" className="ghost-button" disabled={busy || name === user.name} onClick={() => { setName(user.name); setError(null); setSaved(false) }}>CANCEL</button>
+          </div>
+          {saved && <p className="nickname-saved" role="status">Dart nickname saved.</p>}
+        </form>
+      </section>
 
       {stats.loading && !stats.data ? <Loading /> : stats.error ? <ErrorState message={stats.error.message} onRetry={stats.reload} /> : totals && stats.data && (
         <>

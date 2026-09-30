@@ -7,7 +7,10 @@ import { useRouter } from '../../router'
 import { useSession } from '../../session'
 import { Avatar, Segmented, Sheet } from '../../ui'
 
-type Slot = { key: string; userId: string | null; name: string; avatarUrl: string | null }
+type Slot = { key: string; userId: string | null; guestId: string | null; name: string; avatarUrl: string | null }
+const memberSlot = (member: RoomDetail['members'][number]): Slot => ({
+  key: member.id, userId: member.guest ? null : member.id, guestId: member.guest ? member.id : null, name: member.name, avatarUrl: member.avatarUrl,
+})
 
 const MAX_LEGS = 11
 
@@ -15,7 +18,10 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
   const { user } = useSession()
   const { navigate } = useRouter()
   const me = room.members.find((member) => member.id === user?.id)
-  const [slots, setSlots] = useState<Slot[]>(() => me ? [{ key: me.id, userId: me.id, name: me.name, avatarUrl: me.avatarUrl }] : [])
+  const [slots, setSlots] = useState<Slot[]>(() => me ? [memberSlot(me)] : [])
+  const [addedGuests, setAddedGuests] = useState<RoomDetail['members']>([])
+  const [adding, setAdding] = useState(false)
+  const members = [...room.members, ...addedGuests.filter((guest) => !room.members.some((member) => member.id === guest.id))]
   const [guestName, setGuestName] = useState('')
   const [settings, setSettings] = useState<MatchSettings>(room.defaults)
   const [busy, setBusy] = useState(false)
@@ -23,16 +29,26 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
 
   const full = slots.length >= MAX_PLAYERS
   const toggleMember = (member: RoomDetail['members'][number]) => {
-    setSlots((current) => current.some((slot) => slot.userId === member.id)
-      ? current.filter((slot) => slot.userId !== member.id)
-      : current.length >= MAX_PLAYERS ? current : [...current, { key: member.id, userId: member.id, name: member.name, avatarUrl: member.avatarUrl }])
+    setSlots((current) => current.some((slot) => slot.key === member.id)
+      ? current.filter((slot) => slot.key !== member.id)
+      : current.length >= MAX_PLAYERS ? current : [...current, memberSlot(member)])
   }
 
-  const addGuest = () => {
+  const addGuest = async () => {
     const name = guestName.trim().slice(0, PLAYER_NAME_MAX_LENGTH)
-    if (!name || full) return
-    setSlots((current) => [...current, { key: `guest-${Date.now()}`, userId: null, name, avatarUrl: null }])
-    setGuestName('')
+    if (!name || full || adding) return
+    setAdding(true)
+    setError(null)
+    try {
+      const { guest } = await api.addGuest(room.id, name)
+      setAddedGuests((current) => [...current.filter((item) => item.id !== guest.id), guest])
+      setSlots((current) => current.some((slot) => slot.key === guest.id) || current.length >= MAX_PLAYERS ? current : [...current, memberSlot(guest)])
+      setGuestName('')
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      setAdding(false)
+    }
   }
 
   const moveUp = (index: number) => setSlots((current) => {
@@ -57,7 +73,7 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
     setBusy(true)
     setError(null)
     const body: CreateMatchRequest = {
-      players: slots.map((slot) => slot.userId ? { userId: slot.userId } : { guestName: slot.name }),
+      players: slots.map((slot) => slot.guestId ? { guestId: slot.guestId } : { userId: slot.userId! }),
       settings,
     }
     try {
@@ -76,18 +92,19 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
           <div className="roster-heading">
             <div className="settings-copy">
               <strong>Players & throw order</strong>
-              <span>Tap members to add them. The first player throws first; the starter rotates each leg.</span>
+              <span>Tap room players to add them. The first player throws first; the starter rotates each leg.</span>
             </div>
             <span className="player-count">{slots.length}/{MAX_PLAYERS}</span>
           </div>
 
           <div className="member-picker">
-            {room.members.map((member) => {
-              const order = slots.findIndex((slot) => slot.userId === member.id)
+            {members.map((member) => {
+              const order = slots.findIndex((slot) => slot.key === member.id)
               return (
                 <button type="button" key={member.id} className={order >= 0 ? 'picked' : ''} onClick={() => toggleMember(member)} disabled={order < 0 && full} aria-pressed={order >= 0}>
                   <Avatar user={member} size={24} />
                   <span>{member.name}</span>
+                  {member.guest && <small>GUEST</small>}
                   {order >= 0 && <b>{order + 1}</b>}
                 </button>
               )
@@ -96,9 +113,11 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
 
           <div className="guest-add">
             <input value={guestName} maxLength={PLAYER_NAME_MAX_LENGTH} onChange={(event) => setGuestName(event.target.value)} placeholder="Guest name (not ranked)" aria-label="Guest name"
-              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addGuest() } }} />
-            <button type="button" className="ghost-button" onClick={addGuest} disabled={!guestName.trim() || full}><UserPlus size={15} /> ADD GUEST</button>
+              disabled={busy || adding} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void addGuest() } }} />
+            <button type="button" className="ghost-button" onClick={addGuest} disabled={!guestName.trim() || full || busy || adding}><UserPlus size={15} /> {adding ? 'ADDING…' : 'ADD GUEST'}</button>
           </div>
+
+          <p className="field-hint">Guests stay in the room roster even if you cancel this match. They can connect to their slot from the invite link and are never ranked.</p>
 
           {slots.length > 0 && (
             <ol className="throw-order">
@@ -144,7 +163,7 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
         <div className="sheet-actions">
           <span className="sheet-summary">{slots.length < MIN_PLAYERS ? `Pick at least ${MIN_PLAYERS} players` : `${slots.length} players · ${settings.game} · first to ${settings.legsToWin}`}</span>
           <button type="button" className="ghost-button" onClick={onClose}>CANCEL</button>
-          <button className="primary-button" disabled={busy || slots.length < MIN_PLAYERS}>{busy ? 'STARTING…' : 'START MATCH'}</button>
+          <button className="primary-button" disabled={busy || adding || slots.length < MIN_PLAYERS}>{busy ? 'STARTING…' : 'START MATCH'}</button>
         </div>
       </form>
     </Sheet>

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { BarChart3, ChevronDown, LogIn, LogOut, Moon, Sun, Target, Users } from 'lucide-react'
+import { BarChart3, ChevronDown, LogIn, LogOut, Moon, Pencil, Sun, Target, Users } from 'lucide-react'
 import { Brand } from '../ui/Brand'
 import { useTheme } from '../ui/useTheme'
 import { Link, useRouter } from './router'
 import { useSession } from './session'
 import { Avatar } from './ui'
 import { errorMessage } from './api'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 export function SignInAction() {
   return (
@@ -49,7 +50,7 @@ export function OnlineLayout({ children, bare = false }: { children: ReactNode; 
           <nav className="online-nav" aria-label="Main">
             <Link to="/" className={path === '/' || path.startsWith('/rooms') ? 'active' : ''}><Users size={15} /> ROOMS</Link>
             <Link to="/play"><Target size={15} /> QUICK GAME</Link>
-            <Link to="/me" className={path === '/me' ? 'active' : ''}><BarChart3 size={15} /> MY STATS</Link>
+            {!user.guest && <Link to="/me" className={path === '/me' ? 'active' : ''}><BarChart3 size={15} /> MY STATS</Link>}
           </nav>
         ) : <span />}
         <div className="header-actions">
@@ -73,7 +74,8 @@ export function OnlineLayout({ children, bare = false }: { children: ReactNode; 
 
 function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme: 'light' | 'dark') => void }) {
   const { user, signOut } = useSession()
-  const { navigate } = useRouter()
+  const { navigate, path } = useRouter()
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -96,6 +98,9 @@ function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme
 
   if (!user) return null
   const go = (to: string) => { setOpen(false); navigate(to) }
+  const leaveSession = async () => {
+    try { await signOut(); setOpen(false); setConfirmSignOut(false); navigate('/') } catch (caught) { setError(errorMessage(caught)) }
+  }
 
   return (
     <div className="user-menu" ref={ref}>
@@ -108,18 +113,27 @@ function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme
         <div className="user-menu-panel" role="menu">
           <div className="user-menu-identity">
             <strong>{user.name}</strong>
-            <small>{user.email}</small>
+            <small>{user.guest ? 'Guest · unranked' : user.email}</small>
           </div>
           <button role="menuitem" onClick={() => go('/')}><Users size={15} /> Rooms</button>
           <button role="menuitem" onClick={() => go('/play')}><Target size={15} /> Quick game</button>
-          <button role="menuitem" onClick={() => go('/me')}><BarChart3 size={15} /> My stats</button>
+          {user.guest
+            ? <button role="menuitem" onClick={() => go(`/login?returnTo=${encodeURIComponent(path)}`)}><LogIn size={15} /> Sign in for an account</button>
+            : <>
+              <button role="menuitem" onClick={() => go('/me')}><BarChart3 size={15} /> My stats</button>
+              <button role="menuitem" onClick={() => go('/me')}><Pencil size={15} /> Edit dart nickname</button>
+            </>}
           <button role="menuitem" onClick={() => onTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />} {theme === 'dark' ? 'Light theme' : 'Dark theme'}
           </button>
-          <button role="menuitem" className="danger" onClick={async () => { try { await signOut(); setOpen(false); navigate('/') } catch (caught) { setError(errorMessage(caught)) } }}><LogOut size={15} /> Sign out</button>
+          <button role="menuitem" className="danger" onClick={() => { if (user.guest) { setOpen(false); setConfirmSignOut(true) } else { void leaveSession() } }}><LogOut size={15} /> {user.guest ? 'End guest session' : 'Sign out'}</button>
           {error && <p role="alert" className="form-error">{error}</p>}
         </div>
       )}
+      {confirmSignOut && <ConfirmDialog icon={<LogOut size={30} />} eyebrow="GUEST SESSION" title="End your guest session?" titleId="guest-signout-title" confirmLabel="END SESSION" onCancel={() => setConfirmSignOut(false)} onConfirm={leaveSession}>
+        You cannot recover this guest identity by name after signing out. Your matches will stay in the room’s history.
+        {error && <p role="alert">{error}</p>}
+      </ConfirmDialog>}
     </div>
   )
 }

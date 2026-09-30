@@ -288,7 +288,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
     const order = [...match.players.slice(1), match.players[0]]
     try {
       const { match: created } = await api.createMatch(match.roomId, {
-        players: order.map((player) => player.userId ? { userId: player.userId } : { guestName: player.name }),
+        players: order.map((player) => player.userId ? { userId: player.userId } : player.guestId ? { guestId: player.guestId } : { guestName: player.name }),
         settings: match.settings,
       })
       navigate(`/matches/${created.id}`)

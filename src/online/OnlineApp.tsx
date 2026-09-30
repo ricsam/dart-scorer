@@ -34,12 +34,12 @@ function Routes() {
   if (error) return <OnlineLayout bare><ErrorState message={error.message} onRetry={refresh} /></OnlineLayout>
 
   if (path === '/login') {
-    if (user) return <Redirect to={safeReturnTo(new URLSearchParams(search).get('returnTo'))} />
+    if (user && !user.guest) return <Redirect to={safeReturnTo(new URLSearchParams(search).get('returnTo'))} />
     return <OnlineLayout bare><LoginPage /></OnlineLayout>
   }
 
   const join = matchPath('/join/:code', path)
-  if (join) return <OnlineLayout bare={!user}><JoinPage code={join.code} /></OnlineLayout>
+  if (join) return <OnlineLayout bare={!user}><JoinPage key={join.code} code={join.code} /></OnlineLayout>
 
   if (path === '/' || path === '/play') {
     if (!user || path === '/play') {
@@ -61,7 +61,7 @@ function Routes() {
   const match = matchPath('/matches/:matchId', path)
   if (match) return <MatchPage key={match.matchId} matchId={match.matchId} />
 
-  if (path === '/me') return <OnlineLayout><ProfilePage /></OnlineLayout>
+  if (path === '/me') return user.guest ? <Redirect to="/" /> : <OnlineLayout><ProfilePage /></OnlineLayout>
 
   return <OnlineLayout><NotFoundPage /></OnlineLayout>
 }

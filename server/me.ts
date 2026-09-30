@@ -3,7 +3,7 @@ import type { CareerStatsResponse, MeResponse, UpdateMeResponse } from '../src/s
 import { requireUser } from './auth'
 import type { AppEnv, Services } from './context'
 import { buildMatchView, matchSummary, memberRows, type MatchRow, type ResultRow, type RoomRow } from './data'
-import { expectObject, expectText, readJson } from './http'
+import { expectObject, expectText, readJson, forbidden } from './http'
 import { displayRating, INITIAL_RATING, rankIn, roomRatings } from './ratings'
 import { aggregateResults } from './stats'
 import { toUser, USER_NAME_MAX_LENGTH } from './users'
@@ -21,7 +21,7 @@ export function meRoutes(services: Services) {
   })
 
   app.patch('/me', async (c) => {
-    requireUser(c)
+    if (requireUser(c).is_guest) throw forbidden('Guests cannot update profiles.')
     const body = expectObject(await readJson(c))
     const name = expectText(body.name, 'Name', 1, USER_NAME_MAX_LENGTH)
     const user = requireUser(c)
@@ -31,6 +31,7 @@ export function meRoutes(services: Services) {
 
   app.get('/me/stats', (c) => {
     const user = requireUser(c)
+    if (user.is_guest) throw forbidden('Guests do not have career statistics.')
     // Totals cover every result the user ever recorded (their own numbers), including rooms they left.
     const results = db.all<ResultRow>('SELECT * FROM match_results WHERE user_id = ? ORDER BY completed_at DESC, match_id DESC', user.id)
 
@@ -44,7 +45,7 @@ export function meRoutes(services: Services) {
         id: room.id,
         name: room.name,
         rating: displayRating(mine?.rating ?? INITIAL_RATING),
-        rank: rankIn(ratings, memberRows(db, room.id).map((member) => member.id), user.id),
+        rank: rankIn(ratings, memberRows(db, room.id).filter((member) => !member.is_guest).map((member) => member.id), user.id),
         matches: mine?.matches ?? 0,
       }
     })

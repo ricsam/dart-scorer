@@ -15,7 +15,7 @@ const ERRORS: Record<string, string> = {
 
 export function LoginPage() {
   useDocumentTitle('Sign in — Oche')
-  const { me } = useSession()
+  const { me, user } = useSession()
   const { search } = useRouter()
   const params = new URLSearchParams(search)
   const returnTo = safeReturnTo(params.get('returnTo'))
@@ -28,6 +28,7 @@ export function LoginPage() {
         <span className="eyebrow">OCHE ONLINE</span>
         <h1>Your darts crew, one oche.</h1>
         <p className="lead">Create a room, invite your friends and score matches together. Every leg counts toward your room’s leaderboard.</p>
+        {user?.guest && <p className="muted-note">Signing in starts a separate account session. It does not merge your guest slot or rank past guest matches. Join the room with its invite after signing in.</p>}
         {errorCode && <div className="form-error" role="alert">{ERRORS[errorCode] ?? 'Sign-in failed. Please try again.'}</div>}
         {me?.auth.google && <GoogleButton href={googleSignInUrl(returnTo)} />}
         {me && !me.auth.google && !me.auth.dev && <p className="muted-note">Google sign-in is not configured on this server.</p>}

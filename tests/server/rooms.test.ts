@@ -113,6 +113,7 @@ describe('invites', () => {
     expect(preview).toEqual({
       room: { id: room.id, name: 'Arrows', memberCount: 1, owner: { id: owner.userId, name: 'Olivia', avatarUrl: null } },
       member: false,
+      guests: [],
     })
     // Codes are case-insensitive for people typing them in.
     expect((await anonymous.json<InvitePreview>('GET', `/api/invites/${room.inviteCode.toLowerCase()}`, 200)).room.id).toBe(room.id)

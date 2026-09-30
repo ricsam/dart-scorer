@@ -12,8 +12,8 @@ import { MatchRow } from './components/MatchRow'
 export function HomePage() {
   useDocumentTitle('Your rooms — Oche')
   const { user } = useSession()
-  const rooms = useResource('rooms', () => api.rooms())
-  const stats = useResource('me-stats', () => api.myStats())
+  const rooms = useResource(`rooms:${user?.id}`, () => api.rooms())
+  const stats = useResource(user?.guest ? null : `me-stats:${user?.id}`, () => api.myStats())
   const [creating, setCreating] = useState(false)
   const [joining, setJoining] = useState(false)
 
@@ -21,12 +21,12 @@ export function HomePage() {
     <div className="page home-page">
       <div className="page-head">
         <div>
-          <span className="eyebrow">WELCOME BACK</span>
+          <span className="eyebrow">{user?.guest ? 'PLAYING AS A GUEST' : 'WELCOME BACK'}</span>
           <h1>{user?.name ?? 'Player'}</h1>
         </div>
         <div className="page-actions">
           <button className="ghost-button" onClick={() => setJoining(true)}><DoorOpen size={16} /> JOIN ROOM</button>
-          <button className="primary-button" onClick={() => setCreating(true)}><Plus size={16} /> NEW ROOM</button>
+          {!user?.guest && <button className="primary-button" onClick={() => setCreating(true)}><Plus size={16} /> NEW ROOM</button>}
         </div>
       </div>
 
@@ -38,11 +38,11 @@ export function HomePage() {
           </div>
           {rooms.loading && !rooms.data ? <Loading /> : rooms.error ? <ErrorState message={rooms.error.message} onRetry={rooms.reload} /> : rooms.data && rooms.data.rooms.length === 0 ? (
             <EmptyState icon={<Users size={28} />} title="No rooms yet">
-              Create a room for your club, office or pub team and share the invite link. Every match played there feeds the room’s leaderboard.
+              {user?.guest ? 'You no longer belong to a room. Open an invite link to join, or sign in for a persistent account.' : 'Create a room for your club, office or pub team and share the invite link. Every match played there feeds the room’s leaderboard.'}
             </EmptyState>
           ) : (
             <div className="room-grid">
-              {rooms.data?.rooms.map((room) => <RoomCard room={room} key={room.id} />)}
+              {rooms.data?.rooms.map((room) => <RoomCard room={room} key={room.id} guest={user?.guest} />)}
             </div>
           )}
           <Link to="/play" className="quick-game-card">
@@ -53,6 +53,12 @@ export function HomePage() {
         </section>
 
         <aside className="home-side">
+          {user?.guest ? <section className="panel guest-info">
+            <h2>No account needed to play</h2>
+            <p className="muted-note">You can play and score in your room. Guests aren’t ranked and don’t have a personal stats profile.</p>
+            <p className="muted-note">Keep using this browser to return as the same guest. Signing out or clearing cookies loses access to this identity.</p>
+            <Link className="text-link" to="/login">SIGN IN FOR AN ACCOUNT →</Link>
+          </section> : <>
           <section className="panel" aria-labelledby="career-heading">
             <div className="panel-head">
               <h2 id="career-heading">Your numbers</h2>
@@ -81,6 +87,7 @@ export function HomePage() {
               </div>
             </section>
           )}
+          </>}
         </aside>
       </div>
 
@@ -90,7 +97,7 @@ export function HomePage() {
   )
 }
 
-function RoomCard({ room }: { room: RoomSummary }) {
+function RoomCard({ room, guest = false }: { room: RoomSummary; guest?: boolean }) {
   return (
     <Link to={`/rooms/${room.id}`} className="room-card">
       <div className="room-card-top">
@@ -102,11 +109,11 @@ function RoomCard({ room }: { room: RoomSummary }) {
         <span>{room.memberCount} {room.memberCount === 1 ? 'member' : 'members'}</span>
       </div>
       <div className="room-card-stats">
-        <span><small>YOUR RATING</small><b>{formatRating(room.myRating)}</b></span>
-        <span><small>RANK</small><b>{room.myRank ? `#${room.myRank}` : '—'}</b></span>
+        <span><small>YOUR RATING</small><b>{guest ? 'Unranked' : formatRating(room.myRating)}</b></span>
+        <span><small>RANK</small><b>{!guest && room.myRank ? `#${room.myRank}` : '—'}</b></span>
         <span><small>MATCHES</small><b>{room.completedMatches}</b></span>
       </div>
-      <small className="room-card-foot"><Trophy size={11} /> {room.role === 'owner' ? 'You host this room' : 'Member'} · active {relativeTime(room.lastActivityAt)}</small>
+      <small className="room-card-foot"><Trophy size={11} /> {guest ? 'Guest' : room.role === 'owner' ? 'You host this room' : 'Member'} · active {relativeTime(room.lastActivityAt)}</small>
     </Link>
   )
 }
