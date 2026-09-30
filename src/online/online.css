@@ -236,8 +236,7 @@
 .rank-1 { color: #1c1300; background: #f0c14b; }
 .rank-2 { color: #111; background: #c6ccd2; }
 .rank-3 { color: #1b0f05; background: #cd8b52; }
-.leaderboard-table tr.idle td { color: #56645b; }
-.leaderboard-table .idle-cell { font-size: 12px; text-align: left; }
+.leaderboard-table tr.idle td:not(.sorted) { color: #56645b; }
 .table-footnote { margin: 12px 0 0; color: #56645b; font-size: 10px; line-height: 1.5; }
 
 /* ── Player dialog ──────────────────────────────────────────────────────── */

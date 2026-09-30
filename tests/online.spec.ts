@@ -30,7 +30,7 @@ test('signed-out visitors get the standalone scorer with a way to sign in', asyn
   await expect(page).toHaveURL(/\/login\?returnTo=%2Frooms%2Fdoes-not-exist$/)
 })
 
-test('rooms, invites, a live match across two devices, and the leaderboard', async ({ browser }) => {
+test('rooms, invites, a live match across two devices, and the leaderboard', async ({ browser }, testInfo) => {
   const run = Date.now().toString(36)
   const alice = await newUser(browser)
   const bob = await newUser(browser)
@@ -63,6 +63,12 @@ test('rooms, invites, a live match across two devices, and the leaderboard', asy
 
   // Alice's room page updates live.
   await expect(alice.locator('.room-meta')).toContainText('2 members')
+  const newBob = alice.locator('.leaderboard-table tbody tr').filter({ hasText: 'Bob' })
+  await expect(newBob).toContainText('No matches yet')
+  await expect(newBob.locator('td')).toHaveCount(11)
+  await expect(newBob.locator('td').nth(2)).toHaveText('1000')
+  await expect(newBob.locator('td').nth(2)).toHaveCSS('font-size', '16px')
+  await expect(newBob.locator('td').nth(2)).toHaveCSS('text-align', 'right')
 
   // Alice starts a first-to-one 101 match against Bob.
   await alice.getByRole('button', { name: 'NEW MATCH' }).click()
@@ -114,6 +120,47 @@ test('rooms, invites, a live match across two devices, and the leaderboard', asy
   await carol.goto(matchUrl)
   await devSignIn(carol, 'Carol', `carol-${run}@example.com`)
   await expect(carol.getByText('doesn’t exist, was deleted, or belongs to a room you are not a member of')).toBeVisible()
+
+  // A new member's rating uses the same column and typography as ranked players.
+  await carol.goto(inviteLink)
+  await carol.getByRole('button', { name: 'JOIN ROOM' }).click()
+  const newCarol = rows.filter({ hasText: 'Carol' })
+  await expect(newCarol).toContainText('No matches yet')
+  await expect(newCarol.locator('td')).toHaveText(['–', /CarolNo matches yet$/, '1000', ...Array<string>(8).fill('—')])
+  await expect(newCarol.locator('.delta')).toHaveCount(0)
+  const newRating = newCarol.locator('td').nth(2)
+  const rankedRating = rows.nth(0).locator('td').nth(2)
+  for (const width of [1280, 390]) {
+    await alice.setViewportSize({ width, height: 844 })
+    for (const theme of ['dark', 'light']) {
+      if (theme === 'light') {
+        await alice.getByRole('button', { name: 'Account menu for Alice' }).click()
+        await alice.getByRole('menuitem', { name: 'Light theme' }).click()
+        await alice.keyboard.press('Escape')
+      }
+      await expect(newRating).toHaveClass('sorted')
+      for (const property of ['font-family', 'font-size', 'font-weight', 'text-align', 'color']) {
+        await expect(newRating).toHaveCSS(property, await rankedRating.evaluate((cell, key) => getComputedStyle(cell).getPropertyValue(key), property))
+      }
+      const newBox = await newRating.boundingBox()
+      const rankedBox = await rankedRating.boundingBox()
+      expect(newBox).not.toBeNull()
+      expect(rankedBox).not.toBeNull()
+      expect(newBox!.x).toBeCloseTo(rankedBox!.x, 1)
+      expect(newBox!.width).toBeCloseTo(rankedBox!.width, 1)
+      expect(await alice.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      await alice.locator('.leaderboard-panel').screenshot({ path: testInfo.outputPath(`new-player-${width}-${theme}.png`) })
+    }
+    await alice.getByRole('button', { name: 'Account menu for Alice' }).click()
+    await alice.getByRole('menuitem', { name: 'Dark theme' }).click()
+    await alice.keyboard.press('Escape')
+  }
+  await alice.setViewportSize({ width: 1280, height: 800 })
+  await alice.getByLabel('SORT BY').selectOption('average')
+  await expect(newRating).not.toHaveClass('sorted')
+  await expect(newRating).toHaveText('1000')
+  await expect(newCarol.locator('td.sorted')).toHaveText('—')
+  await expect(newRating).toHaveCSS('text-align', 'right')
 
   // Bodyless mutations work end to end and stale pages lose access.
   await alice.getByRole('button', { name: 'INVITE', exact: true }).click()

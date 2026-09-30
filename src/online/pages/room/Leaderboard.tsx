@@ -156,7 +156,11 @@ export function Leaderboard({ room, refreshKey }: { room: RoomDetail; refreshKey
                     <tr key={entry.id} className="idle" onClick={() => setSelected(entry.id)}>
                       <td className="rank-col">–</td>
                       <td className="player-col"><span className="player-cell"><Avatar user={entry} size={26} /><span><b>{entry.name}</b><small>No matches{period === 'all' ? ' yet' : ' in this period'}</small></span></span></td>
-                      <td colSpan={COLUMNS.length} className="idle-cell">{formatRating(entry.rating)}</td>
+                      {COLUMNS.map((item) => (
+                        <td key={item.key} className={item.key === sortKey ? 'sorted' : ''}>
+                          {item.key === 'rating' ? item.render(entry) : '—'}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
