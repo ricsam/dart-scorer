@@ -7,6 +7,10 @@ The application is a single Node 24 process, on `hetzner-kata-2`, UID 1000, read
 
 OAuth credentials are in Secret `oche-google` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`). It is intentionally absent from source. Registry credentials are supplied by the existing `ghcr-registry` reflection. No CI cluster credentials or widened RBAC are needed.
 
+## Image publishing access
+
+The private `ghcr.io/ricsam/dart-scorer` package grants **Write** to `ricsam/dart-scorer` under **Package settings → Manage Actions access**. This lets the manual publishing workflow use its existing `GITHUB_TOKEN` with `packages: write`. If publishing fails with `permission_denied: read_package`, check this package-level repository grant; do not make the package public, grant Admin, or add a long-lived CI token to work around it. Package access does not grant cluster access or automatically deploy an image.
+
 ## Updates
 
 1. Run lint, typecheck, unit/API tests and Playwright locally.
