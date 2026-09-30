@@ -85,6 +85,7 @@ export function ProfilePage() {
         <>
           <section className="panel">
             <div className="panel-head"><h2>Career</h2><span className="panel-sub">All rooms · completed matches</span></div>
+            <p className="table-footnote stats-guide"><Link to="/about">How ratings & stats work</Link></p>
             {totals.matches === 0 ? (
               <EmptyState title="No completed matches yet">Play a match in one of your rooms and save the result to start your career stats.</EmptyState>
             ) : (

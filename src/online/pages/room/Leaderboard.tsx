@@ -4,6 +4,7 @@ import type { LeaderboardEntry, LeaderboardPeriod, RoomDetail } from '../../../s
 import { api } from '../../api'
 import { formatAverage, formatBestLeg, formatDelta, formatPercent, formatRating } from '../../format'
 import { useResource } from '../../hooks'
+import { Link } from '../../router'
 import { Avatar, EmptyState, ErrorState, FormDots, Loading, Segmented } from '../../ui'
 import { PlayerDialog } from './PlayerDialog'
 
@@ -167,7 +168,7 @@ export function Leaderboard({ room, refreshKey }: { room: RoomDetail; refreshKey
               </table>
             </div>
           )}
-          <p className="table-footnote">Ratings are Elo-style and start at 1000; every ranked match between members moves them. Averages count every dart thrown, including busts.</p>
+          <p className="table-footnote">Ratings start at 1000 and update after saved matches with at least two account players. Averages include bust darts. <Link to="/about">How ratings & stats work</Link></p>
         </>
       )}
 

@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
 import { StandaloneApp } from '../standalone/StandaloneApp'
-import { OnlineInvite, OnlineLayout, RoomsAction, SignInAction } from './Layout'
+import { AboutAction, OnlineInvite, OnlineLayout, RoomsAction, ScoringInfo, SignInAction } from './Layout'
 import { matchPath, RouterProvider, useRouter } from './router'
 import { SessionProvider, useSession } from './session'
 import { safeReturnTo } from './format'
 import { ErrorState, Loading } from './ui'
+import { AboutPage } from './pages/AboutPage'
 import { HomePage } from './pages/HomePage'
 import { JoinPage } from './pages/JoinPage'
 import { LoginPage } from './pages/LoginPage'
@@ -14,6 +15,7 @@ import { PrivacyPage } from './pages/PrivacyPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RoomPage } from './pages/RoomPage'
 import './online.css'
+import './about.css'
 
 export default function OnlineApp() {
   return (
@@ -29,6 +31,7 @@ function Routes() {
   const { path, search, navigate } = useRouter()
   const { user, loading, error, refresh } = useSession()
 
+  if (path === '/about') return <OnlineLayout bare={!user}><AboutPage /></OnlineLayout>
   if (path === '/privacy') return <OnlineLayout bare={!user}><PrivacyPage /></OnlineLayout>
   if (loading) return <OnlineLayout bare><Loading /></OnlineLayout>
   if (error) return <OnlineLayout bare><ErrorState message={error.message} onRetry={refresh} /></OnlineLayout>
@@ -45,8 +48,8 @@ function Routes() {
     if (!user || path === '/play') {
       return (
         <StandaloneApp
-          accountAction={user ? <RoomsAction /> : <SignInAction />}
-          accountSettings={user ? undefined : <OnlineInvite onSignIn={() => navigate('/login')} />}
+          accountAction={<><AboutAction />{user ? <RoomsAction /> : <SignInAction />}</>}
+          accountSettings={<>{!user && <OnlineInvite onSignIn={() => navigate('/login')} />}<ScoringInfo /></>}
         />
       )
     }

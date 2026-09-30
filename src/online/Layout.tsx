@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { BarChart3, ChevronDown, LogIn, LogOut, Moon, Pencil, Sun, Target, Users } from 'lucide-react'
+import { BarChart3, ChevronDown, Info, LogIn, LogOut, Moon, Pencil, Sun, Target, Users } from 'lucide-react'
 import { Brand } from '../ui/Brand'
 import { useTheme } from '../ui/useTheme'
 import { Link, useRouter } from './router'
@@ -37,6 +37,26 @@ export function OnlineInvite({ onSignIn }: { onSignIn: () => void }) {
   )
 }
 
+export function AboutAction() {
+  return (
+    <a href="/about" target="_blank" rel="noreferrer" className="icon-button account-button" aria-label="About & scoring (opens in a new tab)">
+      <Info size={17} />
+    </a>
+  )
+}
+
+export function ScoringInfo() {
+  return (
+    <div className="settings-section online-info">
+      <div className="settings-copy">
+        <strong><Info size={14} /> About & scoring</strong>
+        <span>Learn how scoring, averages, checkout rates and room ratings work.</span>
+      </div>
+      <a href="/about" target="_blank" rel="noreferrer">READ THE GUIDE <span>(opens in a new tab)</span></a>
+    </div>
+  )
+}
+
 export function OnlineLayout({ children, bare = false }: { children: ReactNode; bare?: boolean }) {
   const [theme, setTheme] = useTheme()
   const { user } = useSession()
@@ -66,7 +86,7 @@ export function OnlineLayout({ children, bare = false }: { children: ReactNode; 
       </header>
       <main className="online-main">{children}</main>
       <footer className="online-footer">
-        <span>OCHE</span><i /> <Link to="/privacy">PRIVACY</Link><i /> <a href="https://github.com/ricsam/dart-scorer" target="_blank" rel="noreferrer">OPEN SOURCE</a>
+        <span>OCHE</span><i /> <Link to="/about">ABOUT & SCORING</Link><i /> <Link to="/privacy">PRIVACY</Link><i /> <a href="https://github.com/ricsam/dart-scorer" target="_blank" rel="noreferrer">OPEN SOURCE</a>
       </footer>
     </div>
   )
@@ -123,6 +143,7 @@ function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme
               <button role="menuitem" onClick={() => go('/me')}><BarChart3 size={15} /> My stats</button>
               <button role="menuitem" onClick={() => go('/me')}><Pencil size={15} /> Edit dart nickname</button>
             </>}
+          <button role="menuitem" onClick={() => go('/about')}><Info size={15} /> About & scoring</button>
           <button role="menuitem" onClick={() => onTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />} {theme === 'dark' ? 'Light theme' : 'Dark theme'}
           </button>

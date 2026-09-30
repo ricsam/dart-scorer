@@ -24,6 +24,7 @@ Type `T20`, `D18`, `25`, `BULL` or `MISS`; separate darts with spaces. Numeric s
 - Save the result after the final leg to update the leaderboard; Undo is available before saving. Saved matches are immutable; hosts can delete erroneous results and ratings are recalculated.
 - Per-room Elo ratings, win/loss records, form, 3-dart averages, first-nine averages, checkout rates, 180s, high checkouts, best legs, player rating history and head-to-head records.
 - All-time / 30-day / 7-day stats, sortable leaderboards, match history, rematches and a personal career page.
+- Public **About & scoring** guide at `/about`, explaining the scoring rules, statistics, Elo formulas and leaderboard filters with worked examples. Available from the footer, account menu, stats views and Quick game settings.
 
 These are **casual, self-reported room leaderboards**, not verified competition results. Ratings only compare registered players in the same room; guests do not affect ratings. Game formats share the room leaderboard, so agree on a format for a league. K=32, initial rating=1000, multiplayer results compare every ranked pair with simultaneous updates. Checkout rate measures darts thrown when a one-dart finish was possible, not declared intent. First-nine stats use actual darts (busts score zero); short legs use their actual dart count.
 

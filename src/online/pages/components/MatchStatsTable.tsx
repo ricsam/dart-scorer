@@ -65,6 +65,7 @@ export function MatchStatsTable({ rows, showRatings = false }: { rows: Row[]; sh
           })}
         </tbody>
       </table>
+      <p className="table-footnote"><a href="/about#statistics" target="_blank" rel="noreferrer">How are these stats calculated? (opens in a new tab)</a></p>
     </div>
   )
 }

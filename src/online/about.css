@@ -1,0 +1,61 @@
+/* The online-only guide and its entry points. */
+.online-footer { min-height: 46px; height: auto; padding: 12px 10px; flex-wrap: wrap; row-gap: 8px; }
+.online-footer a:focus-visible, .online-info a:focus-visible, .table-footnote a:focus-visible, .about-page a:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; border-radius: 2px; }
+.table-footnote a { color: var(--green); text-underline-offset: 3px; }
+.light .table-footnote a { color: #0e7638; }
+.stats-guide { margin: -4px 0 16px; }
+.online-info a { display: inline-block; margin-top: 12px; color: var(--green); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-underline-offset: 3px; }
+.online-info a span { font-weight: 400; letter-spacing: 0; }
+.light .online-info a { color: #0e7638; }
+
+.about-page { --guide-text: #b6c4ba; --guide-surface: #0d1a12; --guide-border: #294032; max-width: 820px; padding: 8px 0; }
+.about-page p, .about-page li, .about-page dd { color: var(--guide-text); font-size: 14px; line-height: 1.8; }
+.about-page p { margin: 12px 0; }
+.about-page h1 { margin-top: 12px; font-size: clamp(38px, 6vw, 54px); }
+.about-page h2 { margin: 38px 0 14px; padding-top: 28px; border-top: 1px solid var(--guide-border); font-size: 28px; scroll-margin-top: 24px; }
+.about-page h2:focus { outline: 2px solid var(--green); outline-offset: 5px; }
+.about-page h3 { margin: 26px 0 6px; font-family: 'Barlow Condensed'; font-size: 22px; }
+.about-page .lead { max-width: 700px; margin-top: 18px; font-size: 16px; }
+.about-page li + li { margin-top: 10px; }
+.about-page a { text-underline-offset: 4px; }
+.about-at-a-glance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 26px; }
+.about-at-a-glance > div { display: grid; align-content: start; gap: 8px; padding: 18px; border: 1px solid var(--guide-border); border-radius: 9px; background: var(--guide-surface); }
+.about-at-a-glance svg { color: var(--green); }
+.about-at-a-glance strong { font-family: 'Barlow Condensed'; font-size: 21px; }
+.about-at-a-glance span { color: var(--guide-text); font-size: 12px; line-height: 1.6; }
+.about-contents { margin: 24px 0; padding: 20px 24px; border: 1px solid var(--guide-border); border-radius: 9px; }
+.about-contents > strong { color: var(--guide-text); font-size: 9px; letter-spacing: .15em; }
+.about-contents ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 32px; margin: 14px 0 0; padding-left: 20px; }
+.about-contents li + li { margin: 0; }
+.about-contents a { display: inline-block; padding: 2px 0; }
+.about-definitions { margin: 18px 0; }
+.about-definitions > div { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--guide-border); }
+.about-definitions dt { font-size: 13px; font-weight: 700; line-height: 1.8; }
+.about-definitions dd { margin: 0; }
+.about-page .about-formula { margin: 16px 0; padding: 16px 20px; border-left: 3px solid var(--green); border-radius: 0 7px 7px 0; background: var(--guide-surface); color: inherit; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; line-height: 2; overflow-wrap: anywhere; }
+.about-formula > span { display: inline-block; }
+.about-formula sub, .about-formula sup { font-size: .8em; }
+.about-example { margin: 18px 0; padding: 18px 20px; border: 1px solid var(--guide-border); border-radius: 9px; background: var(--guide-surface); }
+.about-example > strong { color: var(--green); font-size: 13px; }
+.about-example p:last-child { margin-bottom: 0; }
+.about-example-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.about-example-grid .about-example { margin: 8px 0; }
+.about-source { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--guide-border); }
+.about-source > strong { font-size: 14px; }
+
+.light .about-page { --guide-text: #4f5f55; --guide-surface: #f2f8f4; --guide-border: #ceddd2; }
+.light .about-page a, .light .about-example > strong, .light .about-at-a-glance svg { color: #0e7638; }
+.light .about-page .about-formula { color: #17211b; border-color: #0e7638; }
+
+@media (max-width: 650px) {
+  .about-page { padding: 8px 6px; }
+  .about-page .eyebrow { font-size: 8px; letter-spacing: .1em; }
+  .about-at-a-glance, .about-example-grid, .about-contents ol { grid-template-columns: minmax(0, 1fr); }
+  .about-at-a-glance > div { grid-template-columns: 24px 1fr; column-gap: 12px; padding: 14px; }
+  .about-at-a-glance span { grid-column: 2; }
+  .about-contents { padding: 18px; }
+  .about-definitions > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .about-page h2 { font-size: 25px; }
+  .about-page .about-formula { padding: 12px; font-size: 12px; }
+  .about-example { padding: 16px; }
+}
