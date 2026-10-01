@@ -1,3 +1,4 @@
+import type { BotRunner } from './bots'
 import type { Config } from './config'
 import type { Db } from './db'
 import type { GoogleClient } from './google'
@@ -52,6 +53,7 @@ export type Services = {
   now: Clock
   logger: Logger
   hub: LiveHub
+  bots: BotRunner
   limits: Limits
   authLimiter: RateLimiter
   mutationLimiter: RateLimiter

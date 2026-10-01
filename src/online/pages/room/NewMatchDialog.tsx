@@ -2,14 +2,16 @@ import { useState, type FormEvent } from 'react'
 import { ArrowUp, Minus, Plus, Shuffle, UserPlus, X } from 'lucide-react'
 import { GAMES, MAX_PLAYERS, MIN_PLAYERS, PLAYER_NAME_MAX_LENGTH } from '../../../game/engine'
 import type { CreateMatchRequest, MatchSettings, RoomDetail } from '../../../shared/api'
+import { BOT_ROSTER, type BotProfile } from '../../../shared/bots'
+import { BotAvatar, BotBadge } from '../../BotAvatar'
 import { api, errorMessage } from '../../api'
 import { useRouter } from '../../router'
 import { useSession } from '../../session'
 import { Avatar, Segmented, Sheet } from '../../ui'
 
-type Slot = { key: string; userId: string | null; guestId: string | null; name: string; avatarUrl: string | null }
+type Slot = { botId: string | null; key: string; userId: string | null; guestId: string | null; name: string; avatarUrl: string | null }
 const memberSlot = (member: RoomDetail['members'][number]): Slot => ({
-  key: member.id, userId: member.guest ? null : member.id, guestId: member.guest ? member.id : null, name: member.name, avatarUrl: member.avatarUrl,
+  botId: null, key: member.id, userId: member.guest ? null : member.id, guestId: member.guest ? member.id : null, name: member.name, avatarUrl: member.avatarUrl,
 })
 
 const MAX_LEGS = 11
@@ -27,7 +29,11 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const hasHuman = slots.some((slot) => !slot.botId)
   const full = slots.length >= MAX_PLAYERS
+  const toggleBot = (bot: BotProfile) => setSlots((current) => current.some((slot) => slot.botId === bot.id)
+    ? current.filter((slot) => slot.botId !== bot.id)
+    : current.length >= MAX_PLAYERS ? current : [...current, { key: `bot-${bot.id}`, botId: bot.id, userId: null, guestId: null, name: bot.name, avatarUrl: null }])
   const toggleMember = (member: RoomDetail['members'][number]) => {
     setSlots((current) => current.some((slot) => slot.key === member.id)
       ? current.filter((slot) => slot.key !== member.id)
@@ -69,11 +75,11 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (slots.length < MIN_PLAYERS) return
+    if (slots.length < MIN_PLAYERS || slots.length > MAX_PLAYERS || !hasHuman || busy) return
     setBusy(true)
     setError(null)
     const body: CreateMatchRequest = {
-      players: slots.map((slot) => slot.guestId ? { guestId: slot.guestId } : { userId: slot.userId! }),
+      players: slots.map((slot) => slot.botId ? { botId: slot.botId } : slot.guestId ? { guestId: slot.guestId } : { userId: slot.userId! }),
       settings,
     }
     try {
@@ -119,14 +125,29 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
 
           <p className="field-hint">Guests stay in the room roster even if you cancel this match. They can connect to their slot from the invite link and are never ranked.</p>
 
+          <div className="bot-roster-heading"><strong>Meet your practice rivals</strong><span>Six original characters. Six levels. Your next challenge.</span></div>
+          <div className="bot-roster" role="group" aria-label="Automatic bot opponents">
+            {BOT_ROSTER.map((bot) => {
+              const picked = slots.some((slot) => slot.botId === bot.id)
+              return <button key={bot.id} type="button" className={`bot-card ${picked ? 'picked' : ''}`} aria-pressed={picked} aria-label={`${picked ? 'Remove' : 'Add'} ${bot.name}, level ${bot.difficulty}, ${bot.level}`} disabled={busy || (!picked && full)} onClick={() => toggleBot(bot)}>
+                <BotAvatar botId={bot.id} size={48} />
+                <span className="bot-card-copy"><small>LEVEL {bot.difficulty} · {bot.level}</small><strong>{bot.name}</strong><em>“{bot.nickname}”</em></span>
+                <span className="bot-toggle" aria-hidden="true">{picked ? <Minus size={16} /> : <Plus size={16} />}</span>
+                <span className="bot-description">{bot.description}</span>
+                <span className="bot-skill"><span aria-hidden="true">{[1, 2, 3, 4, 5, 6].map((level) => <i key={level} className={level <= bot.difficulty ? 'filled' : ''} />)}</span><span>{bot.average} AVG</span></span>
+              </button>
+            })}
+          </div>
+          <p className="field-hint bot-roster-note">Bots throw automatically, one dart at a time. Matches with bots are unranked for everyone; match statistics are retained. Include at least one human (a room player or guest). Averages are approximate for 501, single in / double out. All characters are fictional.</p>
+
           {slots.length > 0 && (
             <ol className="throw-order">
               {slots.map((slot, index) => (
                 <li key={slot.key}>
                   <span className="order-number">{index + 1}</span>
-                  <Avatar user={{ id: slot.userId ?? slot.key, name: slot.name, avatarUrl: slot.avatarUrl }} size={22} />
+                  {slot.botId ? <BotAvatar botId={slot.botId} size={22} /> : <Avatar user={{ id: slot.userId ?? slot.key, name: slot.name, avatarUrl: slot.avatarUrl }} size={22} />}
                   <b>{slot.name}</b>
-                  {!slot.userId && <small>GUEST</small>}
+                  {slot.botId ? <BotBadge botId={slot.botId} /> : !slot.userId && <small>GUEST</small>}
                   <button type="button" onClick={() => moveUp(index)} disabled={index === 0} aria-label={`Move ${slot.name} earlier`}><ArrowUp size={14} /></button>
                   <button type="button" onClick={() => setSlots((current) => current.filter((item) => item.key !== slot.key))} aria-label={`Remove ${slot.name}`}><X size={14} /></button>
                 </li>
@@ -161,9 +182,9 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
 
         {error && <div className="form-error" role="alert">{error}</div>}
         <div className="sheet-actions">
-          <span className="sheet-summary">{slots.length < MIN_PLAYERS ? `Pick at least ${MIN_PLAYERS} players` : `${slots.length} players · ${settings.game} · first to ${settings.legsToWin}`}</span>
+          <span className="sheet-summary">{!hasHuman ? 'Include at least one human' : slots.length < MIN_PLAYERS ? `Pick at least ${MIN_PLAYERS} players` : `${slots.length} players · ${settings.game} · first to ${settings.legsToWin}`}</span>
           <button type="button" className="ghost-button" onClick={onClose}>CANCEL</button>
-          <button className="primary-button" disabled={busy || adding || slots.length < MIN_PLAYERS}>{busy ? 'STARTING…' : 'START MATCH'}</button>
+          <button className="primary-button" disabled={busy || adding || !hasHuman || slots.length < MIN_PLAYERS || slots.length > MAX_PLAYERS}>{busy ? 'STARTING…' : 'START MATCH'}</button>
         </div>
       </form>
     </Sheet>

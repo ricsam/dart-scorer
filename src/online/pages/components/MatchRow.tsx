@@ -2,6 +2,7 @@ import { Radio } from 'lucide-react'
 import type { MatchSummary } from '../../../shared/api'
 import { formatAverage, relativeTime, shortFormat } from '../../format'
 import { Link } from '../../router'
+import { BotAvatar, BotBadge } from '../../BotAvatar'
 import { Avatar } from '../../ui'
 
 /** Compact match line used in room histories, profiles and the home page. */
@@ -14,14 +15,15 @@ export function MatchRow({ match, roomName, highlightUserId }: { match: MatchSum
       <div className="match-row-players">
         {match.players.map((player) => (
           <span key={player.slot} className={`${player.won ? 'winner' : ''} ${match.active === player.slot && live ? 'at-oche' : ''}`}>
-            <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={20} />
-            <b>{player.name}</b>
+            {player.botId ? <BotAvatar botId={player.botId} size={20} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={20} />}
+            <b>{player.name}</b>{player.botId && <BotBadge botId={player.botId} />}
             <em>{player.legs}</em>
             <small>{formatAverage(player.average)}</small>
           </span>
         ))}
       </div>
       <div className="match-row-meta">
+        {match.players.some((player) => player.botId) && <span className="bot-badge">BOT MATCH · UNRANKED</span>}
         {live ? (
           <span className="live-pill"><Radio size={11} /> {match.awaitingConfirmation ? 'RESULT PENDING' : 'LIVE'}</span>
         ) : outcome ? <span className={`outcome ${outcome}`}>{outcome === 'win' ? 'WON' : 'LOST'}</span> : null}

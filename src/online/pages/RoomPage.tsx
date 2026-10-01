@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Pencil, Play, Radio, Share2, Trophy, Users } from 'lucide-react'
 import type { MatchSummary, RoomDetail, RoomEvent } from '../../shared/api'
 import { api } from '../api'
+import { BotAvatar, BotBadge } from '../BotAvatar'
 import { formatAverage } from '../format'
 import { useDocumentTitle, useEventStream, useResource } from '../hooks'
 import { Link } from '../router'
@@ -93,7 +94,7 @@ export function RoomPage({ roomId }: { roomId: string }) {
       {detail.members.length === 1 && (
         <div className="callout">
           <Users size={18} />
-          <span><b>Invite your crew.</b> Share the invite link so friends can join this room — or start a match right away with guest players.</span>
+          <span><b>Invite your crew.</b> Share the invite link so friends can join this room — or start a match right away with guests or a house bot.</span>
           <button className="ghost-button" onClick={() => setInviteOpen(true)}>SHARE INVITE</button>
         </div>
       )}
@@ -120,13 +121,13 @@ function LiveMatchCard({ match }: { match: MatchSummary }) {
     <Link to={`/matches/${match.id}`} className="live-card">
       <div className="live-card-head">
         <span className="live-pill"><Radio size={11} /> {match.awaitingConfirmation ? 'RESULT PENDING' : 'LIVE'}</span>
-        <small>{match.settings.game} · FIRST TO {match.settings.legsToWin}</small>
+        <small>{match.players.some((player) => player.botId) && 'UNRANKED · '}{match.settings.game} · FIRST TO {match.settings.legsToWin}</small>
       </div>
       <div className="live-card-players">
         {match.players.map((player) => (
           <div key={player.slot} className={match.active === player.slot && !match.awaitingConfirmation ? 'at-oche' : ''}>
-            <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={24} />
-            <span><b>{player.name}</b><small>AVG {formatAverage(player.average)}</small></span>
+            {player.botId ? <BotAvatar botId={player.botId} size={24} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={24} />}
+            <span><b>{player.name} {player.botId && <BotBadge botId={player.botId} />}</b><small>AVG {formatAverage(player.average)}</small></span>
             <em>{player.legs}</em>
             <strong>{player.score}</strong>
           </div>

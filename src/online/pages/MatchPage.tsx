@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, BarChart3, Eye, Moon, Radio, RefreshCw, RotateCcw, Sun, Trash2, Trophy, Undo2 } from 'lucide-react'
 import { computePlayerStats } from '../../game/stats'
-import type { GameState, RewindTarget } from '../../game/types'
+import type { GameState, LegResult, RewindTarget } from '../../game/types'
 import type { MatchDetail } from '../../shared/api'
 import { Brand } from '../../ui/Brand'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
@@ -10,6 +10,7 @@ import { LegDetailModal } from '../../ui/LegDetailModal'
 import { RecentVisits } from '../../ui/RecentVisits'
 import { Scoreboard } from '../../ui/Scoreboard'
 import { useTheme } from '../../ui/useTheme'
+import { BotAvatar, BotBadge } from '../BotAvatar'
 import { api, errorMessage } from '../api'
 import { formatDateTime, rulesLabel } from '../format'
 import { useDocumentTitle } from '../hooks'
@@ -48,6 +49,13 @@ function statRows(match: MatchDetail, state: GameState, includeCurrentLeg: boole
   }))
 }
 
+/** Add presentation-only bot labels without changing persisted game state. */
+function labelBotLeg(leg: LegResult, match: MatchDetail): LegResult {
+  const label = (name: string, slot: number) => `${name}${match.players.find((player) => player.slot === slot)?.botId ? ' · BOT' : ''}`
+  const winnerSlot = leg.visits[leg.visits.length - 1]?.player
+  return { ...leg, winnerName: winnerSlot === undefined ? leg.winnerName : label(leg.winnerName, winnerSlot), starterName: label(leg.starterName, leg.starterIndex), players: leg.players.map((player, slot) => ({ ...player, name: label(player.name, slot) })), playersAtStart: leg.playersAtStart.map((player, slot) => ({ ...player, name: label(player.name, slot) })) }
+}
+
 function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDetail; state: GameState }) {
   const [theme, setTheme] = useTheme()
   const { navigate } = useRouter()
@@ -55,6 +63,9 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const { players, active, legStarter, currentVisit, history, legHistory, winner, matchWinner, doubleIn, doubleOut, game } = state
   const canScore = match.canScore
+  const hasBots = match.players.some((player) => player.botId)
+  const activeBot = match.players.find((player) => player.slot === active)?.botId
+  const historyPlayers = players.map((player, index) => ({ ...player, name: `${player.name}${match.players.find((item) => item.slot === index)?.botId ? ' · BOT' : ''}` }))
   const [selectedLegId, setSelectedLegId] = useState<string | null>(null)
   const [rewindTarget, setRewindTarget] = useState<RewindTarget | null>(null)
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
@@ -65,8 +76,8 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
   const entry = useDartEntry({
     dartsThrown: currentVisit.length,
     strict: true,
-    canSubmit: canScore && winner === null,
-    captureBlocked: !canScore || confirmResetOpen || rewindTarget !== null || selectedLegId !== null || winner !== null || statsOpen,
+    canSubmit: canScore && !activeBot && winner === null,
+    captureBlocked: !canScore || !!activeBot || confirmResetOpen || rewindTarget !== null || selectedLegId !== null || winner !== null || statsOpen,
     onSubmit: (value) => live.dispatch({ type: 'submit', entry: value }),
   })
 
@@ -121,7 +132,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
           </button>
         </div>
         <div className="header-actions">
-          {canScore && <button className="icon-button" onClick={undo} disabled={!history.length && !currentVisit.length} aria-label="Undo last dart or visit"><Undo2 size={19} /></button>}
+          {canScore && <button className="icon-button" onClick={undo} disabled={!history.length && !currentVisit.length} aria-label={hasBots ? 'Undo last human dart (including subsequent bot darts)' : 'Undo last dart or visit'}><Undo2 size={19} /></button>}
           {canScore && <button className="icon-button" onClick={() => setConfirmResetOpen(true)} aria-label="Restart leg" disabled={winner !== null}><RotateCcw size={19} /></button>}
           <button className="icon-button match-stats-button" onClick={() => setStatsOpen(true)} aria-label="Match statistics"><BarChart3 size={19} /></button>
           <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
@@ -140,22 +151,22 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
           doubleOut={doubleOut}
           renderNameAdornment={(index) => {
             const player = matchPlayer(index)
-            return player ? <Avatar user={{ id: player.userId ?? `guest-${index}`, name: player.name, avatarUrl: player.avatarUrl }} size={18} className="name-avatar" /> : null
+            return player?.botId ? <><BotAvatar botId={player.botId} size={18} className="name-avatar" /><BotBadge botId={player.botId} /></> : player ? <Avatar user={{ id: player.userId ?? `guest-${index}`, name: player.name, avatarUrl: player.avatarUrl }} size={18} className="name-avatar" /> : null
           }}
         />
 
         <section className="scoring-zone">
           <div className="turn-context">
             <span className="status-dot" />
-            <span>{canScore ? 'SCORING FOR' : 'AT THE OCHE'}</span>
+            <span>{activeBot ? 'BOT AT THE OCHE' : canScore ? 'SCORING FOR' : 'AT THE OCHE'}</span>
             <strong>{players[active]?.name.toUpperCase()}</strong>
             <em className={`live-flag ${live.stream === 'open' ? '' : 'offline'}`}><Radio size={9} /> {streamLabel}</em>
           </div>
 
-          {canScore ? (
+          {canScore && !activeBot ? (
             <DartEntry entry={entry} currentVisit={currentVisit} />
           ) : (
-            <div className="calculator dart-entry spectator-panel">
+            <div className={`calculator dart-entry spectator-panel ${activeBot ? 'bot-throwing-panel' : ''}`}>
               <div className="visit-progress">
                 <span>THIS VISIT</span>
                 <div className="dart-slots">
@@ -167,15 +178,16 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
                 </div>
                 <strong>{currentVisit.reduce((sum, hit) => sum + (hit.counts ? hit.value : 0), 0)}</strong>
               </div>
-              <div className="spectator-note"><Eye size={16} /><span><b>Watching live.</b> Scores update as the players enter them. Only the match’s players, its creator and the room host can score.</span></div>
+              {activeBot ? <div className="spectator-note bot-throwing-note" role="status"><BotAvatar botId={activeBot} size={48} /><span><b>{players[active]?.name}{winner !== null ? ' has finished.' : live.stream !== 'open' ? ' · reconnecting…' : ' is throwing…'}</b><br />{winner !== null ? 'Waiting for the next leg.' : 'Darts arrive automatically. Sit back and watch the visit unfold.'}</span></div> : <div className="spectator-note"><Eye size={16} /><span><b>Watching live.</b> Scores update as the players enter them. Only the match’s players, its creator and the room host can score.</span></div>}
             </div>
           )}
 
+          {hasBots && <p className="bot-match-note">UNRANKED · Statistics retained.{canScore && ' Undo returns to the last human dart, removing any later bot darts.'}</p>}
           <RecentVisits
-            players={players}
+            players={historyPlayers}
             history={history}
             currentVisit={currentVisit}
-            legHistory={legHistory}
+            legHistory={legHistory.map((leg) => labelBotLeg(leg, match))}
             onUndo={canScore ? undo : undefined}
             onSelectLeg={setSelectedLegId}
           />
@@ -188,7 +200,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
 
       {selectedLeg && (
         <LegDetailModal
-          leg={selectedLeg}
+          leg={labelBotLeg(selectedLeg, match)}
           onClose={() => setSelectedLegId(null)}
           onSelectVisit={canScore ? (visitIndex) => setRewindTarget({ legId: selectedLeg.id, visitIndex }) : undefined}
         />
@@ -206,7 +218,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
           backdropClassName="destructive-backdrop"
           className="rewind-modal"
         >
-          The match will return to the start of {rewindPlayer.name}’s visit in leg {rewindLeg.leg} for everyone watching. That visit, every visit after it, later legs, and the current leg will be discarded.
+          The match will return to the start of {rewindPlayer.name}’s visit in leg {rewindLeg.leg} for everyone watching. That visit, every visit after it, later legs, and the current leg will be discarded.{hasBots && ' If a bot is at the oche, automatic throwing resumes immediately.'}
         </ConfirmDialog>
       )}
 
@@ -245,7 +257,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
             <h2>{players[winner].name} {matchWinner !== null ? 'wins the match!' : 'wins!'}</h2>
             {matchWinner !== null ? (
               <>
-                <p>Final score {legScore}. Save the result to update the room leaderboard.</p>
+                <p>Final score {legScore}. {hasBots ? 'Save this unranked result to keep the match statistics. Room ratings are unchanged.' : 'Save the result to update the room leaderboard.'}</p>
                 <MatchStatsTable rows={statRows(match, state, false)} />
               </>
             ) : (
@@ -256,7 +268,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
                 {matchWinner !== null
                   ? <button onClick={saveResult} disabled={saving || live.syncing}>{saving ? 'SAVING…' : 'SAVE RESULT'}</button>
                   : <button onClick={() => { live.dispatch({ type: 'nextLeg' }); entry.clear() }}>START NEXT LEG</button>}
-                <button className="secondary" onClick={undo}><Undo2 size={14} /> UNDO LAST VISIT</button>
+                <button className="secondary" onClick={undo}><Undo2 size={14} /> {hasBots ? 'UNDO LAST HUMAN DART' : 'UNDO LAST VISIT'}</button>
               </div>
             ) : (
               <div className="winner-actions">
@@ -274,6 +286,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
 function MatchSummaryView({ match }: { match: MatchDetail }) {
   const { navigate } = useRouter()
   const state = match.state
+  const hasBots = match.players.some((player) => player.botId)
   const [selectedLegId, setSelectedLegId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -288,7 +301,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
     const order = [...match.players.slice(1), match.players[0]]
     try {
       const { match: created } = await api.createMatch(match.roomId, {
-        players: order.map((player) => player.userId ? { userId: player.userId } : player.guestId ? { guestId: player.guestId } : { guestName: player.name }),
+        players: order.map((player) => player.botId ? { botId: player.botId } : player.userId ? { userId: player.userId } : player.guestId ? { guestId: player.guestId } : { guestName: player.name }),
         settings: match.settings,
       })
       navigate(`/matches/${created.id}`)
@@ -325,6 +338,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
       </div>
       {error && <div className="form-error" role="alert">{error}</div>}
 
+      {hasBots && <p className="bot-match-note">BOT MATCH · Unranked for everyone. Match statistics retained; room ratings unchanged.</p>}
       <section className="panel">
         <div className="panel-head"><h2>Scorecard</h2></div>
         <MatchStatsTable rows={rows} showRatings />
@@ -340,7 +354,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
             return (
               <button key={leg.id} className="leg-card" onClick={() => setSelectedLegId(leg.id)} aria-label={`View details for leg ${leg.leg}`}>
                 <small>LEG {leg.leg}</small>
-                <b>{leg.winnerName}</b>
+                <b>{leg.winnerName}{match.players.find((player) => player.slot === winnerIndex)?.botId && ' · BOT'}</b>
                 <span>{winnerDarts} darts · out {winningVisit?.previousScore} ({leg.winningDarts})</span>
                 <span className="leg-averages">{leg.players.map((player) => <i key={player.id}>{player.name} <b>{player.average.toFixed(1)}</b></i>)}</span>
               </button>
@@ -355,7 +369,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
         </div>
       )}
 
-      {selectedLeg && <LegDetailModal leg={selectedLeg} onClose={() => setSelectedLegId(null)} />}
+      {selectedLeg && <LegDetailModal leg={labelBotLeg(selectedLeg, match)} onClose={() => setSelectedLegId(null)} />}
       {confirmDelete && (
         <ConfirmDialog
           icon={<Trash2 size={30} />}
@@ -367,7 +381,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
           onConfirm={remove}
           busy={busy}
         >
-          The result is removed from the room history and every rating is recalculated without it.
+          {hasBots ? 'This unranked result and its statistics are removed from room history. Room ratings are unchanged.' : 'The result is removed from the room history and every rating is recalculated without it.'}
         </ConfirmDialog>
       )}
     </div>

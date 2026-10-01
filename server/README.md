@@ -74,5 +74,19 @@ Everything in `src/shared/api.ts`, plus:
 - Ratings: per room, Elo with K = 32 over all pairs of signed-in players (K/(n−1) scaling),
   replayed from scratch in completion order whenever a match is finished or a finished match is
   deleted. Stored at full precision; the API rounds to integers.
+- House bots: select one of six fictional characters in New match. Requests accept `{ botId }`
+  alongside human/guest identities, with at least one human and no duplicate bots. Profiles live
+  in `src/shared/bots.ts`; accuracy and checkout-aware dart simulation live in `server/bot-darts.ts`.
+  Bots are stored only in `match_players.bot_id`, not as accounts or claimable guests (schema v3).
+- Bot turns are server-owned, one physical dart every 850 ms, with version checks and normal
+  SSE broadcasts. They continue without connected viewers, stop at human turns or leg completion,
+  and resume partial visits after restart. Humans still start the next leg and save results.
+  Manual `submit` during a bot turn is rejected. Undo removes trailing bot darts and undoes the
+  last human dart/visit in the current leg; if no human has thrown, it is a no-op. Rewind and reset
+  reschedule the bot safely. Match/room deletion and server shutdown stop pending work.
+- Any match containing a bot is unranked for **all** participants, even with multiple registered
+  humans. Its result and statistics are retained, but its rating fields remain null and it is
+  excluded from Elo replay and rating history. Bot difficulties are approximate 501 straight-in,
+  double-out averages, not guarantees for any individual leg.
 - Career totals (`/api/me/stats`) include results from rooms the user has since left; recent
   matches only list rooms the user can still see.

@@ -56,10 +56,12 @@ export type MatchStatus = 'live' | 'completed'
 export type MatchPlayer = {
   /** Index in `GameState.players`; fixed for the whole match. */
   slot: number
-  /** `null` for guest players, who are not ranked. */
+  /** `null` for guests and bots, who are not ranked. */
   userId: string | null
   /** Room guest identity; null for registered players and unlinked legacy guests. */
   guestId: string | null
+  /** House bot identity; null for human players. Bots cannot sign in or claim guest slots. */
+  botId: string | null
   name: string
   avatarUrl: string | null
   guest: boolean
@@ -126,14 +128,16 @@ export type MatchResponse = { match: MatchDetail }
 
 /** POST /api/rooms/:roomId/matches */
 export type CreateMatchRequest = {
-  /** 2–8 players in throwing order. Named guests create/reuse a room guest. */
-  players: ({ userId: string } | { guestId: string } | { guestName: string })[]
+  /** 2–8 players in throwing order, including at least one human. Named guests create/reuse a room guest. Matches with bots are unranked. */
+  players: ({ userId: string } | { guestId: string } | { guestName: string } | { botId: string })[]
   settings: MatchSettings
 }
 
 /**
  * POST /api/matches/:matchId/actions
  * Only 'submit' | 'undo' | 'resetLeg' | 'nextLeg' | 'rewind' are accepted for recorded matches.
+ * Bots submit server-side only. In bot games, undo discards bot replies and undoes the latest
+ * human dart/visit in the current leg (no-op if no human has thrown).
  * Responds 200 `MatchResponse`, or 409 `MatchConflictResponse` when `baseVersion` is stale.
  */
 export type MatchActionRequest = { action: GameAction; baseVersion: number }

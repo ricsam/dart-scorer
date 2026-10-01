@@ -1,5 +1,41 @@
 /* Oche online edition — builds on the scorer's visual language in ../styles.css. */
 
+/* Fictional practice rivals */
+.bot-avatar { width: var(--bot-size); height: var(--bot-size); flex: none; display: inline-grid; place-items: center; border: 1px solid var(--bot-color); border-radius: 32%; background: radial-gradient(circle at 35% 20%, color-mix(in srgb, var(--bot-color) 35%, transparent), transparent 80%), #152019; font-size: calc(var(--bot-size) * .58); box-shadow: inset 0 -3px 8px #0002; vertical-align: middle; }
+.bot-badge { display: inline-flex; align-items: center; width: fit-content; padding: 3px 5px; border: 1px solid #547463; border-radius: 4px; color: #b6ddc5; font-size: 8px; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
+.bot-roster-heading { display: grid; gap: 4px; margin-top: 22px; }
+.bot-roster-heading strong { font-family: 'Barlow Condensed'; font-size: 23px; }
+.bot-roster-heading > span { color: #91a198; font-size: 11px; }
+.bot-roster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.bot-card { display: grid; grid-template-columns: 48px minmax(0, 1fr) 24px; align-items: center; gap: 10px; padding: 15px; border: 1px solid #344b3d; border-radius: 10px; background: linear-gradient(130deg, #16281e, #0d1812); color: #e1eae4; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.bot-card:hover:not(:disabled), .bot-card.picked { border-color: var(--green); background: linear-gradient(130deg, #1a3827, #112219); }
+.bot-card:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.bot-card:disabled { opacity: .45; cursor: not-allowed; }
+.bot-card-copy { display: grid; gap: 3px; min-width: 0; }
+.bot-card-copy small { color: #9eb7a8; font-size: 8px; font-weight: 700; letter-spacing: .08em; }
+.bot-card-copy strong { font-family: 'Barlow Condensed'; font-size: 23px; line-height: 1.05; overflow-wrap: anywhere; }
+.bot-card-copy em { color: #aebeb4; font-size: 10px; font-style: normal; }
+.bot-toggle { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid #52715d; border-radius: 50%; color: #b9d4c2; }
+.bot-card.picked .bot-toggle { background: var(--green); border-color: var(--green); color: #082414; }
+.bot-description { grid-column: 1 / -1; min-height: 32px; color: #a6b7ac; font-size: 11px; line-height: 1.5; }
+.bot-skill { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #a6b7ac; font-size: 9px; font-weight: 700; }
+.bot-skill > span:first-child { display: flex; gap: 3px; }
+.bot-skill i { width: 13px; height: 5px; border-radius: 2px; background: #34463b; }
+.bot-skill i.filled { background: var(--green); }
+.bot-roster-note { line-height: 1.65; }
+.bot-match-note { grid-column: 1 / -1; order: 3; color: #9cb7a6; font-size: 10px; line-height: 1.6; margin: 10px 0; text-align: center; }
+.bot-throwing-panel { border-color: #365e45; }
+.bot-throwing-note { min-height: 120px; }
+.bot-throwing-note b { color: var(--green); }
+.light .bot-card { color: #193d28; background: linear-gradient(130deg, #f3f8f4, #e5efe7); border-color: #b1c7b7; }
+.light .bot-card:hover:not(:disabled), .light .bot-card.picked { background: #dcefe2; border-color: #18854a; }
+.light .bot-card-copy small, .light .bot-card-copy em, .light .bot-description, .light .bot-skill, .light .bot-roster-heading > span, .light .bot-match-note { color: #486551; }
+.light .bot-badge { color: #285739; border-color: #a4bdaa; }
+.light .bot-avatar { background-color: #e7eee8; }
+@media (max-width: 560px) { .bot-roster { grid-template-columns: 1fr; } .bot-card { padding: 13px; } .bot-description { min-height: 0; } }
+@media (prefers-reduced-motion: reduce) { .bot-card { transition: none; } }
+
+
 .online-shell a, .online-match a { color: inherit; }
 .brand-link { color: inherit; text-decoration: none; justify-self: start; }
 .brand-link:hover .brand-mark i { background: #4beb8b; }

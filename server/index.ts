@@ -20,6 +20,7 @@ function main() {
     if (stopping) return
     stopping = true
     console.log(`[oche] ${signal} received, shutting down`)
+    app.services.bots.stop()
     app.services.hub.closeAll()
     const force = setTimeout(() => {
       console.warn('[oche] forcing shutdown after timeout')

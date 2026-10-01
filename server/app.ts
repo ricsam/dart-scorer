@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { authRoutes, sessionMiddleware } from './auth'
+import { BotRunner } from './bots'
 import type { Config } from './config'
 import { DEFAULT_LIMITS, type AppEnv, type Clock, type Limits, type Logger, type Services } from './context'
 import type { Db } from './db'
@@ -26,6 +27,8 @@ export type AppDeps = {
   limits?: Partial<Limits>
   /** Log one line per /api and /auth request (method, path, status, duration — never query strings). */
   accessLog?: boolean
+  /** Injectable random source for reproducible bot games in tests. */
+  botRandom?: () => number
 }
 
 export type App = Hono<AppEnv> & { services: Services }
@@ -62,6 +65,7 @@ export function createApp(deps: AppDeps): App {
     logger,
     hub: deps.hub ?? new LiveHub(),
     limits,
+    bots: new BotRunner(() => services, deps.botRandom),
     authLimiter: new RateLimiter(limits.authPerMinute, 60_000, now),
     mutationLimiter: new RateLimiter(limits.mutationsPerMinute, 60_000, now),
   }
@@ -136,5 +140,6 @@ export function createApp(deps: AppDeps): App {
     return errorResponse(c, 500, 'server_error', 'Something went wrong. Please try again.')
   })
 
+  services.bots.resume()
   return Object.assign(app, { services })
 }

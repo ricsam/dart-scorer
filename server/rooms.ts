@@ -160,9 +160,11 @@ export function roomRoutes(services: Services) {
     const user = requireUser(c)
     const room = requireRoom(db, c.req.param('roomId'), user.id)
     requireOwner(room)
+    const liveMatches = db.all<{ id: string }>("SELECT id FROM matches WHERE room_id = ? AND status = 'live'", room.id)
     db.transaction(() => {
       db.run('DELETE FROM rooms WHERE id = ?', room.id)
     })
+    for (const match of liveMatches) services.bots.cancel(match.id)
     publishRoomRefresh(services, room.id)
     hub.closeRoom(room.id)
     return c.body(null, 204)

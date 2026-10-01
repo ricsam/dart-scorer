@@ -38,6 +38,9 @@ export function recomputeRoomRatings(db: Db, roomId: string) {
     'SELECT match_id, slot, user_id, placing FROM match_results WHERE room_id = ? ORDER BY completed_at, match_id, slot',
     roomId,
   )
+  const botMatches = new Set(db.all<{ match_id: string }>(
+    'SELECT DISTINCT p.match_id FROM match_players p JOIN matches m ON m.id = p.match_id WHERE m.room_id = ? AND p.bot_id IS NOT NULL', roomId,
+  ).map((row) => row.match_id))
   const ratings = new Map<string, number>()
   const current = (userId: string) => ratings.get(userId) ?? INITIAL_RATING
 
@@ -46,6 +49,11 @@ export function recomputeRoomRatings(db: Db, roomId: string) {
       let end = start
       while (end < rows.length && rows[end].match_id === rows[start].match_id) end += 1
       const group = rows.slice(start, end)
+      if (botMatches.has(rows[start].match_id)) {
+        db.run('UPDATE match_results SET rating_before = NULL, rating_after = NULL WHERE match_id = ?', rows[start].match_id)
+        start = end
+        continue
+      }
       const ranked = group.filter((row): row is ResultKey & { user_id: string } => row.user_id !== null)
       const before = ranked.map((row) => current(row.user_id))
       const deltas = ranked.length >= 2 ? eloDeltas(before, ranked.map((row) => row.placing)) : ranked.map(() => 0)
@@ -64,10 +72,10 @@ export function recomputeRoomRatings(db: Db, roomId: string) {
   return ratings
 }
 
-/** Current (full precision) rating and completed-match count for every user with results in a room. */
+/** Current (full precision) rating and rated-match count for every user with ranked results in a room. */
 export function roomRatings(db: Db, roomId: string) {
   const rows = db.all<{ user_id: string; rating_after: number | null }>(
-    'SELECT user_id, rating_after FROM match_results WHERE room_id = ? AND user_id IS NOT NULL ORDER BY completed_at, match_id',
+    'SELECT user_id, rating_after FROM match_results WHERE room_id = ? AND user_id IS NOT NULL AND rating_after IS NOT NULL ORDER BY completed_at, match_id',
     roomId,
   )
   const ratings = new Map<string, { rating: number; matches: number }>()

@@ -4,7 +4,6 @@ import {
   evaluateOnlineEntry,
   createGameState,
   GAMES,
-  gameReducer,
   MATCH_ACTION_TYPES,
   matchPlacings,
   MAX_PLAYERS,
@@ -12,7 +11,11 @@ import {
   PLAYER_NAME_MAX_LENGTH,
   type GameAction,
 } from '../src/game'
-import type { MatchConflictResponse, MatchEvent, MatchResponse, MatchSettings } from '../src/shared/api'
+import type { MatchConflictResponse, MatchEvent, MatchResponse, MatchSettings, CreateMatchRequest } from '../src/shared/api'
+import { getBot } from '../src/shared/bots'
+import { reduceMatchAction } from '../src/shared/match-reducer'
+import { MAX_STATE_BYTES } from './match-limits'
+export { MAX_STATE_BYTES } from './match-limits'
 import { requireUser } from './auth'
 import type { AppEnv, Services, UserRow } from './context'
 import { nowIso } from './context'
@@ -37,8 +40,6 @@ import { recomputeRoomRatings } from './ratings'
 
 export const MAX_LIVE_MATCHES_PER_ROOM = 10
 export const MAX_LEGS_TO_WIN = 11
-/** Guards against unbounded growth (e.g. endless busts) of a stored match. */
-export const MAX_STATE_BYTES = 8 * 1024 * 1024
 
 export function parseSettings(value: unknown): MatchSettings {
   const settings = expectObject(value, 'settings')
@@ -52,18 +53,24 @@ export function parseSettings(value: unknown): MatchSettings {
   }
 }
 
-type PlayerInput = { userId: string } | { guestId: string } | { guestName: string }
+type PlayerInput = CreateMatchRequest['players'][number]
 
 export function parsePlayers(value: unknown): PlayerInput[] {
   if (!Array.isArray(value)) throw badRequest('players must be an array.')
   if (value.length < MIN_PLAYERS || value.length > MAX_PLAYERS) throw badRequest(`A match needs ${MIN_PLAYERS}–${MAX_PLAYERS} players.`)
+  if (value.every((item) => isObject(item) && item.botId !== undefined)) throw badRequest('A match needs at least one human player.')
   const seen = new Set<string>()
   return value.map((item, index): PlayerInput => {
     if (!isObject(item)) throw badRequest(`players[${index}] must be an object.`)
     const hasUser = item.userId !== undefined
     const hasGuest = item.guestName !== undefined
     const hasGuestId = item.guestId !== undefined
-    if (Number(hasUser) + Number(hasGuest) + Number(hasGuestId) !== 1) throw badRequest(`players[${index}] needs exactly one of userId, guestId or guestName.`)
+    const hasBot = item.botId !== undefined
+    if (Number(hasUser) + Number(hasGuest) + Number(hasGuestId) + Number(hasBot) !== 1) throw badRequest(`players[${index}] needs exactly one of userId, guestId, guestName or botId.`)
+    if (hasBot) {
+      if (typeof item.botId !== 'string' || !getBot(item.botId)) throw badRequest('Choose a bot from the house roster.')
+      return { botId: item.botId }
+    }
     if (hasGuestId) {
       if (typeof item.guestId !== 'string' || !validId(item.guestId)) throw badRequest('guestId is not valid.')
       return { guestId: item.guestId }
@@ -131,9 +138,13 @@ export function matchRoutes(services: Services) {
       if (live >= MAX_LIVE_MATCHES_PER_ROOM) throw badRequest(`A room can have at most ${MAX_LIVE_MATCHES_PER_ROOM} live matches. Finish or delete one first.`)
 
       const roster = players.map((player) => {
+        if ('botId' in player) {
+          const bot = getBot(player.botId)!
+          return { userId: null, guestId: null, botId: bot.id, name: bot.name }
+        }
         if ('guestName' in player) {
           const guest = ensureGuest(services, roomId, player.guestName)
-          return { userId: null, guestId: guest.id, name: guest.name }
+          return { userId: null, guestId: guest.id, botId: null, name: guest.name }
         }
         const guestInput = 'guestId' in player
         const member = db.get<UserRow>(
@@ -141,9 +152,9 @@ export function matchRoutes(services: Services) {
           roomId, guestInput ? player.guestId : player.userId,
         )
         if (!member || Boolean(member.is_guest) !== guestInput || (guestInput && member.guest_room_id !== roomId)) throw badRequest('Every player must be a member of this room with the correct identity type.')
-        return { userId: guestInput ? null : member.id, guestId: guestInput ? member.id : null, name: member.name }
+        return { userId: guestInput ? null : member.id, guestId: guestInput ? member.id : null, botId: null, name: member.name }
       })
-      if (new Set(roster.map((player) => player.userId ?? player.guestId)).size !== roster.length) throw badRequest('A player can only be added once.')
+      if (new Set(roster.map((player) => player.botId ? `bot:${player.botId}` : player.userId ?? player.guestId)).size !== roster.length) throw badRequest('A player can only be added once.')
 
       const state = createGameState({
         game: settings.game,
@@ -160,7 +171,7 @@ export function matchRoutes(services: Services) {
         id, roomId, user.id, JSON.stringify(settings), JSON.stringify(state), now, now,
       )
       roster.forEach((player, slot) => {
-        db.run('INSERT INTO match_players (match_id, slot, user_id, guest_id, name) VALUES (?, ?, ?, ?, ?)', id, slot, player.userId, player.guestId, player.name)
+        db.run('INSERT INTO match_players (match_id, slot, user_id, guest_id, bot_id, name) VALUES (?, ?, ?, ?, ?, ?)', id, slot, player.userId, player.guestId, player.botId, player.name)
       })
       return id
     })
@@ -197,10 +208,11 @@ export function matchRoutes(services: Services) {
     // From here on everything is synchronous: no other request can interleave.
     const view = loadForScoring(matchId, user.id, baseVersion)
     if (action.type === 'submit') {
+      if (view.players[view.state.active]?.botId) throw badRequest('Bots throw their own darts. Wait for a human turn.')
       const { error } = evaluateOnlineEntry(action.entry, view.state.currentVisit.length)
       if (error) throw badRequest(error)
     }
-    const next = gameReducer(view.state, action)
+    const next = reduceMatchAction(view.state, action, view.players)
     if (next === view.state) return c.json<MatchResponse>({ match: matchDetail(view, user.id) })
 
     const state = JSON.stringify(next)

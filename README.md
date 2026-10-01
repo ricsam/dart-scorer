@@ -18,6 +18,7 @@ Type `T20`, `D18`, `25`, `BULL` or `MISS`; separate darts with spaces. Numeric s
 - Create persistent rooms, share an invite link or QR code, rotate invite links, rename rooms, remove members or leave.
 - Invite visitors can **Join as a guest** with a display name or connect to an existing unclaimed guest slot. Room members can add the same kind of guest from Members or New match for shared-device play; guests persist in the room roster and are always unranked.
 - Select room players, choose throw order, format and first-to-1–11 legs. A guest on their own device can score when selected, just like an account player.
+- Invite one of six fictional **house bots** from New match, from Rookie Rue (novice) to The Maximum (pro-level). Bots throw automatically, one dart at a time, with distinct accuracy and checkout skills. Bot matches retain statistics but are unranked for everyone; rematches keep the same characters.
 - Guest identities are scoped to one room and kept by a browser session cookie. Claimed slots cannot be taken over by name, including after sign-out or expiry. Signing in starts a separate account identity; it does not merge or retroactively rank guest matches. Share invites only with trusted players: invite holders can see and claim unclaimed guest names.
 - Score from a shared device or follow live from another phone. Players, the match creator and the room host can score; other room members can watch.
 - Live matches persist after reload and server restart. Conflicting entries from two devices are rejected rather than silently overwriting each other.
@@ -26,7 +27,7 @@ Type `T20`, `D18`, `25`, `BULL` or `MISS`; separate darts with spaces. Numeric s
 - All-time / 30-day / 7-day stats, sortable leaderboards, match history, rematches and a personal career page.
 - Public **About & scoring** guide at `/about`, explaining the scoring rules, statistics, Elo formulas and leaderboard filters with worked examples. Available from the footer, account menu, stats views and Quick game settings.
 
-These are **casual, self-reported room leaderboards**, not verified competition results. Ratings only compare registered players in the same room; guests do not affect ratings. Game formats share the room leaderboard, so agree on a format for a league. K=32, initial rating=1000, multiplayer results compare every ranked pair with simultaneous updates. Checkout rate measures darts thrown when a one-dart finish was possible, not declared intent. First-nine stats use actual darts (busts score zero); short legs use their actual dart count.
+These are **casual, self-reported room leaderboards**, not verified competition results. Ratings only compare registered players in the same room; guests are never rated opponents, and matches containing bots never change ratings. Game formats share the room leaderboard, so agree on a format for a league. K=32, initial rating=1000, multiplayer results compare every ranked pair with simultaneous updates. Checkout rate measures darts thrown when a one-dart finish was possible, not declared intent. First-nine stats use actual darts (busts score zero); short legs use their actual dart count.
 
 ## Development
 

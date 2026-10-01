@@ -172,6 +172,11 @@ const MIGRATIONS: string[] = [
   ALTER TABLE match_players ADD COLUMN guest_id TEXT REFERENCES users(id);
   CREATE INDEX match_players_guest ON match_players(guest_id);
   `,
+  // 3 — bots are match participants, never users or claimable guests.
+  `
+  ALTER TABLE match_players ADD COLUMN bot_id TEXT
+    CHECK (bot_id IS NULL OR (user_id IS NULL AND guest_id IS NULL));
+  `,
 ]
 
 export const SCHEMA_VERSION = MIGRATIONS.length

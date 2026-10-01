@@ -160,8 +160,8 @@ export function resultStats(row: ResultRow): PlayerStats {
 }
 
 export function buildMatchView(db: Db, row: MatchRow): MatchView {
-  const players = db.all<{ slot: number; user_id: string | null; guest_id: string | null; name: string; avatar_url: string | null }>(
-    `SELECT p.slot, p.user_id, p.guest_id, p.name, u.avatar_url
+  const players = db.all<{ slot: number; user_id: string | null; guest_id: string | null; bot_id: string | null; name: string; avatar_url: string | null }>(
+    `SELECT p.slot, p.user_id, p.guest_id, p.bot_id, p.name, u.avatar_url
      FROM match_players p LEFT JOIN users u ON u.id = p.user_id
      WHERE p.match_id = ? ORDER BY p.slot`,
     row.id,
@@ -169,9 +169,10 @@ export function buildMatchView(db: Db, row: MatchRow): MatchView {
     slot: player.slot,
     userId: player.user_id,
     guestId: player.guest_id,
+    botId: player.bot_id,
     name: player.name,
     avatarUrl: player.user_id ? player.avatar_url : null,
-    guest: player.user_id === null,
+    guest: player.user_id === null && player.bot_id === null,
   }))
   const room = db.get<{ name: string; owner_id: string }>('SELECT name, owner_id FROM rooms WHERE id = ?', row.room_id)
   const results = row.status === 'completed'

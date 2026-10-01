@@ -1,6 +1,7 @@
 import type { PlayerStats } from '../../../game/stats'
 import type { MatchPlayer, MatchResult } from '../../../shared/api'
 import { formatAverage, formatBestLeg, formatDelta, formatPercent, formatRating } from '../../format'
+import { BotAvatar, BotBadge } from '../../BotAvatar'
 import { Avatar } from '../../ui'
 
 type Row = { player: MatchPlayer; stats: PlayerStats; legs: number; result?: MatchResult }
@@ -19,7 +20,7 @@ export function MatchStatsTable({ rows, showRatings = false }: { rows: Row[]; sh
     { label: '100+', values: rows.map((row) => String(row.stats.scores100)) },
     { label: 'Darts thrown', values: rows.map((row) => String(row.stats.darts)) },
   ]
-  if (showRatings) {
+  if (showRatings && !rows.some((row) => row.player.botId)) {
     lines.push({
       label: 'Room rating',
       values: rows.map((row) => row.result?.ratingAfter !== null && row.result?.ratingAfter !== undefined && row.result.ratingBefore !== null
@@ -45,9 +46,9 @@ export function MatchStatsTable({ rows, showRatings = false }: { rows: Row[]; sh
             {rows.map((row) => (
               <th key={row.player.slot}>
                 <span className="stats-player">
-                  <Avatar user={{ id: row.player.userId ?? `guest-${row.player.slot}`, name: row.player.name, avatarUrl: row.player.avatarUrl }} size={26} />
+                  {row.player.botId ? <BotAvatar botId={row.player.botId} size={26} /> : <Avatar user={{ id: row.player.userId ?? `guest-${row.player.slot}`, name: row.player.name, avatarUrl: row.player.avatarUrl }} size={26} />}
                   <b>{row.player.name}</b>
-                  {row.player.guest && <small>GUEST</small>}
+                  {row.player.botId ? <BotBadge botId={row.player.botId} /> : row.player.guest && <small>GUEST</small>}
                 </span>
               </th>
             ))}

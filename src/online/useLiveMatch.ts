@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { gameReducer } from '../game/engine'
+import { reduceMatchAction } from '../shared/match-reducer'
 import type { GameAction, GameState } from '../game/types'
 import type { MatchConflictResponse, MatchDetail, MatchEvent } from '../shared/api'
 import { api, ApiRequestError, errorMessage } from './api'
@@ -126,6 +126,9 @@ export function useLiveMatch(matchId: string): LiveMatch {
 
   const dispatch = useCallback((action: GameAction) => {
     if (!latest.current?.canScore || latest.current.status !== 'live') return
+    const current = latest.current
+    const projected = pending.current.reduce((state, queued) => reduceMatchAction(state, queued, current.players), current.state)
+    if (action.type === 'submit' && current.players[projected.active]?.botId) return
     pending.current = [...pending.current, action]
     setQueue(pending.current)
     void pump()
@@ -149,7 +152,7 @@ export function useLiveMatch(matchId: string): LiveMatch {
     }
   }, [accept, flushBuffered, matchId])
 
-  const state = useMemo(() => match ? queue.reduce(gameReducer, match.state) : null, [match, queue])
+  const state = useMemo(() => match ? queue.reduce((state, action) => reduceMatchAction(state, action, match.players), match.state) : null, [match, queue])
 
   return {
     match,
