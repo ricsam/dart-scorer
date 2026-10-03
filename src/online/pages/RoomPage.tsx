@@ -121,7 +121,7 @@ function LiveMatchCard({ match }: { match: MatchSummary }) {
     <Link to={`/matches/${match.id}`} className="live-card">
       <div className="live-card-head">
         <span className="live-pill"><Radio size={11} /> {match.awaitingConfirmation ? 'RESULT PENDING' : 'LIVE'}</span>
-        <small>{match.players.some((player) => player.botId) && 'UNRANKED · '}{match.settings.game} · FIRST TO {match.settings.legsToWin}</small>
+        <small>{match.players.some((player) => player.botId) && 'TRAINING · '}{match.settings.game} · FIRST TO {match.settings.legsToWin}</small>
       </div>
       <div className="live-card-players">
         {match.players.map((player) => (

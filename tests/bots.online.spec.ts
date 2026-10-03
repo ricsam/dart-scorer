@@ -19,9 +19,17 @@ test('house bots throw across devices, block manual scoring, survive reload and 
   await roomFor(page, 'Alex')
   const roomUrl = page.url()
   await page.getByRole('button', { name: 'NEW MATCH' }).click()
+  await expect(page.locator('.bot-card').first()).toBeHidden()
+  await page.locator('.bot-picker-disclosure summary').focus()
+  await page.keyboard.press('Enter')
   await expect(page.locator('.bot-card')).toHaveCount(6)
   await page.getByRole('button', { name: 'Add The Maximum, level 6, Pro' }).click()
   await expect(page.getByRole('button', { name: 'Remove The Maximum, level 6, Pro' })).toHaveAttribute('aria-pressed', 'true')
+  await page.locator('.bot-picker-disclosure summary').click()
+  await expect(page.locator('.bot-card').first()).toBeHidden()
+  await expect(page.locator('.bot-picker-disclosure summary')).toContainText('1 selected')
+  await expect(page.locator('.throw-order')).toContainText('The Maximum')
+  await page.locator('.bot-picker-disclosure summary').click()
   await page.getByRole('button', { name: 'Move The Maximum earlier' }).click()
   await expect(page.locator('.throw-order li').first()).toContainText('The Maximum')
   await page.locator('.bot-card').first().scrollIntoViewIfNeeded()
@@ -52,18 +60,95 @@ test('house bots throw across devices, block manual scoring, survive reload and 
   await expect(other.locator('.scoreboard .big-score').nth(1)).toHaveText('461')
   await expect(page.locator('.visit-list .visit')).toHaveCount(1)
   await expect(page.locator('.visit-progress .dart-slots .filled')).toHaveCount(2)
-  await expect(page.locator('.bot-match-note')).toContainText('UNRANKED')
+  await expect(page.locator('.bot-match-note')).toContainText('TRAINING')
 
   await other.goto(roomUrl)
-  await expect(other.locator('.live-card')).toContainText('UNRANKED')
+  await expect(other.locator('.live-card')).toContainText('TRAINING')
   await expect(other.locator('.live-card .bot-badge')).toHaveText('BOT · 6')
   await other.close()
+})
+
+test('match history keeps bot badges beside names and score columns aligned', async ({ page }, testInfo) => {
+  const humanName = 'W'.repeat(24)
+  const botNames = ['Rookie Rue', 'Captain Checkout']
+  await roomFor(page, humanName)
+  await page.getByRole('button', { name: 'NEW MATCH' }).click()
+  await page.locator('.bot-picker-disclosure summary').click()
+  await page.getByRole('button', { name: 'Add Rookie Rue, level 1, Novice' }).click()
+  await page.getByRole('button', { name: 'Add Captain Checkout, level 4, Advanced' }).click()
+  await page.getByRole('group', { name: 'Game', exact: true }).getByRole('button', { name: '101', exact: true }).click()
+  await page.getByRole('button', { name: 'Fewer legs' }).click()
+  await page.getByRole('button', { name: 'Fewer legs' }).click()
+  await page.getByRole('button', { name: 'START MATCH' }).click()
+  await enter(page, 'T20 9 D16')
+  await page.getByRole('button', { name: 'SAVE RESULT' }).click()
+  await page.getByRole('link', { name: 'ROOM', exact: true }).click()
+  await page.getByRole('tab', { name: /MATCHES/ }).click()
+
+  const history = page.getByRole('region', { name: 'Match history' })
+  const players = history.locator('.match-row-players > span')
+  await expect(players).toHaveCount(3)
+  await expect(history.locator('.match-row-meta .bot-badge')).toHaveText('BOT MATCH · TRAINING')
+  for (const theme of ['dark', 'light']) {
+    if (theme === 'light') {
+      await page.getByRole('button', { name: `Account menu for ${humanName}` }).click()
+      await page.getByRole('menuitem', { name: 'Light theme' }).click()
+      await page.keyboard.press('Escape')
+    }
+    for (const width of [1280, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 844 })
+      const human = players.filter({ hasText: humanName })
+      const humanLegs = (await human.locator('em').boundingBox())!
+      const humanAverage = (await human.locator(':scope > small').boundingBox())!
+      for (const name of botNames) {
+        const bot = players.filter({ hasText: name })
+        const nameBox = (await bot.locator('b').boundingBox())!
+        const badge = bot.locator('.bot-badge')
+        const badgeBox = (await badge.boundingBox())!
+        const legs = (await bot.locator('em').boundingBox())!
+        const average = (await bot.locator(':scope > small:not(.bot-badge)').boundingBox())!
+        // The badge belongs to the name, not the legs column or a second grid row.
+        expect(badgeBox.x - (nameBox.x + nameBox.width)).toBeGreaterThanOrEqual(4)
+        expect(badgeBox.x - (nameBox.x + nameBox.width)).toBeLessThanOrEqual(8)
+        expect(badgeBox.x + badgeBox.width).toBeLessThanOrEqual(legs.x)
+        for (const box of [nameBox, badgeBox, average]) {
+          expect(box.y + box.height / 2).toBeCloseTo(legs.y + legs.height / 2, 0)
+        }
+        expect(legs.x).toBeCloseTo(humanLegs.x, 1)
+        expect(average.x).toBeCloseTo(humanAverage.x, 1)
+        await expect(badge).toHaveCSS('font-size', '8px')
+        await expect(badge).toHaveCSS('color', theme === 'light' ? 'rgb(40, 87, 57)' : 'rgb(182, 221, 197)')
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      await history.screenshot({ path: testInfo.outputPath(`bot-history-${width}-${theme}.png`) })
+    }
+  }
+  const roomUrl = page.url()
+  await page.goto('/me')
+  await expect(page.getByText('No completed matches yet', { exact: true })).toBeVisible()
+  await page.getByRole('group', { name: 'Stats category' }).getByRole('button', { name: 'Training', exact: true }).click()
+  const training = page.getByRole('region', { name: 'Training stats' })
+  await expect(training.locator('.stat-tile').filter({ hasText: /^MATCHES/ })).toContainText('1')
+  await expect(training.locator('.outcome')).toHaveCount(0)
+  await expect(training.getByText('WIN RATE', { exact: true })).toHaveCount(0)
+  await expect(training.getByRole('table')).toContainText('101.0')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await training.screenshot({ path: testInfo.outputPath('training-profile-mobile-light.png') })
+  await page.goto(roomUrl)
+  await page.locator('.leaderboard-table tbody tr').filter({ hasText: humanName }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('button', { name: 'Training', exact: true }).click()
+  await expect(dialog.getByRole('region', { name: 'Training stats' })).toContainText('101.0')
+  await expect(dialog.locator('.form-dots')).toHaveCount(0)
+  await expect(dialog.getByText('WIN RATE', { exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('table')).toContainText('101.0')
 })
 
 test('mobile roster selection, human/capacity rules, bot result and bot-preserving rematch', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await roomFor(page, 'Taylor')
   await page.getByRole('button', { name: 'NEW MATCH' }).click()
+  await page.locator('.bot-picker-disclosure summary').click()
   await page.getByRole('button', { name: 'Add Rookie Rue, level 1, Novice' }).click()
   await page.getByRole('button', { name: 'Add The Maximum, level 6, Pro' }).click()
   await page.locator('.member-picker button').click()
@@ -97,7 +182,7 @@ test('mobile roster selection, human/capacity rules, bot result and bot-preservi
   await page.getByRole('button', { name: 'START MATCH' }).click()
   await enter(page, 'T20 9 D16')
   await expect(page.getByText('MATCH COMPLETE', { exact: true })).toBeVisible()
-  await expect(page.locator('.winner-modal')).toContainText('unranked')
+  await expect(page.locator('.winner-modal')).toContainText('training')
   await page.getByRole('button', { name: 'SAVE RESULT' }).click()
   await expect(page.getByRole('heading', { name: 'Taylor won 1–0' })).toBeVisible()
   await expect(page.locator('.stats-table .bot-badge')).toHaveText('BOT · 1')
@@ -109,6 +194,7 @@ test('mobile roster selection, human/capacity rules, bot result and bot-preservi
   await page.getByRole('menuitem', { name: 'Light theme' }).click()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'NEW MATCH' }).click()
+  await page.locator('.bot-picker-disclosure summary').click()
   await page.locator('.bot-card').first().scrollIntoViewIfNeeded()
   await expect(page.locator('.bot-card')).toHaveCount(6)
   await page.screenshot({ path: testInfo.outputPath('bot-roster-mobile-light.png') })

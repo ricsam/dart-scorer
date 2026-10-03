@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import type { RoomDetail } from '../../../shared/api'
 import { api } from '../../api'
 import { formatAverage, formatBestLeg, formatDate, formatDelta, formatPercent, formatRating } from '../../format'
 import { useResource } from '../../hooks'
-import { Avatar, ErrorState, FormDots, Loading, Sheet, StatTile } from '../../ui'
+import { Avatar, ErrorState, FormDots, Loading, Segmented, Sheet, StatTile } from '../../ui'
 import { MatchRow } from '../components/MatchRow'
+import { StatsProgress, TrainingTotals } from '../components/StatsProgress'
 
 function RatingChart({ points }: { points: { at: string; rating: number }[] }) {
   if (points.length < 2) return <p className="muted-note">The rating chart appears after two ranked matches.</p>
@@ -31,12 +33,21 @@ function RatingChart({ points }: { points: { at: string; rating: number }[] }) {
 
 export function PlayerDialog({ room, userId, onClose }: { room: RoomDetail; userId: string; onClose: () => void }) {
   const stats = useResource(`player:${room.id}:${userId}`, () => api.playerStats(room.id, userId))
+  const [mode, setMode] = useState<'competition' | 'training'>('competition')
   const member = room.members.find((item) => item.id === userId)
 
   return (
     <Sheet title={member?.name ?? stats.data?.player.name ?? 'Player'} eyebrow={`${room.name.toUpperCase()} · PLAYER`} onClose={onClose} labelledBy="player-dialog-title" wide>
       {stats.loading && !stats.data ? <Loading /> : stats.error ? <ErrorState message={stats.error.message} onRetry={stats.reload} /> : stats.data && (
         <div className="player-dialog">
+          <div className="stats-mode"><Segmented label="Stats category" value={mode} options={[{ value: 'competition', label: 'Competition' }, { value: 'training', label: 'Training' }]} onChange={setMode} /></div>
+          {mode === 'training' ? <section aria-label="Training stats">
+            <p className="stats-mode-note">Completed bot matches in this room. Training does not affect competition wins, losses or ratings.</p>
+            <TrainingTotals totals={stats.data.training.totals} />
+            <StatsProgress history={stats.data.training.history} title="Training monthly average" />
+            <h3 className="section-label">RECENT TRAINING MATCHES</h3>
+            {stats.data.training.recentMatches.length === 0 ? <p className="muted-note">No completed training matches yet.</p> : <div className="match-list">{stats.data.training.recentMatches.map((match) => <MatchRow key={match.id} match={match} highlightUserId={userId} />)}</div>}
+          </section> : <>
           <div className="player-dialog-head">
             <Avatar user={stats.data.player} size={52} />
             <div>
@@ -60,6 +71,7 @@ export function PlayerDialog({ room, userId, onClose }: { room: RoomDetail; user
             <StatTile label="180 / 140+ / 100+" value={`${stats.data.entry.scores180} / ${stats.data.entry.scores140} / ${stats.data.entry.scores100}`} />
           </div>
 
+          <StatsProgress history={stats.data.history} title="Competition monthly average" />
           <h3 className="section-label">RATING HISTORY</h3>
           <RatingChart points={stats.data.ratingHistory} />
 
@@ -90,6 +102,7 @@ export function PlayerDialog({ room, userId, onClose }: { room: RoomDetail; user
               </div>
             </>
           )}
+          </>}
         </div>
       )}
     </Sheet>

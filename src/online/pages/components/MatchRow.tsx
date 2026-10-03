@@ -9,21 +9,25 @@ import { Avatar } from '../../ui'
 export function MatchRow({ match, roomName, highlightUserId }: { match: MatchSummary; roomName?: string; highlightUserId?: string }) {
   const live = match.status === 'live'
   const me = highlightUserId ? match.players.find((player) => player.userId === highlightUserId) : undefined
-  const outcome = !live && me ? (me.won ? 'win' : 'loss') : null
+  const training = match.players.some((player) => player.botId)
+  const outcome = !training && !live && me ? (me.won ? 'win' : 'loss') : null
   return (
     <Link to={`/matches/${match.id}`} className={`match-row ${live ? 'live' : ''}`}>
       <div className="match-row-players">
         {match.players.map((player) => (
           <span key={player.slot} className={`${player.won ? 'winner' : ''} ${match.active === player.slot && live ? 'at-oche' : ''}`}>
             {player.botId ? <BotAvatar botId={player.botId} size={20} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={20} />}
-            <b>{player.name}</b>{player.botId && <BotBadge botId={player.botId} />}
+            <span className="match-row-player-name">
+              <b>{player.name}</b>
+              {player.botId && <BotBadge botId={player.botId} />}
+            </span>
             <em>{player.legs}</em>
             <small>{formatAverage(player.average)}</small>
           </span>
         ))}
       </div>
       <div className="match-row-meta">
-        {match.players.some((player) => player.botId) && <span className="bot-badge">BOT MATCH · UNRANKED</span>}
+        {training && <span className="bot-badge">BOT MATCH · TRAINING</span>}
         {live ? (
           <span className="live-pill"><Radio size={11} /> {match.awaitingConfirmation ? 'RESULT PENDING' : 'LIVE'}</span>
         ) : outcome ? <span className={`outcome ${outcome}`}>{outcome === 'win' ? 'WON' : 'LOST'}</span> : null}

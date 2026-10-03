@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import type {
   CareerTotals,
+  TrainingMatchTotals,
+  StatsHistoryPoint,
   LeaderboardEntry,
   LeaderboardPeriod,
   LeaderboardResponse,
@@ -80,11 +82,33 @@ export function aggregateResults(rows: ResultRow[]): CareerTotals {
   }
 }
 
+/** Training intentionally has no match win/loss metrics. */
+export function aggregateTrainingResults(rows: ResultRow[]): TrainingMatchTotals {
+  const { wins, losses, winRate, ...totals } = aggregateResults(rows)
+  void wins; void losses; void winRate
+  return totals
+}
+
+export function resultsHistory(rows: ResultRow[]): StatsHistoryPoint[] {
+  const months = new Map<string, ResultRow[]>()
+  for (const row of rows) {
+    const at = `${new Date(row.completed_at).toISOString().slice(0, 7)}-01T00:00:00.000Z`
+    const bucket = months.get(at) ?? []
+    bucket.push(row)
+    months.set(at, bucket)
+  }
+  return [...months].sort(([a], [b]) => a.localeCompare(b)).map(([at, bucket]) => {
+    const { average, matches } = aggregateTrainingResults(bucket)
+    return { at, average, matches }
+  })
+}
+
 /** Result rows for users in a room since `since` (inclusive), most recent first. */
-function roomResults(db: Db, roomId: string, since: string | null) {
+function roomResults(db: Db, roomId: string, since: string | null, training = false) {
   return db.all<ResultRow>(
     `SELECT * FROM match_results
      WHERE room_id = ? AND user_id IS NOT NULL AND (? IS NULL OR completed_at >= ?)
+       AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = match_results.match_id AND bp.bot_id IS NOT NULL)
      ORDER BY completed_at DESC, match_id DESC`,
     roomId, since, since,
   )
@@ -161,7 +185,8 @@ export function statsRoutes(services: Services) {
        FROM match_results me
        JOIN match_results opp ON opp.match_id = me.match_id AND opp.slot != me.slot
        JOIN users u ON u.id = opp.user_id
-       WHERE me.room_id = ? AND me.user_id = ? AND opp.user_id IS NOT NULL AND opp.user_id != me.user_id`,
+       WHERE me.room_id = ? AND me.user_id = ? AND opp.user_id IS NOT NULL AND opp.user_id != me.user_id
+         AND NOT EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = me.match_id AND bp.bot_id IS NOT NULL)`,
       room.id, player.id,
     )
     const headToHead = new Map<string, { opponent: UserRef; wins: number; losses: number }>()
@@ -172,21 +197,29 @@ export function statsRoutes(services: Services) {
       headToHead.set(pair.opponent_id, record)
     }
 
-    const recent = db.all<MatchRow>(
+    const recent = (training = false) => db.all<MatchRow>(
       `SELECT m.* FROM matches m
        WHERE m.room_id = ? AND m.status = 'completed'
          AND EXISTS (SELECT 1 FROM match_players p WHERE p.match_id = m.id AND p.user_id = ?)
+         AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = m.id AND bp.bot_id IS NOT NULL)
        ORDER BY m.completed_at DESC, m.id DESC LIMIT 10`,
       room.id, player.id,
     )
 
+    const trainingRows = roomResults(db, room.id, null, true).filter((row) => row.user_id === player.id)
     return c.json<PlayerRoomStatsResponse>({
       player,
       entry,
       ratingHistory,
       headToHead: [...headToHead.values()].sort((a, b) =>
         (b.wins + b.losses) - (a.wins + a.losses) || a.opponent.name.localeCompare(b.opponent.name)),
-      recentMatches: summarize(db, recent),
+      history: resultsHistory(allRows.filter((row) => row.user_id === player.id)),
+      recentMatches: summarize(db, recent()),
+      training: {
+        totals: aggregateTrainingResults(trainingRows),
+        history: resultsHistory(trainingRows),
+        recentMatches: summarize(db, recent(true)),
+      },
     })
   })
 

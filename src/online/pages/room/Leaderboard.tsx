@@ -113,7 +113,7 @@ export function Leaderboard({ room, refreshKey }: { room: RoomDetail; refreshKey
 
           {played.length === 0 ? (
             <EmptyState icon={<Crown size={26} />} title={period === 'all' ? 'No completed matches yet' : 'No matches in this period'}>
-              {period === 'all' ? 'Start a match — the leaderboard fills up as soon as the first result is saved.' : 'Try a longer period to see earlier results.'}
+              {period === 'all' ? 'Save a match without bots to start the leaderboard. Bot practice is tracked separately under Training.' : 'Try a longer period to see earlier results.'}
             </EmptyState>
           ) : null}
 
@@ -168,7 +168,7 @@ export function Leaderboard({ room, refreshKey }: { room: RoomDetail; refreshKey
               </table>
             </div>
           )}
-          <p className="table-footnote">Ratings start at 1000 and update after saved matches with at least two account players. Averages include bust darts. <Link to="/about">How ratings & stats work</Link></p>
+          <p className="table-footnote">Training games are excluded from all leaderboard statistics. Ratings start at 1000 and update after saved non-bot matches with at least two account players. Averages include bust darts. <Link to="/about">How ratings & stats work</Link></p>
         </>
       )}
 

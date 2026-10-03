@@ -250,7 +250,26 @@ it('keeps even mixed human/bot matches out of Elo and rating history while retai
   expect(roomDetail.room.members.map((member: { rating: number }) => member.rating)).toEqual([1016, 984])
   const stats = await owner.json('GET', `/api/rooms/${room.id}/players/${owner.userId}`, 200)
   expect(stats.ratingHistory).toHaveLength(1)
-  expect(stats.entry.matches).toBe(2)
+  expect(stats.entry).toMatchObject({ matches: 1, wins: 1, losses: 0, form: ['W'] })
+  expect(stats.headToHead).toEqual([{ opponent: { id: second.userId, name: 'Second', avatarUrl: null }, wins: 1, losses: 0 }])
+  expect(stats.recentMatches.map((m: MatchDetail) => m.id)).toEqual([ranked.id])
+  expect(stats.training.totals.matches).toBe(1)
+  expect(stats.training.recentMatches.map((m: MatchDetail) => m.id)).toEqual([done.id])
+  for (const key of ['wins', 'losses', 'winRate']) expect(stats.training.totals).not.toHaveProperty(key)
+
+  // A bot win is still training, including human-v-human pairs in the same game.
+  const { match: loss } = await owner.json<MatchResponse>('POST', `/api/rooms/${room.id}/matches`, 201, {
+    players: [{ botId: 'the-maximum' }, ...humans], settings: DEFAULTS_101,
+  })
+  await tick(3)
+  const lost = await finish(owner, await current(owner, loss.id))
+  expect(lost.results![0].won).toBe(true)
+  const career = await owner.json('GET', '/api/me/stats', 200)
+  expect(career.totals).toMatchObject({ matches: 1, wins: 1, losses: 0 })
+  expect(career.training.totals).toMatchObject({ matches: 2, average: 101 })
+  for (const key of ['wins', 'losses', 'winRate']) expect(career.training.totals).not.toHaveProperty(key)
+  const board = await owner.json('GET', `/api/rooms/${room.id}/leaderboard`, 200)
+  expect(board.entries.find((e: { id: string }) => e.id === second.userId)).toMatchObject({ matches: 1, losses: 1, form: ['L'] })
   await owner.json('DELETE', `/api/matches/${ranked.id}`, 204)
   expect((await current(owner, done.id)).results!.every((result) => result.ratingAfter === null)).toBe(true)
   const roomAfter = await owner.json('GET', `/api/rooms/${room.id}`, 200)

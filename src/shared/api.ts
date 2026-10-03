@@ -263,6 +263,8 @@ export type LeaderboardResponse = { period: LeaderboardPeriod; entries: Leaderbo
 export type PlayerRoomStatsResponse = {
   player: RoomMember
   entry: LeaderboardEntry
+  history: StatsHistoryPoint[]
+  training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; recentMatches: MatchSummary[] }
   /** Oldest first, one point per ranked match. */
   ratingHistory: { at: string; rating: number }[]
   headToHead: { opponent: UserRef; wins: number; losses: number }[]
@@ -271,10 +273,17 @@ export type PlayerRoomStatsResponse = {
 
 export type CareerTotals = Omit<LeaderboardEntry, keyof UserRef | 'rating' | 'ratingChange' | 'form'>
 
+export type TrainingMatchTotals = Omit<CareerTotals, 'wins' | 'losses' | 'winRate'>
+
+/** UTC calendar month (first day at midnight), oldest first; dart-weighted average. */
+export type StatsHistoryPoint = { at: string; average: number | null; matches: number }
+
 /** GET /api/me/stats — the signed-in user's statistics across all their rooms. */
 export type CareerStatsResponse = {
   user: User
   totals: CareerTotals
+  history: StatsHistoryPoint[]
+  training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; recentMatches: (MatchSummary & { roomName: string })[] }
   rooms: { id: string; name: string; rating: number; rank: number | null; matches: number }[]
   recentMatches: (MatchSummary & { roomName: string })[]
 }

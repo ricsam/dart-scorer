@@ -5,8 +5,9 @@ import { formatAverage, formatBestLeg, formatDate, formatPercent, formatRating }
 import { useDocumentTitle, useResource } from '../hooks'
 import { Link, useRouter } from '../router'
 import { useSession } from '../session'
-import { Avatar, EmptyState, ErrorState, Loading, StatTile } from '../ui'
+import { Avatar, EmptyState, ErrorState, Loading, Segmented, StatTile } from '../ui'
 import { MatchRow } from './components/MatchRow'
+import { StatsProgress, TrainingTotals } from './components/StatsProgress'
 
 export function ProfilePage() {
   useDocumentTitle('My stats — Oche')
@@ -18,6 +19,7 @@ export function ProfilePage() {
   const [signOutError, setSignOutError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [mode, setMode] = useState<'competition' | 'training'>('competition')
 
   if (!user) return null
 
@@ -83,6 +85,15 @@ export function ProfilePage() {
 
       {stats.loading && !stats.data ? <Loading /> : stats.error ? <ErrorState message={stats.error.message} onRetry={stats.reload} /> : totals && stats.data && (
         <>
+          <div className="stats-mode"><Segmented label="Stats category" value={mode} options={[{ value: 'competition', label: 'Competition' }, { value: 'training', label: 'Training' }]} onChange={setMode} /></div>
+          {mode === 'training' ? <section className="panel" aria-label="Training stats">
+            <div className="panel-head"><h2>Training</h2><span className="panel-sub">All rooms · completed bot matches</span></div>
+            <p className="stats-mode-note">Bot matches are training-only. They do not affect competition wins, losses or ratings. <Link to="/training">View training challenges & progress</Link></p>
+            <TrainingTotals totals={stats.data.training.totals} />
+            <StatsProgress history={stats.data.training.history} title="Training monthly average" />
+            <h3 className="section-label">RECENT TRAINING MATCHES</h3>
+            {stats.data.training.recentMatches.length === 0 ? <p className="muted-note">No completed training matches yet.</p> : <div className="match-list">{stats.data.training.recentMatches.map((match) => <MatchRow key={match.id} match={match} roomName={match.roomName} highlightUserId={user.id} />)}</div>}
+          </section> : <>
           <section className="panel">
             <div className="panel-head"><h2>Career</h2><span className="panel-sub">All rooms · completed matches</span></div>
             <p className="table-footnote stats-guide"><Link to="/about">How ratings & stats work</Link></p>
@@ -101,6 +112,7 @@ export function ProfilePage() {
                 <StatTile label="180 / 140+ / 100+" value={`${totals.scores180} / ${totals.scores140} / ${totals.scores100}`} />
               </div>
             )}
+            <StatsProgress history={stats.data.history} title="Competition monthly average" />
           </section>
 
           {stats.data.rooms.length > 0 && (
@@ -127,6 +139,7 @@ export function ProfilePage() {
               </div>
             </section>
           )}
+          </>}
         </>
       )}
     </div>

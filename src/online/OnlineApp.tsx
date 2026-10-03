@@ -14,6 +14,8 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RoomPage } from './pages/RoomPage'
+import { TrainingPage } from './pages/TrainingPage'
+import { TrainingSessionPage } from './pages/TrainingSessionPage'
 import './online.css'
 import './about.css'
 
@@ -57,6 +59,10 @@ function Routes() {
   }
 
   if (!user) return <Redirect to={`/login?returnTo=${encodeURIComponent(path + search)}`} />
+
+  if (path === '/training') return <OnlineLayout><TrainingPage /></OnlineLayout>
+  const training = matchPath('/training/:sessionId', path)
+  if (training) return <OnlineLayout><TrainingSessionPage key={training.sessionId} sessionId={training.sessionId} /></OnlineLayout>
 
   const room = matchPath('/rooms/:roomId', path)
   if (room) return <OnlineLayout><RoomPage key={room.roomId} roomId={room.roomId} /></OnlineLayout>

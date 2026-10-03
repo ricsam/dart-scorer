@@ -69,7 +69,8 @@ export function OnlineLayout({ children, bare = false }: { children: ReactNode; 
         {user && !bare ? (
           <nav className="online-nav" aria-label="Main">
             <Link to="/" className={path === '/' || path.startsWith('/rooms') ? 'active' : ''}><Users size={15} /> ROOMS</Link>
-            <Link to="/play"><Target size={15} /> QUICK GAME</Link>
+            <Link to="/training" className={path.startsWith('/training') ? 'active' : ''}><Target size={15} /> TRAINING</Link>
+            <Link to="/play">QUICK GAME</Link>
             {!user.guest && <Link to="/me" className={path === '/me' ? 'active' : ''}><BarChart3 size={15} /> MY STATS</Link>}
           </nav>
         ) : <span />}
@@ -136,6 +137,7 @@ function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme
             <small>{user.guest ? 'Guest · unranked' : user.email}</small>
           </div>
           <button role="menuitem" onClick={() => go('/')}><Users size={15} /> Rooms</button>
+          <button role="menuitem" onClick={() => go('/training')}><Target size={15} /> Training arena</button>
           <button role="menuitem" onClick={() => go('/play')}><Target size={15} /> Quick game</button>
           {user.guest
             ? <button role="menuitem" onClick={() => go(`/login?returnTo=${encodeURIComponent(path)}`)}><LogIn size={15} /> Sign in for an account</button>

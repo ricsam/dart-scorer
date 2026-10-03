@@ -18,7 +18,7 @@ The private `ghcr.io/ricsam/dart-scorer` package grants **Write** to `ricsam/dar
 3. Review the live deployment and a scoped server dry-run/diff. Substitute the image digest in the manifest; apply only this application's resources.
 4. Wait for rollout, check `/readyz` and `/api/me` (`auth.google=true`, `auth.dev=false`), and check a room from an existing signed-in session.
 
-Use `kubectl --context ricsam` where authorized. The account gateway does not grant this new namespace write access; the initial deployment used separately supplied pinned SSH to `hetzner` and `k3s kubectl`. Do not broaden gateway permissions merely to deploy.
+Use `kubectl --context ricsam` with the existing account credential. The account gateway profile has owner-approved cluster access; pinned SSH to `hetzner` and `k3s kubectl` remains an independent administrative route. Do not broaden workflow trust or RBAC merely to deploy.
 
 ## Backups
 

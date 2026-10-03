@@ -39,7 +39,7 @@ Secrets come only from the environment; nothing secret is logged (no tokens, cod
 
 ## Endpoints
 
-Everything in `src/shared/api.ts`, plus:
+Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
 
 - `GET /auth/google?returnTo=/path` → Google (PKCE S256 + state + nonce);
   `GET /auth/google/callback` → session cookie and redirect to `returnTo`, or
@@ -84,9 +84,16 @@ Everything in `src/shared/api.ts`, plus:
   Manual `submit` during a bot turn is rejected. Undo removes trailing bot darts and undoes the
   last human dart/visit in the current leg; if no human has thrown, it is a no-op. Rewind and reset
   reschedule the bot safely. Match/room deletion and server shutdown stop pending work.
-- Any match containing a bot is unranked for **all** participants, even with multiple registered
-  humans. Its result and statistics are retained, but its rating fields remain null and it is
-  excluded from Elo replay and rating history. Bot difficulties are approximate 501 straight-in,
+- Any match containing a bot is training for **all** participants, even with multiple registered
+  humans. Historical and new bot results are excluded from all competition aggregates, W/L,
+  form, head-to-head and recent-match statistics using participant-based queries. Its separate
+  training statistics are retained, but its rating fields remain null and it is excluded from Elo replay and rating history. Bot difficulties are approximate 501 straight-in,
   double-out averages, not guarantees for any individual leg.
+- Challenges: schema v4 adds `training_sessions`, separate from match tables. `GET/POST /api/training`,
+  `GET/DELETE /api/training/:id`, `POST /api/training/:id/actions` with `{baseVersion, action}`.
+  Actions are `submit` (one physical dart) and `undo` (live only). Automatic completion is immutable.
+  Conflict returns 409 and latest `session`. Creator can delete; only participants score. Solo is private;
+  room sessions require current membership even after body reads. Limit 10 live sessions per participant.
+  The UI polls every two seconds. The list returns at most 100 latest accessible participant sessions.
 - Career totals (`/api/me/stats`) include results from rooms the user has since left; recent
   matches only list rooms the user can still see.

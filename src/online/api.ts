@@ -21,6 +21,8 @@ import type {
   User,
 } from '../shared/api'
 
+import type { CreateTrainingRequest, TrainingListResponse, TrainingResponse } from '../shared/training'
+
 export class ApiRequestError extends Error {
   readonly status: number
   readonly body: (ApiError & Record<string, unknown>) | null
@@ -55,6 +57,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 const encode = encodeURIComponent
 
 export const api = {
+  trainingSessions: () => request<TrainingListResponse>('GET', '/api/training'),
+  createTraining: (body: CreateTrainingRequest) => request<TrainingResponse>('POST', '/api/training', body),
+  trainingSession: (id: string) => request<TrainingResponse>('GET', `/api/training/${encode(id)}`),
+  trainingAction: (id: string, baseVersion: number, action: { type: 'submit'; entry: string } | { type: 'undo' }) =>
+    request<TrainingResponse>('POST', `/api/training/${encode(id)}/actions`, { baseVersion, action }),
+  deleteTraining: (id: string) => request<void>('DELETE', `/api/training/${encode(id)}`),
   me: () => request<MeResponse>('GET', '/api/me'),
   updateMe: (name: string) => request<UpdateMeResponse>('PATCH', '/api/me', { name }),
   myStats: () => request<CareerStatsResponse>('GET', '/api/me/stats'),

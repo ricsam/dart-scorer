@@ -15,6 +15,7 @@ import { roomRoutes } from './rooms'
 import { assertRateLimit, clientIp, isMutating, originGuard, RateLimiter, securityHeaders } from './security'
 import { mountStatic } from './static'
 import { statsRoutes } from './stats'
+import { trainingRoutes } from './training'
 
 export type AppDeps = {
   db: Db
@@ -119,6 +120,7 @@ export function createApp(deps: AppDeps): App {
   api.route('/', roomRoutes(services))
   api.route('/', matchRoutes(services))
   api.route('/', statsRoutes(services))
+  api.route('/', trainingRoutes(services))
   app.route('/api', api)
   app.all('/api/*', (c) => errorResponse(c, 404, 'not_found', 'Unknown API endpoint.'))
   app.all('/auth/*', (c) => errorResponse(c, 404, 'not_found', 'Not found.'))

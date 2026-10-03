@@ -5,7 +5,7 @@ import type { AppEnv, Services } from './context'
 import { buildMatchView, matchSummary, memberRows, type MatchRow, type ResultRow, type RoomRow } from './data'
 import { expectObject, expectText, readJson, forbidden } from './http'
 import { displayRating, INITIAL_RATING, rankIn, roomRatings } from './ratings'
-import { aggregateResults } from './stats'
+import { aggregateResults, aggregateTrainingResults, resultsHistory } from './stats'
 import { toUser, USER_NAME_MAX_LENGTH } from './users'
 
 export function meRoutes(services: Services) {
@@ -33,7 +33,13 @@ export function meRoutes(services: Services) {
     const user = requireUser(c)
     if (user.is_guest) throw forbidden('Guests do not have career statistics.')
     // Totals cover every result the user ever recorded (their own numbers), including rooms they left.
-    const results = db.all<ResultRow>('SELECT * FROM match_results WHERE user_id = ? ORDER BY completed_at DESC, match_id DESC', user.id)
+    const resultRows = (training: boolean) => db.all<ResultRow>(
+      `SELECT * FROM match_results WHERE user_id = ?
+       AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = match_results.match_id AND bp.bot_id IS NOT NULL)
+       ORDER BY completed_at DESC, match_id DESC`, user.id,
+    )
+    const results = resultRows(false)
+    const trainingRows = resultRows(true)
 
     const rooms = db.all<RoomRow>(
       'SELECT r.* FROM room_members m JOIN rooms r ON r.id = m.room_id WHERE m.user_id = ? ORDER BY m.joined_at, r.id',
@@ -51,21 +57,28 @@ export function meRoutes(services: Services) {
     })
 
     // Match details are only shown for rooms the user can still see.
-    const recent = db.all<MatchRow & { room_name: string }>(
+    const recent = (training: boolean) => db.all<MatchRow & { room_name: string }>(
       `SELECT m.*, r.name AS room_name FROM matches m
        JOIN rooms r ON r.id = m.room_id
        JOIN room_members rm ON rm.room_id = m.room_id AND rm.user_id = ?
        WHERE m.status = 'completed'
          AND EXISTS (SELECT 1 FROM match_players p WHERE p.match_id = m.id AND p.user_id = ?)
+         AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = m.id AND bp.bot_id IS NOT NULL)
        ORDER BY m.completed_at DESC, m.id DESC LIMIT 10`,
       user.id, user.id,
-    )
+    ).map(({ room_name: roomName, ...row }) => ({ ...matchSummary(buildMatchView(db, row)), roomName }))
 
     return c.json<CareerStatsResponse>({
       user: toUser(user),
       totals: aggregateResults(results),
       rooms,
-      recentMatches: recent.map(({ room_name: roomName, ...row }) => ({ ...matchSummary(buildMatchView(db, row)), roomName })),
+      history: resultsHistory(results),
+      recentMatches: recent(false),
+      training: {
+        totals: aggregateTrainingResults(trainingRows),
+        history: resultsHistory(trainingRows),
+        recentMatches: recent(true),
+      },
     })
   })
 

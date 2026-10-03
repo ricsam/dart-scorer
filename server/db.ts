@@ -177,6 +177,23 @@ const MIGRATIONS: string[] = [
   ALTER TABLE match_players ADD COLUMN bot_id TEXT
     CHECK (bot_id IS NULL OR (user_id IS NULL AND guest_id IS NULL));
   `,
+  // 4 — training is deliberately isolated from match results and ratings.
+  `
+  CREATE TABLE training_sessions (
+    id TEXT PRIMARY KEY,
+    room_id TEXT REFERENCES rooms(id) ON DELETE CASCADE,
+    created_by TEXT NOT NULL REFERENCES users(id),
+    mode TEXT NOT NULL CHECK (mode IN ('around-clock', 'nine-dart')),
+    status TEXT NOT NULL CHECK (status IN ('live', 'completed')),
+    players TEXT NOT NULL,
+    state TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    completed_at TEXT
+  );
+  CREATE INDEX training_created ON training_sessions(created_at);
+  CREATE INDEX training_creator_status ON training_sessions(created_by, status);
+  `,
 ]
 
 export const SCHEMA_VERSION = MIGRATIONS.length

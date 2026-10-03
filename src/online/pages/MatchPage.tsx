@@ -182,7 +182,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
             </div>
           )}
 
-          {hasBots && <p className="bot-match-note">UNRANKED · Statistics retained.{canScore && ' Undo returns to the last human dart, removing any later bot darts.'}</p>}
+          {hasBots && <p className="bot-match-note">TRAINING · Separate practice stats only. No wins, losses or ratings affected.{canScore && ' Undo returns to the last human dart, removing any later bot darts.'}</p>}
           <RecentVisits
             players={historyPlayers}
             history={history}
@@ -257,7 +257,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
             <h2>{players[winner].name} {matchWinner !== null ? 'wins the match!' : 'wins!'}</h2>
             {matchWinner !== null ? (
               <>
-                <p>Final score {legScore}. {hasBots ? 'Save this unranked result to keep the match statistics. Room ratings are unchanged.' : 'Save the result to update the room leaderboard.'}</p>
+                <p>Final score {legScore}. {hasBots ? 'Save this training result to keep your practice statistics. Wins, losses and room ratings are unchanged.' : 'Save the result to update the room leaderboard.'}</p>
                 <MatchStatsTable rows={statRows(match, state, false)} />
               </>
             ) : (
@@ -338,10 +338,10 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
       </div>
       {error && <div className="form-error" role="alert">{error}</div>}
 
-      {hasBots && <p className="bot-match-note">BOT MATCH · Unranked for everyone. Match statistics retained; room ratings unchanged.</p>}
+      {hasBots && <p className="bot-match-note">BOT MATCH · Training for everyone. Practice statistics saved separately; wins, losses and ratings unchanged.</p>}
       <section className="panel">
         <div className="panel-head"><h2>Scorecard</h2></div>
-        <MatchStatsTable rows={rows} showRatings />
+        <MatchStatsTable rows={rows} showRatings={!hasBots} />
       </section>
 
       <section className="panel">
@@ -381,7 +381,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
           onConfirm={remove}
           busy={busy}
         >
-          {hasBots ? 'This unranked result and its statistics are removed from room history. Room ratings are unchanged.' : 'The result is removed from the room history and every rating is recalculated without it.'}
+          {hasBots ? 'This training result and its practice statistics are removed from room history. Wins, losses and ratings are unchanged.' : 'The result is removed from the room history and every rating is recalculated without it.'}
         </ConfirmDialog>
       )}
     </div>

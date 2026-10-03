@@ -8,6 +8,7 @@ import { api, errorMessage } from '../../api'
 import { useRouter } from '../../router'
 import { useSession } from '../../session'
 import { Avatar, Segmented, Sheet } from '../../ui'
+import '../../stats-progress.css'
 
 type Slot = { botId: string | null; key: string; userId: string | null; guestId: string | null; name: string; avatarUrl: string | null }
 const memberSlot = (member: RoomDetail['members'][number]): Slot => ({
@@ -16,7 +17,7 @@ const memberSlot = (member: RoomDetail['members'][number]): Slot => ({
 
 const MAX_LEGS = 11
 
-export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: () => void }) {
+export function NewMatchDialog({ room, onClose, botsInitiallyOpen = false, requireBot = false }: { room: RoomDetail; onClose: () => void; botsInitiallyOpen?: boolean; requireBot?: boolean }) {
   const { user } = useSession()
   const { navigate } = useRouter()
   const me = room.members.find((member) => member.id === user?.id)
@@ -28,8 +29,10 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
   const [settings, setSettings] = useState<MatchSettings>(room.defaults)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [botsOpen, setBotsOpen] = useState(botsInitiallyOpen)
 
   const hasHuman = slots.some((slot) => !slot.botId)
+  const needsBot = requireBot && !slots.some((slot) => slot.botId)
   const full = slots.length >= MAX_PLAYERS
   const toggleBot = (bot: BotProfile) => setSlots((current) => current.some((slot) => slot.botId === bot.id)
     ? current.filter((slot) => slot.botId !== bot.id)
@@ -75,7 +78,7 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (slots.length < MIN_PLAYERS || slots.length > MAX_PLAYERS || !hasHuman || busy) return
+    if (slots.length < MIN_PLAYERS || slots.length > MAX_PLAYERS || !hasHuman || needsBot || busy) return
     setBusy(true)
     setError(null)
     const body: CreateMatchRequest = {
@@ -92,7 +95,7 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
   }
 
   return (
-    <Sheet title="New match" eyebrow={room.name.toUpperCase()} onClose={onClose} labelledBy="new-match-title" wide>
+    <Sheet title={requireBot ? 'Bot practice' : 'New match'} eyebrow={room.name.toUpperCase()} onClose={onClose} labelledBy="new-match-title" wide>
       <form className="sheet-form new-match" onSubmit={submit}>
         <div className="settings-section">
           <div className="roster-heading">
@@ -125,6 +128,8 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
 
           <p className="field-hint">Guests stay in the room roster even if you cancel this match. They can connect to their slot from the invite link and are never ranked.</p>
 
+          <details className="bot-picker-disclosure" open={botsOpen} onToggle={(event) => setBotsOpen(event.currentTarget.open)}>
+          <summary>Practice against bots <span>{slots.filter((slot) => slot.botId).length} selected · {BOT_ROSTER.length} available</span></summary>
           <div className="bot-roster-heading"><strong>Meet your practice rivals</strong><span>Six original characters. Six levels. Your next challenge.</span></div>
           <div className="bot-roster" role="group" aria-label="Automatic bot opponents">
             {BOT_ROSTER.map((bot) => {
@@ -138,7 +143,9 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
               </button>
             })}
           </div>
-          <p className="field-hint bot-roster-note">Bots throw automatically, one dart at a time. Matches with bots are unranked for everyone; match statistics are retained. Include at least one human (a room player or guest). Averages are approximate for 501, single in / double out. All characters are fictional.</p>
+          <p className="field-hint bot-roster-note">Bots throw automatically, one dart at a time. Include at least one human (a room player or guest). Averages are approximate for 501, single in / double out. All characters are fictional.</p>
+          </details>
+          <p className="field-hint">All bot games are training-only for everyone: no impact on competition wins, losses or ratings. Statistics are saved separately under Training.</p>
 
           {slots.length > 0 && (
             <ol className="throw-order">
@@ -182,9 +189,9 @@ export function NewMatchDialog({ room, onClose }: { room: RoomDetail; onClose: (
 
         {error && <div className="form-error" role="alert">{error}</div>}
         <div className="sheet-actions">
-          <span className="sheet-summary">{!hasHuman ? 'Include at least one human' : slots.length < MIN_PLAYERS ? `Pick at least ${MIN_PLAYERS} players` : `${slots.length} players · ${settings.game} · first to ${settings.legsToWin}`}</span>
+          <span className="sheet-summary">{!hasHuman ? 'Include at least one human' : needsBot ? 'Choose at least one bot for training' : slots.length < MIN_PLAYERS ? `Pick at least ${MIN_PLAYERS} players` : `${slots.length} players · ${settings.game} · first to ${settings.legsToWin}`}</span>
           <button type="button" className="ghost-button" onClick={onClose}>CANCEL</button>
-          <button className="primary-button" disabled={busy || adding || !hasHuman || slots.length < MIN_PLAYERS || slots.length > MAX_PLAYERS}>{busy ? 'STARTING…' : 'START MATCH'}</button>
+          <button className="primary-button" disabled={busy || adding || !hasHuman || needsBot || slots.length < MIN_PLAYERS || slots.length > MAX_PLAYERS}>{busy ? 'STARTING…' : 'START MATCH'}</button>
         </div>
       </form>
     </Sheet>

@@ -7,6 +7,8 @@ import type {
   MatchesResponse,
   PlayerRoomStatsResponse,
 } from '../../src/shared/api'
+import { resultsHistory } from '../../server/stats'
+import type { ResultRow } from '../../server/data'
 import { CHECKOUT_101, Client, createMatch, createRoom, devLogin, finish, joinRoom, play, setup } from './helpers'
 
 /**
@@ -134,6 +136,8 @@ describe('player statistics', () => {
       { at: m2.completedAt, rating: 999 },
       { at: m3.completedAt, rating: 1015 },
     ])
+    expect(stats.history).toEqual([{ at: `${m1.completedAt!.slice(0, 7)}-01T00:00:00.000Z`, average: (202 / 9) * 3, matches: 3 }])
+    expect(stats.training).toMatchObject({ totals: { matches: 0, average: null }, history: [], recentMatches: [] })
     expect(stats.headToHead).toEqual([{ opponent: { id: expect.any(String), name: 'Nora', avatarUrl: null }, wins: 2, losses: 1 }])
     expect(stats.recentMatches.map((match) => match.id)).toEqual([m3.id, m2.id, m1.id])
     expect(stats.recentMatches[0].players.map((p) => [p.name, p.won, p.guest])).toEqual([['Max', true, false], ['Nora', false, false], ['Guest', false, true]])
@@ -158,6 +162,60 @@ describe('player statistics', () => {
     await olivia.json('GET', `/api/rooms/${room.id}/matches?limit=51`, 400)
     await olivia.json('GET', `/api/rooms/${room.id}/matches?limit=abc`, 400)
     await olivia.json('GET', `/api/rooms/${room.id}/matches?before=yesterday`, 400)
+  })
+})
+
+describe('training and progress', () => {
+  it('buckets UTC months oldest first with dart-weighted averages and null for no darts', () => {
+    const row = (completed_at: string, points: number, darts: number) => ({ completed_at, points, darts }) as ResultRow
+    expect(resultsHistory([
+      row('2026-03-01T00:00:00Z', 0, 0),
+      row('2026-02-01T00:30:00+01:00', 90, 3),
+      row('2026-01-15T12:00:00Z', 30, 9),
+      row('2026-02-10T00:00:00Z', 60, 3),
+    ])).toEqual([
+      { at: '2026-01-01T00:00:00.000Z', average: 30, matches: 2 },
+      { at: '2026-02-01T00:00:00.000Z', average: 60, matches: 1 },
+      { at: '2026-03-01T00:00:00.000Z', average: null, matches: 1 },
+    ])
+  })
+
+  it('classifies historical stored bot participants without rewriting results; recomputes on deletion and protects left rooms', async () => {
+    const ctx = setup()
+    const owner = await devLogin(ctx.app, 'Owner')
+    const human = await devLogin(ctx.app, 'Human')
+    const room = await createRoom(owner)
+    await joinRoom(human, room.inviteCode)
+    const roster = [{ userId: human.userId! }, { userId: owner.userId! }, { guestName: 'Historical bot' }]
+    const first = await finish(human, await play(human, await createMatch(owner, room.id, roster), CHECKOUT_101))
+    const second = await finish(human, await play(human, await createMatch(owner, room.id, roster), 'T20 M M', 'M M M', 'M M M', '9 D16'))
+    // Simulate already-persisted historical bot games, even with stale rating fields.
+    for (const match of [first, second]) {
+      ctx.db.run("UPDATE match_players SET guest_id = NULL, bot_id = 'the-maximum' WHERE match_id = ? AND slot = 2", match.id)
+      ctx.db.run("UPDATE match_results SET completed_at = '2025-01-15T12:00:00.000Z' WHERE match_id = ?", match.id)
+    }
+    const career = await human.json<CareerStatsResponse>('GET', '/api/me/stats', 200)
+    expect(career.totals.matches).toBe(0)
+    expect(career.history).toEqual([])
+    expect(career.recentMatches).toEqual([])
+    expect(career.training.totals.average).toBeCloseTo(202 / 8 * 3)
+    expect(career.training.history).toEqual([{ at: '2025-01-01T00:00:00.000Z', average: 202 / 8 * 3, matches: 2 }])
+    const player = await human.json<PlayerRoomStatsResponse>('GET', `/api/rooms/${room.id}/players/${human.userId}`, 200)
+    expect(player).toMatchObject({ entry: { matches: 0, form: [] }, history: [], ratingHistory: [], headToHead: [], recentMatches: [] })
+    expect(player.training.history).toEqual(career.training.history)
+    await owner.json('DELETE', `/api/matches/${second.id}`, 204)
+    const after = await human.json<CareerStatsResponse>('GET', '/api/me/stats', 200)
+    expect(after.training.totals).toMatchObject({ matches: 1, average: 101 })
+    expect(after.training.history).toEqual([{ at: '2025-01-01T00:00:00.000Z', average: 101, matches: 1 }])
+    await human.json('DELETE', `/api/rooms/${room.id}/members/${human.userId}`, 204)
+    const left = await human.json<CareerStatsResponse>('GET', '/api/me/stats', 200)
+    expect(left.training.totals.matches).toBe(1)
+    expect(left.training.history).toEqual(after.training.history)
+    expect(left.training.recentMatches).toEqual([])
+    await human.json('GET', `/api/matches/${first.id}`, 404)
+    await owner.json('DELETE', `/api/matches/${first.id}`, 204)
+    const empty = await human.json<CareerStatsResponse>('GET', '/api/me/stats', 200)
+    expect(empty.training).toMatchObject({ totals: { matches: 0, average: null }, history: [], recentMatches: [] })
   })
 })
 
