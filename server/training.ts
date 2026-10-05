@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { reduceTraining, trainingResults, type TrainingMode, type TrainingPlayer, type TrainingSession, type TrainingState, type TrainingAction } from '../src/shared/training'
+import { MAX_TRAINING_ENTRY_LENGTH, reduceTraining, trainingResults, type TrainingMode, type TrainingPlayer, type TrainingSession, type TrainingState, type TrainingAction } from '../src/shared/training'
 import { requireUser } from './auth'
 import { nowIso, type AppEnv, type Services, type UserRow } from './context'
 import { requireRoom } from './data'
@@ -68,7 +68,7 @@ export function trainingRoutes(services: Services) {
     const input = expectObject(body.action, 'action')
     let action: TrainingAction
     if (input.type === 'undo') action = { type: 'undo' }
-    else if (input.type === 'submit') action = { type: 'submit', entry: expectString(input.entry, 'entry', 16) }
+    else if (input.type === 'submit') action = { type: 'submit', entry: expectString(input.entry, 'entry', MAX_TRAINING_ENTRY_LENGTH) }
     else throw badRequest('Invalid training action.')
     let state: TrainingState
     try { state = reduceTraining(row.mode, session.players, session.state, action) } catch (error) { throw badRequest((error as Error).message) }

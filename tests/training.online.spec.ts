@@ -8,9 +8,12 @@ async function signIn(page: Page, name: string) {
   await expect(page.getByRole('button', { name: 'NEW ROOM' })).toBeVisible()
 }
 async function dart(page: Page, entry: string) {
-  await page.getByLabel('Training dart').fill(entry)
-  await page.getByRole('button', { name: 'ADD DART', exact: true }).click()
-  await expect(page.getByLabel('Training dart')).toBeEnabled()
+  await page.getByLabel('Enter dart hits').fill(entry)
+  const saved = page.waitForResponse((response) => response.url().endsWith('/actions') && response.request().method() === 'POST')
+  await page.getByRole('button', { name: /^ADD DARTS?$/ }).click()
+  expect((await saved).status()).toBe(200)
+  await expect(page.getByLabel('Enter dart hits')).toBeEnabled()
+  await expect(page.getByLabel('Enter dart hits')).toHaveValue('')
 }
 
 test('solo nine-dart practice persists, undoes and records progress without a competition result', async ({ page }, info) => {
@@ -27,14 +30,28 @@ test('solo nine-dart practice persists, undoes and records progress without a co
   await expect(page.locator('.training-player > strong')).toHaveText('60')
   await page.getByRole('button', { name: 'UNDO LAST DART' }).click()
   await expect(page.locator('.training-player > strong')).toHaveText('0')
-  await dart(page, '180')
+  await page.getByLabel('Enter dart hits').fill('T20 180 T20')
   await expect(page.getByRole('alert')).toContainText('possible single dart')
+  await expect(page.getByRole('button', { name: 'ADD DARTS', exact: true })).toBeDisabled()
   await expect(page.locator('.training-player > strong')).toHaveText('0')
-  for (let i = 0; i < 8; i++) await dart(page, 'T20')
+  await page.getByRole('button', { name: 'Clear entry' }).click()
+  // Keypad taps compose rather than immediately saving; more than a visit is allowed.
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'T20', exact: true }).click()
+  await expect(page.getByLabel('Enter dart hits')).toHaveValue('T20 T20 T20 T20')
+  await expect(page.locator('.calc-display > strong')).toHaveText('240')
+  await expect(page.locator('.training-player > strong')).toHaveText('0')
+  await page.getByRole('button', { name: 'ADD DARTS', exact: true }).click()
+  await expect(page.locator('.training-player > strong')).toHaveText('240')
+  await page.reload()
+  await expect(page.locator('.training-player > strong')).toHaveText('240')
+  await page.getByRole('button', { name: 'UNDO LAST DART' }).click()
+  await expect(page.locator('.training-player > strong')).toHaveText('180')
+  await dart(page, 'T20,T20 + T20 T20 T20')
   await page.getByRole('button', { name: 'MISS', exact: true }).click()
+  await page.getByRole('button', { name: 'ADD DART', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Training complete' })).toBeVisible()
   await expect(page.locator('.training-player > strong')).toHaveText('480')
-  await expect(page.getByLabel('Training dart')).toHaveCount(0)
+  await expect(page.getByLabel('Enter dart hits')).toHaveCount(0)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Training complete' })).toBeVisible()
   await page.getByRole('link', { name: /VIEW PROGRESS/ }).click()
@@ -62,6 +79,73 @@ test('solo nine-dart practice persists, undoes and records progress without a co
   await expect(page.locator('.training-session-link')).toHaveCount(0)
 })
 
+for (const challenge of [
+  { name: 'Around the clock', start: 'START AROUND THE CLOCK', entry: Array.from({ length: 20 }, (_, i) => `${i % 2 ? 'D' : 'T'}${i + 1}`).join(' '), score: '20/20' },
+  { name: 'Nine-dart challenge', start: 'START NINE-DART CHALLENGE', entry: Array(9).fill('T20').join(' '), score: '540' },
+]) {
+  test(`${challenge.name} accepts an entire solo challenge in one batch on mobile and desktop`, async ({ page }, info) => {
+    await signIn(page, 'Batch')
+    await page.goto('/training')
+    await page.getByRole('button', { name: new RegExp(`${challenge.name}.*SOLO OR MULTIPLAYER`) }).click()
+    await page.getByRole('button', { name: challenge.start }).click()
+    const input = page.getByLabel('Enter dart hits')
+    await input.fill(`${challenge.entry} MISS`)
+    await expect(page.getByRole('alert')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'ADD DARTS', exact: true })).toBeDisabled()
+    await expect(page.locator('.training-darts li')).toHaveCount(0)
+    await input.fill(challenge.entry)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    for (const width of [1280, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 844 })
+      await expect(input).toBeVisible()
+      await expect(page.getByRole('button', { name: 'ADD DARTS', exact: true })).toBeEnabled()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      await page.screenshot({ path: info.outputPath(`batch-entry-${width}.png`), fullPage: true })
+    }
+    await page.getByRole('button', { name: 'Account menu for Batch' }).click()
+    await page.getByRole('menuitem', { name: 'Light theme' }).click()
+    await page.keyboard.press('Escape')
+    await page.screenshot({ path: info.outputPath('batch-entry-mobile-light.png'), fullPage: true })
+    if (challenge.name === 'Around the clock') await input.press('Enter')
+    else await page.getByRole('button', { name: 'ADD DARTS', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Training complete' })).toBeVisible()
+    await expect(page.locator('.training-player > strong')).toHaveText(challenge.score)
+    await page.reload()
+    await expect(page.locator('.training-player > strong')).toHaveText(challenge.score)
+    await expect(page.getByRole('heading', { name: 'Training complete' })).toBeVisible()
+  })
+}
+
+test('batch controls pause while saving and keep the entry after a rejected save', async ({ page }) => {
+  await signIn(page, 'Retry')
+  await page.goto('/training')
+  await page.getByRole('button', { name: /Nine-dart challenge.*SOLO OR MULTIPLAYER/ }).click()
+  await page.getByRole('button', { name: 'START NINE-DART CHALLENGE' }).click()
+  const input = page.getByLabel('Enter dart hits')
+  await input.fill('T20 T20 T20 T20')
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  let submissions = 0
+  await page.route('**/api/training/*/actions', async (route) => {
+    submissions++
+    await gate
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Temporarily unavailable' }) })
+  })
+  await page.getByRole('button', { name: 'ADD DARTS', exact: true }).click()
+  await expect(input).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'T20', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'ADD DARTS', exact: true })).toBeDisabled()
+  release()
+  await expect(page.getByRole('alert')).toContainText('Temporarily unavailable')
+  await expect(input).toBeEnabled()
+  await expect(input).toHaveValue('T20 T20 T20 T20')
+  await expect(page.locator('.training-player > strong')).toHaveText('0')
+  expect(submissions).toBe(1)
+  await page.unroute('**/api/training/*/actions')
+  await dart(page, 'T20 T20 T20 T20')
+  await expect(page.locator('.training-player > strong')).toHaveText('240')
+})
+
 test('room players train together across devices and clock progress stays separate', async ({ page, browser }, info) => {
   await signIn(page, 'Host')
   const roomResponse = await page.request.post('/api/rooms', { data: { name: 'Practice crew' } })
@@ -83,11 +167,10 @@ test('room players train together across devices and clock progress stays separa
   await expect(page.getByRole('heading', { name: 'Around the clock' })).toBeVisible()
   await other.goto(page.url())
   await expect(other.getByRole('heading', { name: 'Host’s turn' })).toBeVisible()
-  await dart(page, 'T1')
-  await dart(page, 'D2')
-  await dart(page, '3')
+  // A batch follows the existing three-dart player rotation, including a partial next turn.
+  await dart(page, 'T1 D2 3 MISS')
   await expect(other.getByRole('heading', { name: 'Partner’s turn' })).toBeVisible({ timeout: 8000 })
-  await dart(other, 'MISS')
+  await expect(page.locator('.training-player').filter({ hasText: 'Host' })).toContainText('3/20')
   await expect(page.locator('.training-player').filter({ hasText: 'Partner' })).toContainText('1/60 darts', { timeout: 8000 })
   await other.getByRole('button', { name: 'UNDO LAST DART' }).click()
   await expect(page.locator('.training-player').filter({ hasText: 'Partner' })).toContainText('0/60 darts', { timeout: 8000 })

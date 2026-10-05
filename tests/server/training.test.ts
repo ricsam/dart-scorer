@@ -9,6 +9,41 @@ async function init() { ctx = setup(); contexts.push(ctx); return devLogin(ctx.a
 async function create(client: Client, body: unknown = { mode: 'nine-dart' }) { return (await client.json('POST', '/api/training', 201, body)).session as TrainingSession }
 async function act(client: Client, s: TrainingSession, entry: string) { return (await client.json('POST', `/api/training/${s.id}/actions`, 200, { baseVersion: s.version, action: { type: 'submit', entry } })).session as TrainingSession }
 describe('persistent training API', () => {
+  it('persists a batch as one version, rejects stale batches, and undoes one dart', async () => {
+    const alice = await init()
+    let s = await create(alice)
+    s = await act(alice, s, 'T20, D20 + SB MISS 1')
+    expect(s.version).toBe(1)
+    expect(s.state.throws).toHaveLength(5)
+    expect(s.results[0].points).toBe(126)
+    const conflict = await alice.json('POST', `/api/training/${s.id}/actions`, 409, { baseVersion: 0, action: { type: 'submit', entry: '1 2 3 4' } })
+    expect(conflict.session).toEqual(s)
+    const reloaded = new Client(createApp({ db: ctx.db, config: ctx.config, now: ctx.clock.now }))
+    reloaded.cookies = alice.cookies
+    try { expect((await reloaded.json('GET', `/api/training/${s.id}`, 200)).session).toEqual(s) }
+    finally { reloaded.app.services.bots.stop() }
+    s = (await alice.json('POST', `/api/training/${s.id}/actions`, 200, { baseVersion: 1, action: { type: 'undo' } })).session
+    expect(s.version).toBe(2)
+    expect(s.state.throws).toHaveLength(4)
+    s = await act(alice, s, '1 2 3 4 5')
+    expect(s).toMatchObject({ version: 3, status: 'completed', canScore: false })
+    expect(s.results[0]).toMatchObject({ darts: 9, points: 140 })
+  })
+  it('rejects invalid/oversized/early-finish batches without changing stored state or version', async () => {
+    const alice = await init()
+    const s = await create(alice, { mode: 'around-clock' })
+    const clock = Array.from({ length: 20 }, (_, i) => String(i + 1)).join(' ')
+    for (const entry of ['', '1 2 180 3', '1 60 2', '1'.repeat(8193), Array(61).fill('MISS').join(' '), `${clock} MISS`]) {
+      await alice.json('POST', `/api/training/${s.id}/actions`, 400, { baseVersion: 0, action: { type: 'submit', entry } })
+      expect((await alice.json('GET', `/api/training/${s.id}`, 200)).session).toEqual(s)
+    }
+    const finished = await act(alice, s, clock)
+    expect(finished).toMatchObject({ version: 1, status: 'completed' })
+    expect(finished.results[0]).toMatchObject({ darts: 20, hits: 20 })
+    const nine = await act(alice, await create(alice), Array(9).fill('T20').join(' '))
+    expect(nine).toMatchObject({ version: 1, status: 'completed' })
+    expect(nine.results[0].points).toBe(540)
+  })
   it('persists across app reload, conflicts on duplicate submissions and never touches career tables', async () => {
     const alice = await init()
     let s = await create(alice)
@@ -80,7 +115,7 @@ describe('persistent training API', () => {
     const alice = await init()
     for (const body of [null, {}, { mode: 'other' }, { mode: 'nine-dart', playerIds: [] }, { mode: 'nine-dart', playerIds: [alice.userId, alice.userId] }, { mode: 'nine-dart', playerIds: ['bot:foo'] }]) await alice.json('POST', '/api/training', 400, body)
     let s = await create(alice)
-    for (const action of [null, {}, { type: 'submit', entry: '1 2' }, { type: 'submit', entry: 0 }, { type: 'submit', entry: '180' }, { type: 'undo' }]) await alice.json('POST', `/api/training/${s.id}/actions`, 400, { baseVersion: 0, action })
+    for (const action of [null, {}, { type: 'submit', entry: '1 180 2' }, { type: 'submit', entry: 0 }, { type: 'submit', entry: '180' }, { type: 'undo' }]) await alice.json('POST', `/api/training/${s.id}/actions`, 400, { baseVersion: 0, action })
     s = await act(alice, s, '0')
     s = (await alice.json('POST', `/api/training/${s.id}/actions`, 200, { baseVersion: s.version, action: { type: 'undo' } })).session
     expect(s.results[0]).toMatchObject({ darts: 0, score: 0 })

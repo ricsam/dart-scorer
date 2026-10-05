@@ -1,4 +1,7 @@
-import { evaluateOnlineEntry } from '../game/entry'
+import { evaluateOnlineEntry, type EntryEvaluation } from '../game/entry'
+
+/** Enough for all 480 physical darts, while bounding parsing and replay work. */
+export const MAX_TRAINING_ENTRY_LENGTH = 8192
 
 export const TRAINING_MODES = [
   { id: 'around-clock', name: 'Around the clock', description: 'Hit 1–20 in order, in any ring. Finish within 60 darts.' },
@@ -51,13 +54,38 @@ function replay(mode: TrainingMode, players: TrainingPlayer[], entries: string[]
     state.throws.push({ slot: state.active, entry })
     inTurn++
     const results = trainingResults(mode, players, state)
-    if (results.every((r) => r.finished)) break
+    if (results.every((r) => r.finished)) {
+      if (state.throws.length < entries.length) throw new Error('Training completes before the end of this entry.')
+      break
+    }
     if (inTurn === 3 || results[state.active].finished) {
       do { state.active = (state.active + 1) % players.length } while (results[state.active].finished)
       inTurn = 0
     }
   }
   return state
+}
+
+/** A batch spans visits, but may not contain darts after the challenge completes. */
+export function evaluateTrainingEntry(mode: TrainingMode, players: TrainingPlayer[], state: TrainingState, expression: string): EntryEvaluation {
+  const results = trainingResults(mode, players, state)
+  const dartsRemaining = results.reduce((sum, r) => sum + (r.finished ? 0 : (mode === 'around-clock' ? 60 : 9) - r.darts), 0)
+  const evaluation: EntryEvaluation = { hits: [], total: 0, dartsRemaining, error: null }
+  try {
+    if (players.length < 1 || players.length > 8) throw new Error('Training needs 1–8 players.')
+    if (!dartsRemaining) throw new Error('Completed training cannot be edited.')
+    if (typeof expression !== 'string' || !expression.trim()) throw new Error('Enter at least one physical dart.')
+    if (expression.length > MAX_TRAINING_ENTRY_LENGTH) throw new Error('Training entry is too long.')
+    const tokens = expression.trim().split(/[\s,+]+/).filter(Boolean)
+    if (!tokens.length) throw new Error('Enter at least one physical dart.')
+    if (tokens.length > dartsRemaining) throw new Error(`Only ${dartsRemaining} darts left in this training.`)
+    evaluation.hits = tokens.map((token) => trainingDart(mode, token))
+    evaluation.total = evaluation.hits.reduce((sum, dart) => sum + dart.value, 0)
+    replay(mode, players, [...state.throws.map((item) => item.entry), ...evaluation.hits.map((dart) => dart.label)])
+  } catch (error) {
+    evaluation.error = (error as Error).message
+  }
+  return evaluation
 }
 
 export function reduceTraining(mode: TrainingMode, players: TrainingPlayer[], state: TrainingState, action: TrainingAction): TrainingState {
@@ -68,8 +96,9 @@ export function reduceTraining(mode: TrainingMode, players: TrainingPlayer[], st
     if (!entries.length) throw new Error('No darts to undo.')
     entries.pop()
   } else {
-    if (entries.length >= 480) throw new Error('Training is full.')
-    entries.push(trainingDart(mode, action.entry).label)
+    const evaluation = evaluateTrainingEntry(mode, players, state, action.entry)
+    if (evaluation.error) throw new Error(evaluation.error)
+    entries.push(...evaluation.hits.map((dart) => dart.label))
   }
   return replay(mode, players, entries)
 }

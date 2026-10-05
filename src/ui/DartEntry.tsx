@@ -1,6 +1,6 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Check, Delete, X } from 'lucide-react'
-import { ENTRY_PATTERN, evaluateEntry, evaluateOnlineEntry } from '../game/entry'
+import { ENTRY_PATTERN, evaluateEntry, evaluateOnlineEntry, type EntryEvaluation } from '../game/entry'
 import type { DartHit } from '../game/types'
 
 export const QUICK_DARTS = ['T20', 'T19', 'T18', 'T17', 'T16', 'D20', 'D18', 'D16', 'D12', 'D10', '20', '19', '18', '17', '16', '25', 'BULL', 'MISS']
@@ -14,13 +14,17 @@ type DartEntryOptions = {
   /** Stops typing anywhere on the page from being captured into the entry field. */
   captureBlocked: boolean
   onSubmit: (entry: string) => void
+  /** Challenges can validate batches beyond a normal three-dart visit. */
+  evaluate?: (expression: string) => EntryEvaluation
+  /** Async persistence can clear explicitly after a confirmed save instead. */
+  clearOnSubmit?: boolean
 }
 
-/** Typed dart entry state shared by standalone and online matches. */
-export function useDartEntry({ dartsThrown, canSubmit, captureBlocked, onSubmit, strict = false }: DartEntryOptions) {
+/** Typed dart entry state shared by matches and training challenges. */
+export function useDartEntry({ dartsThrown, canSubmit, captureBlocked, onSubmit, strict = false, evaluate, clearOnSubmit = true }: DartEntryOptions) {
   const [expression, setExpression] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const evaluation = useMemo(() => (strict ? evaluateOnlineEntry : evaluateEntry)(expression, dartsThrown), [expression, dartsThrown, strict])
+  const evaluation = useMemo(() => evaluate ? evaluate(expression) : (strict ? evaluateOnlineEntry : evaluateEntry)(expression, dartsThrown), [expression, dartsThrown, strict, evaluate])
 
   const focus = () => inputRef.current?.focus()
   const focusSoon = () => window.setTimeout(() => inputRef.current?.focus(), 0)
@@ -39,7 +43,7 @@ export function useDartEntry({ dartsThrown, canSubmit, captureBlocked, onSubmit,
   const submit = () => {
     if (!canSubmit || evaluation.error) return
     onSubmit(expression)
-    setExpression('')
+    if (clearOnSubmit) setExpression('')
     focusSoon()
   }
 
@@ -71,19 +75,29 @@ export function useDartEntry({ dartsThrown, canSubmit, captureBlocked, onSubmit,
     return () => window.removeEventListener('keydown', listener)
   }, [])
 
-  return { expression, evaluation, inputRef, update, addDart, clear, submit, focus, focusSoon }
+  return { expression, evaluation, inputRef, update, addDart, clear, submit, focus, focusSoon, canSubmit }
 }
 
 export type DartEntryController = ReturnType<typeof useDartEntry>
 
-export function DartEntry({ entry, currentVisit }: { entry: DartEntryController; currentVisit: DartHit[] }) {
+type DartEntryProps = {
+  entry: DartEntryController
+  currentVisit: DartHit[]
+  disabled?: boolean
+  progress?: ReactNode
+  hint?: ReactNode
+  placeholder?: string
+  quickDarts?: string[]
+}
+
+export function DartEntry({ entry, currentVisit, disabled = false, progress, hint, placeholder, quickDarts = QUICK_DARTS }: DartEntryProps) {
   const { expression, evaluation, inputRef } = entry
-  const dartsRemaining = 3 - currentVisit.length
+  const dartsRemaining = evaluation.dartsRemaining
   const entryError = evaluation.error
 
   return (
     <div className="calculator dart-entry">
-      <div className="visit-progress">
+      {progress ?? <div className="visit-progress">
         <span>THIS VISIT</span>
         <div className="dart-slots">
           {[0, 1, 2].map((index) => (
@@ -93,7 +107,7 @@ export function DartEntry({ entry, currentVisit }: { entry: DartEntryController;
           ))}
         </div>
         <strong>{currentVisit.reduce((sum, hit) => sum + (hit.counts ? hit.value : 0), 0)}</strong>
-      </div>
+      </div>}
       <div
         className={`calc-display ${entryError ? 'has-error' : ''}`}
         onClick={() => inputRef.current?.focus()}
@@ -102,6 +116,7 @@ export function DartEntry({ entry, currentVisit }: { entry: DartEntryController;
           <input
             ref={inputRef}
             autoFocus
+            disabled={disabled}
             value={expression}
             onChange={(event) => entry.update(event.target.value)}
             onKeyDown={(event) => {
@@ -117,28 +132,28 @@ export function DartEntry({ entry, currentVisit }: { entry: DartEntryController;
             autoComplete="off"
             spellCheck={false}
             aria-label="Enter dart hits"
-            placeholder={dartsRemaining === 3 ? 'e.g. T20 D20 or 20 5 D18' : `Enter dart ${currentVisit.length + 1}`}
+            placeholder={placeholder ?? (dartsRemaining === 3 ? 'e.g. T20 D20 or 20 5 D18' : `Enter dart ${currentVisit.length + 1}`)}
           />
         </div>
         <strong className={entryError ? 'invalid' : ''}>{expression ? (entryError ? '—' : evaluation.total) : '0'}</strong>
-        <button className="clear-key" onClick={entry.clear} aria-label="Clear entry"><Delete size={22} /></button>
+        <button className="clear-key" disabled={disabled} onClick={entry.clear} aria-label="Clear entry"><Delete size={22} /></button>
       </div>
-      {entryError && <div className="entry-error">{entryError}</div>}
+      {entryError && <div className="entry-error" role="alert">{entryError}</div>}
       <div className="keypad dart-pad">
-        {QUICK_DARTS.map((dart) => (
+        {quickDarts.map((dart) => (
           <button
             key={dart}
             className={dart.startsWith('T') ? 'triple' : dart.startsWith('D') || dart === 'BULL' ? 'double' : ''}
             onClick={() => entry.addDart(dart)}
-            disabled={dartsRemaining === 0}
+            disabled={disabled || dartsRemaining === 0}
           >{dart}</button>
         ))}
-        <button className="clear-all" onClick={entry.clear}><X size={17} /> CLEAR</button>
-        <button className="enter-score" onClick={entry.submit} disabled={Boolean(entryError)}>
+        <button className="clear-all" disabled={disabled} onClick={entry.clear}><X size={17} /> CLEAR</button>
+        <button className="enter-score" onClick={entry.submit} disabled={disabled || !entry.canSubmit || Boolean(entryError)}>
           <Check size={20} strokeWidth={3} /> {expression.trim() ? `ADD DART${evaluation.hits.length === 1 ? '' : 'S'}` : 'ADD MISS'}
         </button>
       </div>
-      <p className="calc-hint">Type <b>36</b> for one dart; use <b>D18</b> or <b>T12</b> when the ring matters</p>
+      <p className="calc-hint">{hint ?? <>Type <b>36</b> for one dart; use <b>D18</b> or <b>T12</b> when the ring matters</>}</p>
     </div>
   )
 }

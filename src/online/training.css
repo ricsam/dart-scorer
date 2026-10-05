@@ -38,10 +38,21 @@ button.training-mode { cursor: pointer; }
 .training-target small { color: var(--green); font-size: 10px; letter-spacing: .12em; }
 .training-target strong { font-family: 'Barlow Condensed'; font-size: 62px; line-height: 1; }
 .training-target span { color: #9bac9f; font-size: 12px; line-height: 1.6; }
-.training-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 14px; }
-.training-quick-darts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
-.training-entry > .field-hint { grid-column: 1 / -1; }
+.training-entry { display: grid; gap: 14px; min-width: 0; }
 .training-entry .text-button { justify-self: start; }
+.training-batch-progress { grid-template-columns: auto 1fr auto; gap: 8px; }
+.training-batch-progress > b { font-size: 11px; font-weight: 500; text-align: center; }
+.training-batch-progress > span:last-child { text-align: right; letter-spacing: 0; }
+.training-entry .calculator { order: 0; }
+.training-entry .calc-hint { display: block; font-size: 11px; line-height: 1.6; }
+.training-entry .dart-pad { display: grid; }
+.training-entry .dart-pad button { min-height: 44px; }
+.training-entry .dart-pad .clear-all { grid-column: 1 / span 3; }
+.training-entry .entry-error { font-size: 11px; padding: 6px 10px; }
+.training-entry .visit-progress > span { font-size: 9px; }
+.training-entry .calc-display { min-height: 64px; }
+.training-entry .clear-key:disabled { opacity: .35; cursor: default; }
+.training-entry .field-hint { margin: 0; }
 .training-darts { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 8px; }
 .training-darts li { display: flex; justify-content: space-between; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 11px; }
 .training-darts li span { overflow-wrap: anywhere; min-width: 0; color: #9bac9f; }
@@ -54,6 +65,6 @@ button.training-mode { cursor: pointer; }
 .light .training-mode > small, .light .training-mode > svg, .light .training-page .panel-head > a, .light .training-target small, .light .training-player.active small { color: #087b3d; }
 .light .training-mode.selected { border-color: #087b3d; }
 @media (max-width: 760px) { .training-modes { grid-template-columns: 1fr; } .training-mode { padding: 18px; } .arena-mark { display: none; } }
-@media (max-width: 440px) { .training-entry { grid-template-columns: 1fr; } .training-entry > button.primary-button { width: 100%; } .training-scoreboard { grid-template-columns: repeat(2, minmax(0, 1fr)); } .training-player { padding: 12px; } .training-player > strong { font-size: 44px; } .training-session-link { flex-direction: column; } .training-session-link > span:last-child { text-align: left; } .training-complete .primary-button { height: auto; min-height: 40px; white-space: normal; padding: 10px; } }
+@media (max-width: 440px) { .training-batch-progress { grid-template-columns: 1fr auto; } .training-batch-progress > span:first-child { grid-column: 1 / -1; } .training-batch-progress > b { text-align: left; } .training-scoreboard { grid-template-columns: repeat(2, minmax(0, 1fr)); } .training-player { padding: 12px; } .training-player > strong { font-size: 44px; } .training-session-link { flex-direction: column; } .training-session-link > span:last-child { text-align: left; } .training-complete .primary-button { height: auto; min-height: 40px; white-space: normal; padding: 10px; } }
 /* Keep the four navigation destinations usable in compact headers. */
 @media (min-width: 681px) and (max-width: 1000px) { .online-nav a { padding: 0 10px; } .user-menu-button > span { max-width: 90px; } }
