@@ -19,6 +19,8 @@ const child = spawn(process.execPath, ['--import', 'tsx', 'server/index.ts'], {
     DEV_LOGIN: 'true',
     GOOGLE_CLIENT_ID: '',
     GOOGLE_CLIENT_SECRET: '',
+    // Every browser in the suite signs in from 127.0.0.1; keep the per-IP auth limit out of the way.
+    AUTH_RATE_LIMIT_PER_MINUTE: '1000',
   },
 })
 const stop = () => child.kill('SIGTERM')

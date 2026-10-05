@@ -19,7 +19,7 @@ type ScoreboardProps = {
 
 export function Scoreboard({ players, active, winner, currentVisit, doubleIn, doubleOut, onEditName, renderNameAdornment, averages }: ScoreboardProps) {
   return (
-    <section className={`scoreboard ${players.length > 2 ? 'multi-player' : ''}`}>
+    <section className={`scoreboard ${players.length > 2 ? 'multi-player' : ''} ${players.length === 1 ? 'solo' : ''}`}>
       {players.map((player, index) => {
         const dartsAvailable = index === active ? 3 - currentVisit.length : 3
         const checkout = findCheckout(player.score, doubleOut, dartsAvailable, doubleIn && !player.opened)

@@ -86,11 +86,18 @@ export function Toast({ message, onDismiss, tone = 'info' }: { message: string; 
   )
 }
 
-export function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (value: T) => void; label: string }) {
+/** A row of toggle buttons. `disabled` makes the whole control read-only; options can also be disabled one by one. */
+export function Segmented<T extends string | number>({ value, options, onChange, label, disabled = false }: {
+  value: T
+  options: { value: T; label: ReactNode; disabled?: boolean; title?: string }[]
+  onChange: (value: T) => void
+  label: string
+  disabled?: boolean
+}) {
   return (
     <div className="rule-options segmented" role="group" aria-label={label} style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
       {options.map((option) => (
-        <button key={String(option.value)} type="button" className={option.value === value ? 'active' : ''} aria-pressed={option.value === value} onClick={() => onChange(option.value)}>
+        <button key={String(option.value)} type="button" className={option.value === value ? 'active' : ''} aria-pressed={option.value === value} disabled={disabled || option.disabled} title={option.title} onClick={() => { if (option.value !== value) onChange(option.value) }}>
           {option.label}
         </button>
       ))}

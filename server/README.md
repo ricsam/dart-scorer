@@ -34,6 +34,7 @@ npx tsc -p tsconfig.server.json
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Google sign-in is enabled only when both are set. Authorized redirect URI: `${PUBLIC_URL}/auth/google/callback`. |
 | `DEV_LOGIN` | | `true` enables `POST /auth/dev-login` (any email, no password) — ignored when `NODE_ENV=production`. |
 | `TRUST_PROXY` | | `true` takes the client IP (for rate limits) from `CF-Connecting-IP`, else the first `X-Forwarded-For` entry. Set it behind Cloudflare/Traefik, otherwise every visitor shares the proxy's IP. |
+| `AUTH_RATE_LIMIT_PER_MINUTE` | `30` | Per-IP limit for `/auth/*` requests. Only raise it where many players genuinely share one address (the Playwright harness sets `1000`). |
 
 Secrets come only from the environment; nothing secret is logged (no tokens, codes or query strings).
 
@@ -47,12 +48,16 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
   `google_failed`, `email_unverified` or `google_unavailable`.
 - `POST /auth/logout` (204), `POST /auth/dev-login` (`{ user }`).
 - `GET /healthz` (process up) and `GET /readyz` (database answers).
-- SSE: `GET /api/matches/:id/events` (event `match`; additionally `match-deleted` with
-  `{ matchId }` just before the stream closes when the match is deleted) and
-  `GET /api/leagues/:id/events` (event `league`). Streams start with `retry: 3000`, send a heartbeat
-  comment every 25 s. Logout immediately closes only that session's streams (other sessions
-  remain connected); removal or league deletion closes streams immediately without draining queued
-  events. Session expiry/revocation and membership are checked before each write and heartbeat.
+- SSE: `GET /api/matches/:id/events` (event `match`; `chat` messages for the match or its lobby;
+  `lobby` `{ type: 'started', matchId }` when its lobby starts the next game; and `match-deleted`
+  with `{ matchId }` just before the stream closes when the match is deleted),
+  `GET /api/leagues/:id/events` (event `league`), `GET /api/lobbies/:id/events` (events `lobby` and
+  `chat`; members only; a final `removed`/`closed` lobby event is delivered before the stream ends)
+  and `GET /api/me/events` (event `user`: lobby invites). Streams start with `retry: 3000`, send a
+  heartbeat comment every 25 s. Logout immediately closes only that session's streams (other
+  sessions remain connected); removal or league deletion closes streams immediately without
+  draining queued events. Session expiry/revocation and access are checked before each write and
+  heartbeat. Open streams also drive presence ("online"), with a 5 s grace period between pages.
 
 ## Behaviour notes
 
@@ -73,22 +78,27 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
   return 400 without changing the version. Numeric shorthand such as 36 and 60 remains valid.
 - Ratings: per league, Elo with K = 32 over all pairs of signed-in players (K/(n−1) scaling),
   replayed from scratch in completion order whenever a match is finished or a finished match is
-  deleted. Stored at full precision; the API rounds to integers.
-- House bots: select one of six fictional characters in New match. Requests accept `{ botId }`
-  alongside human/guest identities, with at least one human and no duplicate bots. Profiles live
-  in `src/shared/bots.ts`; accuracy and checkout-aware dart simulation live in `server/bot-darts.ts`.
-  Bots are stored only in `match_players.bot_id`, not as accounts or claimable guests (schema v3).
+  deleted. Stored at full precision; the API rounds to integers. Ranked lobby matches update the
+  **global rating** instead (same formula): each saved ranked result is applied on top of
+  `global_ratings`, and `recomputeGlobalRatings` can replay them all. `GET /api/rankings` lists the
+  top 100 plus the viewer.
+- House bots: add one of six fictional characters to a lobby or a league match. Requests accept
+  `{ botId }` alongside human/guest identities, with at least one human and no duplicate bots.
+  Profiles live in `src/shared/bots.ts`; accuracy and checkout-aware dart simulation live in
+  `server/bot-darts.ts`. Bots are stored only in `match_players.bot_id`, not as accounts or
+  claimable guests (schema v3).
 - Bot turns are server-owned, one physical dart every 850 ms, with version checks and normal
   SSE broadcasts. They continue without connected viewers, stop at human turns or leg completion,
   and resume partial visits after restart. Humans still start the next leg and save results.
   Manual `submit` during a bot turn is rejected. Undo removes trailing bot darts and undoes the
   last human dart/visit in the current leg; if no human has thrown, it is a no-op. Rewind and reset
   reschedule the bot safely. Match/league deletion and server shutdown stop pending work.
-- Any match containing a bot is training for **all** participants, even with multiple registered
-  humans. Historical and new bot results are excluded from all competition aggregates, W/L,
-  form, head-to-head and recent-match statistics using participant-based queries. Its separate
-  training statistics are retained, but its rating fields remain null and it is excluded from Elo replay and rating history. Bot difficulties are approximate 501 straight-in,
-  double-out averages, not guarantees for any individual leg.
+- Any match containing a bot, and any solo game, is **practice** (`matches.practice`) for **all**
+  participants, even with multiple registered humans. Practice results are excluded from all
+  competition aggregates, W/L, form, head-to-head and recent-match statistics. Their separate
+  training statistics are retained, but rating fields remain null and they are excluded from Elo
+  replay and rating history. Bot difficulties are approximate 501 straight-in, double-out
+  averages, not guarantees for any individual leg.
 - Challenges: schema v4 adds `training_sessions`, separate from match tables. `GET/POST /api/training`,
   `GET/DELETE /api/training/:id`, `POST /api/training/:id/actions` with `{baseVersion, action}`.
   Actions are `submit` (one physical dart) and `undo` (live only). Automatic completion is immutable.
@@ -96,4 +106,36 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
   league sessions require current membership even after body reads. Limit 10 live sessions per participant.
   The UI polls every two seconds. The list returns at most 100 latest accessible participant sessions.
 - Career totals (`/api/me/stats`) include results from leagues the user has since left; recent
-  matches only list leagues the user can still see.
+  matches only list leagues the user can still see, plus the user's own lobby games. The response
+  also has `all` (competition + training), a 50-game `trend` and the `global` rating.
+
+## Lobbies, chat and online rules (schema v5)
+
+- Schema v5 renames rooms to leagues (`leagues`, `league_members`, `league_id`), rebuilds
+  `matches`/`match_results` with a nullable `league_id` (foreign keys off during the rebuild, then
+  `foreign_key_check`), and adds `matches.lobby_id/visibility/ranked/practice/forfeit_slot`,
+  `match_players.controller_id`, `lobbies`, `lobby_players` (one seat per account across all
+  lobbies), `lobby_invites`, `lobby_bans`, `global_ratings` and `chat_messages`. Historical bot
+  matches are marked practice. Take a consistent backup before upgrading (see deploy notes).
+- Lobbies (`server/lobbies.ts`, read models in `server/lobby-data.ts`): create/current/list public,
+  view (members, public, invite code or direct invite), leader-only settings, seats (bots, local
+  players), order, invite code rotation, invite candidates (league co-members and earlier lobby
+  opponents), invites, start. Joining or creating leaves your previous lobby; when the leader
+  leaves, the longest-seated account leads and the leader's local players go too; an empty lobby
+  closes. Removed players are banned until invited again. Public listings require the leader to be
+  online and a free seat. Visibility is snapshotted on the match: public lobby games can be watched
+  by any signed-in user; private ones by players, scorers and current lobby members.
+- Lobby match rules (`authorizeAction` in `server/matches.ts`): `submit` only for the active slot
+  you control (your own; the leader controls local players), `undo` only when
+  `undoTargetSlot` is yours, `resetLeg`/`rewind` only when you control every human slot.
+  `POST /api/matches/:id/forfeit` concedes your own slot, or claims the active account opponent
+  after three minutes without any change (`claim.at`). Forfeits save immediately with the
+  forfeiting slot last and others by legs. Ranked lobby games cannot be deleted.
+- Results are saved by `server/results.ts` (explicit save, forfeit and the janitor). The janitor
+  (`server/janitor.ts`, every 30 s from `server/index.ts`) auto-saves decided lobby games after
+  two minutes, expires invites after an hour and closes lobbies idle for 30 minutes with nobody
+  connected and no live game.
+- Chat (`server/chat.ts`): lobby threads (members, and players of its live game) and match
+  threads for league matches (league members). A lobby match uses its lobby's thread while the
+  lobby exists. 1–280 characters, 20 messages per user per minute, latest 200 per thread kept.
+  System messages are complete sentences. Public spectators never receive lobby chat.

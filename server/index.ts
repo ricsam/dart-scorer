@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server'
 import { createApp } from './app'
-import { loadConfig } from './config'
+import { loadConfig, loadLimitOverrides } from './config'
 import { openDatabase } from './db'
 
 function main() {
@@ -8,7 +8,7 @@ function main() {
   for (const warning of warnings) console.warn(`[oche] ${warning}`)
 
   const db = openDatabase(config.databasePath)
-  const app = createApp({ db, config, accessLog: true })
+  const app = createApp({ db, config, accessLog: true, limits: loadLimitOverrides() })
   app.services.janitor.start()
 
   const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host }, (info) => {

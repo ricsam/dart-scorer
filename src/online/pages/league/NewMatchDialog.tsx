@@ -1,21 +1,21 @@
 import { useState, type FormEvent } from 'react'
-import { ArrowUp, Minus, Plus, Shuffle, UserPlus, X } from 'lucide-react'
-import { GAMES, MAX_PLAYERS, MIN_PLAYERS, PLAYER_NAME_MAX_LENGTH } from '../../../game/engine'
+import { ArrowUp, Shuffle, UserPlus, X } from 'lucide-react'
+import { MAX_PLAYERS, MIN_PLAYERS, PLAYER_NAME_MAX_LENGTH } from '../../../game/engine'
 import type { CreateMatchRequest, MatchSettings, LeagueDetail } from '../../../shared/api'
 import { BOT_ROSTER, type BotProfile } from '../../../shared/bots'
 import { BotAvatar, BotBadge } from '../../BotAvatar'
 import { api, errorMessage } from '../../api'
 import { useRouter } from '../../router'
 import { useSession } from '../../session'
-import { Avatar, Segmented, Sheet } from '../../ui'
+import { Avatar, Sheet } from '../../ui'
+import { BotRoster } from '../components/BotRoster'
+import { MatchSettingsFields } from '../components/MatchSettingsFields'
 import '../../stats-progress.css'
 
 type Slot = { botId: string | null; key: string; userId: string | null; guestId: string | null; name: string; avatarUrl: string | null }
 const memberSlot = (member: LeagueDetail['members'][number]): Slot => ({
   botId: null, key: member.id, userId: member.guest ? null : member.id, guestId: member.guest ? member.id : null, name: member.name, avatarUrl: member.avatarUrl,
 })
-
-const MAX_LEGS = 11
 
 export function NewMatchDialog({ league, onClose, botsInitiallyOpen = false, requireBot = false }: { league: LeagueDetail; onClose: () => void; botsInitiallyOpen?: boolean; requireBot?: boolean }) {
   const { user } = useSession()
@@ -131,18 +131,7 @@ export function NewMatchDialog({ league, onClose, botsInitiallyOpen = false, req
           <details className="bot-picker-disclosure" open={botsOpen} onToggle={(event) => setBotsOpen(event.currentTarget.open)}>
           <summary>Practice against bots <span>{slots.filter((slot) => slot.botId).length} selected · {BOT_ROSTER.length} available</span></summary>
           <div className="bot-roster-heading"><strong>Meet your practice rivals</strong><span>Six original characters. Six levels. Your next challenge.</span></div>
-          <div className="bot-roster" role="group" aria-label="Automatic bot opponents">
-            {BOT_ROSTER.map((bot) => {
-              const picked = slots.some((slot) => slot.botId === bot.id)
-              return <button key={bot.id} type="button" className={`bot-card ${picked ? 'picked' : ''}`} aria-pressed={picked} aria-label={`${picked ? 'Remove' : 'Add'} ${bot.name}, level ${bot.difficulty}, ${bot.level}`} disabled={busy || (!picked && full)} onClick={() => toggleBot(bot)}>
-                <BotAvatar botId={bot.id} size={48} />
-                <span className="bot-card-copy"><small>LEVEL {bot.difficulty} · {bot.level}</small><strong>{bot.name}</strong><em>“{bot.nickname}”</em></span>
-                <span className="bot-toggle" aria-hidden="true">{picked ? <Minus size={16} /> : <Plus size={16} />}</span>
-                <span className="bot-description">{bot.description}</span>
-                <span className="bot-skill"><span aria-hidden="true">{[1, 2, 3, 4, 5, 6].map((level) => <i key={level} className={level <= bot.difficulty ? 'filled' : ''} />)}</span><span>{bot.average} AVG</span></span>
-              </button>
-            })}
-          </div>
+          <BotRoster picked={(botId) => slots.some((slot) => slot.botId === botId)} onToggle={toggleBot} disabled={(bot) => busy || (!slots.some((slot) => slot.botId === bot.id) && full)} />
           <p className="field-hint bot-roster-note">Bots throw automatically, one dart at a time. Include at least one human (a league player or guest). Averages are approximate for 501, single in / double out. All characters are fictional.</p>
           </details>
           <p className="field-hint">All bot games are training-only for everyone: no impact on competition wins, losses or ratings. Statistics are saved separately under Training.</p>
@@ -164,28 +153,7 @@ export function NewMatchDialog({ league, onClose, botsInitiallyOpen = false, req
           {slots.length > 1 && <button type="button" className="text-button" onClick={shuffle}><Shuffle size={13} /> SHUFFLE ORDER</button>}
         </div>
 
-        <div className="settings-section rule-settings">
-          <div className="rule-row">
-            <div><strong>Game</strong><span>Starting score for every leg.</span></div>
-            <Segmented label="Game" value={settings.game} options={GAMES.map((game) => ({ value: game, label: game }))} onChange={(game) => setSettings((current) => ({ ...current, game }))} />
-          </div>
-          <div className="rule-row">
-            <div><strong>Starting rule</strong><span>{settings.doubleIn ? 'Scoring begins only after hitting a double.' : 'Every scoring dart counts immediately.'}</span></div>
-            <Segmented label="Starting rule" value={settings.doubleIn ? 'double' : 'single'} options={[{ value: 'single', label: 'SINGLE IN' }, { value: 'double', label: 'DOUBLE IN' }]} onChange={(value) => setSettings((current) => ({ ...current, doubleIn: value === 'double' }))} />
-          </div>
-          <div className="rule-row">
-            <div><strong>Checkout rule</strong><span>{settings.doubleOut ? 'The final dart must be a double or inner bull.' : 'Any dart that reaches exactly zero wins.'}</span></div>
-            <Segmented label="Checkout rule" value={settings.doubleOut ? 'double' : 'single'} options={[{ value: 'single', label: 'SINGLE OUT' }, { value: 'double', label: 'DOUBLE OUT' }]} onChange={(value) => setSettings((current) => ({ ...current, doubleOut: value === 'double' }))} />
-          </div>
-          <div className="rule-row">
-            <div><strong>Match length</strong><span>First player to win {settings.legsToWin} {settings.legsToWin === 1 ? 'leg' : 'legs'} wins the match.</span></div>
-            <div className="stepper" role="group" aria-label="Legs to win">
-              <button type="button" onClick={() => setSettings((current) => ({ ...current, legsToWin: Math.max(1, current.legsToWin - 1) }))} disabled={settings.legsToWin <= 1} aria-label="Fewer legs"><Minus size={14} /></button>
-              <span><small>FIRST TO</small><b>{settings.legsToWin}</b></span>
-              <button type="button" onClick={() => setSettings((current) => ({ ...current, legsToWin: Math.min(MAX_LEGS, current.legsToWin + 1) }))} disabled={settings.legsToWin >= MAX_LEGS} aria-label="More legs"><Plus size={14} /></button>
-            </div>
-          </div>
-        </div>
+        <MatchSettingsFields settings={settings} onChange={setSettings} />
 
         {error && <div className="form-error" role="alert">{error}</div>}
         <div className="sheet-actions">

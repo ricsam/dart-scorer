@@ -21,13 +21,20 @@ test('signed-out visitors get the standalone scorer with a way to sign in', asyn
   await page.goto('/')
   await expect(page.getByLabel('Enter dart hits')).toBeVisible()
   await expect(page.locator('.scoreboard .big-score')).toHaveText(['101', '101'])
-  await page.getByRole('link', { name: 'Sign in for leagues and leaderboards' }).click()
+  await page.getByRole('link', { name: 'Sign in to play online' }).click()
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByRole('heading', { name: 'Your darts crew, one oche.' })).toBeVisible()
   await expect(page.getByText('DEVELOPMENT SIGN-IN')).toBeVisible()
 
   await page.goto('/leagues/does-not-exist')
   await expect(page).toHaveURL(/\/login\?returnTo=%2Fleagues%2Fdoes-not-exist$/)
+  // Rooms became leagues: old links still lead to the right place.
+  await page.goto('/rooms/old-room')
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Frooms%2Fold-room$/)
+  // Play needs an account; signed out it falls back to the local scorer.
+  await page.goto('/play')
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByLabel('Enter dart hits')).toBeVisible()
 })
 
 test('leagues, invites, a live match across two devices, and the leaderboard', async ({ browser }, testInfo) => {
@@ -38,7 +45,8 @@ test('leagues, invites, a live match across two devices, and the leaderboard', a
   // Alice signs in and creates a league.
   await alice.goto('/login')
   await devSignIn(alice, 'Alice', `alice-${run}@example.com`)
-  await expect(alice.getByRole('heading', { name: 'Alice' })).toBeVisible()
+  await expect(alice.getByRole('heading', { name: 'Ready for the oche?' })).toBeVisible()
+  await expect(alice.getByText('WELCOME BACK, ALICE')).toBeVisible()
   await alice.getByRole('button', { name: 'NEW LEAGUE' }).click()
   await alice.getByLabel('League name').fill('Friday Oche Club')
   await alice.getByRole('button', { name: 'CREATE LEAGUE' }).click()
@@ -119,7 +127,7 @@ test('leagues, invites, a live match across two devices, and the leaderboard', a
   const carol = await newUser(browser)
   await carol.goto(matchUrl)
   await devSignIn(carol, 'Carol', `carol-${run}@example.com`)
-  await expect(carol.getByText('doesn’t exist, was deleted, or belongs to a league you are not a member of')).toBeVisible()
+  await expect(carol.getByText('doesn’t exist, was deleted, or you can’t see it')).toBeVisible()
 
   // A new member's rating uses the same column and typography as ranked players.
   await carol.goto(inviteLink)
@@ -171,12 +179,12 @@ test('leagues, invites, a live match across two devices, and the leaderboard', a
   await alice.getByRole('button', { name: 'DELETE LEAGUE', exact: true }).click()
   await alice.getByRole('alertdialog').getByRole('button', { name: 'DELETE LEAGUE' }).click()
   await expect(alice.getByText('No leagues yet')).toBeVisible()
-  await expect(bob.getByText('doesn’t exist, was deleted, or belongs to a league you are not a member of')).toBeVisible()
+  await expect(bob.getByText('doesn’t exist, was deleted, or you can’t see it')).toBeVisible()
   await alice.getByRole('button', { name: 'Account menu for Alice' }).click()
   await alice.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(alice.getByLabel('Enter dart hits')).toBeVisible()
   await alice.reload()
-  await expect(alice.getByRole('link', { name: 'Sign in for leagues and leaderboards' })).toBeVisible()
+  await expect(alice.getByRole('link', { name: 'Sign in to play online' })).toBeVisible()
   await Promise.all([alice, bob, carol].map((p) => p.context().close()))
 })
 
@@ -194,7 +202,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 320, height: 740 
 
     await page.getByRole('button', { name: 'Account menu for Alice' }).click()
     await page.getByRole('menuitem', { name: 'Edit dart nickname' }).click()
-    await expect(page).toHaveURL(/\/me$/)
+    await expect(page).toHaveURL(/\/me(#nickname)?$/)
     const nickname = page.getByRole('textbox', { name: 'Dart nickname' })
     const save = page.getByRole('button', { name: 'SAVE NICKNAME' })
     const cancel = page.getByRole('button', { name: 'CANCEL', exact: true })
@@ -250,7 +258,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 320, height: 740 
     await expect(page.getByLabel('Enter dart hits')).toBeVisible()
     await page.goto('/login')
     await devSignIn(page, 'Alice', email)
-    await expect(page.getByRole('heading', { name: 'The Power 🎯', exact: true })).toBeVisible()
+    await expect(page.getByText('WELCOME BACK, THE POWER 🎯')).toBeVisible()
   })
 }
 

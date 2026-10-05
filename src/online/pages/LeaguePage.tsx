@@ -67,7 +67,7 @@ export function LeaguePage({ leagueId }: { leagueId: string }) {
       <div className="page-head">
         <div>
           <span className="eyebrow">
-            <Link to="/" className="crumb">LEAGUES</Link> / {detail.role === 'owner' ? 'YOUR LEAGUE' : `HOSTED BY ${detail.owner.name.toUpperCase()}`}
+            <Link to="/leagues" className="crumb">LEAGUES</Link> / {detail.role === 'owner' ? 'YOUR LEAGUE' : `HOSTED BY ${detail.owner.name.toUpperCase()}`}
             {stream === 'open' && <span className="stream-dot" title="Live updates connected" />}
           </span>
           <h1 className="league-title">

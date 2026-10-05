@@ -1,26 +1,18 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { BarChart3, ChevronDown, Info, LogIn, LogOut, Moon, Pencil, Sun, Target, Users } from 'lucide-react'
+import { BarChart3, ChevronDown, Dumbbell, Globe2, Info, LogIn, LogOut, Moon, Pencil, Play, Sun, Users } from 'lucide-react'
 import { Brand } from '../ui/Brand'
 import { useTheme } from '../ui/useTheme'
 import { Link, useRouter } from './router'
 import { useSession } from './session'
 import { Avatar } from './ui'
 import { errorMessage } from './api'
+import { InvitesButton } from './notifications'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 export function SignInAction() {
   return (
-    <Link to="/login" className="icon-button account-button" aria-label="Sign in for leagues and leaderboards">
+    <Link to="/login" className="icon-button account-button" aria-label="Sign in to play online">
       <LogIn size={17} /><span>SIGN IN</span>
-    </Link>
-  )
-}
-
-export function LeaguesAction() {
-  const { user } = useSession()
-  return (
-    <Link to="/" className="icon-button account-button signed-in" aria-label="Back to your leagues">
-      {user && <Avatar user={user} size={20} />}<span>LEAGUES</span>
     </Link>
   )
 }
@@ -29,8 +21,8 @@ export function OnlineInvite({ onSignIn }: { onSignIn: () => void }) {
   return (
     <div className="settings-section online-invite">
       <div className="settings-copy">
-        <strong><Users size={14} /> Play with your crew</strong>
-        <span>Sign in with Google to create leagues, invite friends, score matches live and keep leaderboards.</span>
+        <strong><Users size={14} /> Play online</strong>
+        <span>Sign in with Google to track your stats, challenge friends in leagues and compete in ranked games.</span>
       </div>
       <button className="add-player" onClick={onSignIn}><LogIn size={16} /> SIGN IN</button>
     </div>
@@ -50,31 +42,41 @@ export function ScoringInfo() {
     <div className="settings-section online-info">
       <div className="settings-copy">
         <strong><Info size={14} /> About & scoring</strong>
-        <span>Learn how scoring, averages, checkout rates and league ratings work.</span>
+        <span>Learn how scoring, averages, checkout rates and ratings work.</span>
       </div>
       <a href="/about" target="_blank" rel="noreferrer">READ THE GUIDE <span>(opens in a new tab)</span></a>
     </div>
   )
 }
 
+type NavItem = { to: string; label: string; icon: ReactNode; active: (path: string) => boolean; accountOnly?: boolean }
+
+const NAV: NavItem[] = [
+  { to: '/play', label: 'PLAY', icon: <Play size={15} />, active: (path) => path === '/play' || path.startsWith('/lobbies'), accountOnly: true },
+  { to: '/global', label: 'GLOBAL', icon: <Globe2 size={15} />, active: (path) => path === '/global', accountOnly: true },
+  { to: '/leagues', label: 'LEAGUES', icon: <Users size={15} />, active: (path) => path.startsWith('/leagues') },
+  { to: '/training', label: 'TRAINING', icon: <Dumbbell size={15} />, active: (path) => path.startsWith('/training') },
+  { to: '/me', label: 'STATS', icon: <BarChart3 size={15} />, active: (path) => path === '/me', accountOnly: true },
+]
+
 export function OnlineLayout({ children, bare = false }: { children: ReactNode; bare?: boolean }) {
   const [theme, setTheme] = useTheme()
   const { user } = useSession()
   const { path } = useRouter()
+  const items = user ? NAV.filter((item) => !item.accountOnly || !user.guest) : []
+  const nav = user && !bare
 
   return (
-    <div className={`app-shell ${theme} online-shell`}>
+    <div className={`app-shell ${theme} online-shell ${nav ? 'with-tabbar' : ''}`}>
       <header className="topbar online-topbar">
         <Link to="/" className="brand-link" aria-label="Oche home"><Brand /></Link>
-        {user && !bare ? (
+        {nav ? (
           <nav className="online-nav" aria-label="Main">
-            <Link to="/" className={path === '/' || path.startsWith('/leagues') ? 'active' : ''}><Users size={15} /> LEAGUES</Link>
-            <Link to="/training" className={path.startsWith('/training') ? 'active' : ''}><Target size={15} /> TRAINING</Link>
-            <Link to="/play">QUICK GAME</Link>
-            {!user.guest && <Link to="/me" className={path === '/me' ? 'active' : ''}><BarChart3 size={15} /> MY STATS</Link>}
+            {items.map((item) => <Link key={item.to} to={item.to} className={`${item.active(path) ? 'active' : ''} ${item.to === '/play' ? 'play-link' : ''}`}>{item.icon} {item.label}</Link>)}
           </nav>
         ) : <span />}
         <div className="header-actions">
+          {user && !user.guest && <InvitesButton />}
           {user ? <UserMenu theme={theme} onTheme={setTheme} /> : (
             <>
               <button className="icon-button theme-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
@@ -89,6 +91,11 @@ export function OnlineLayout({ children, bare = false }: { children: ReactNode; 
       <footer className="online-footer">
         <span>OCHE</span><i /> <Link to="/about">ABOUT & SCORING</Link><i /> <Link to="/privacy">PRIVACY</Link><i /> <a href="https://github.com/ricsam/dart-scorer" target="_blank" rel="noreferrer">OPEN SOURCE</a>
       </footer>
+      {nav && (
+        <nav className="tabbar" aria-label="Main (mobile)">
+          {items.map((item) => <Link key={item.to} to={item.to} className={`${item.active(path) ? 'active' : ''} ${item.to === '/play' ? 'play-link' : ''}`} aria-current={item.active(path) ? 'page' : undefined}>{item.icon}<span>{item.label}</span></Link>)}
+        </nav>
+      )}
     </div>
   )
 }
@@ -136,14 +143,11 @@ function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme
             <strong>{user.name}</strong>
             <small>{user.guest ? 'Guest · unranked' : user.email}</small>
           </div>
-          <button role="menuitem" onClick={() => go('/')}><Users size={15} /> Leagues</button>
-          <button role="menuitem" onClick={() => go('/training')}><Target size={15} /> Training arena</button>
-          <button role="menuitem" onClick={() => go('/play')}><Target size={15} /> Quick game</button>
           {user.guest
             ? <button role="menuitem" onClick={() => go(`/login?returnTo=${encodeURIComponent(path)}`)}><LogIn size={15} /> Sign in for an account</button>
             : <>
               <button role="menuitem" onClick={() => go('/me')}><BarChart3 size={15} /> My stats</button>
-              <button role="menuitem" onClick={() => go('/me')}><Pencil size={15} /> Edit dart nickname</button>
+              <button role="menuitem" onClick={() => go('/me#nickname')}><Pencil size={15} /> Edit dart nickname</button>
             </>}
           <button role="menuitem" onClick={() => go('/about')}><Info size={15} /> About & scoring</button>
           <button role="menuitem" onClick={() => onTheme(theme === 'dark' ? 'light' : 'dark')}>

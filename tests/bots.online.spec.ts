@@ -125,6 +125,7 @@ test('match history keeps bot badges beside names and score columns aligned', as
   }
   const leagueUrl = page.url()
   await page.goto('/me')
+  await page.getByRole('group', { name: 'Stats category' }).getByRole('button', { name: 'Competition', exact: true }).click()
   await expect(page.getByText('No completed matches yet', { exact: true })).toBeVisible()
   await page.getByRole('group', { name: 'Stats category' }).getByRole('button', { name: 'Training', exact: true }).click()
   const training = page.getByRole('region', { name: 'Training stats' })

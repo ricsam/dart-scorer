@@ -246,6 +246,8 @@
 .leaderboard-head { flex-wrap: wrap; }
 .segmented { display: grid; }
 .segmented button { min-width: 70px; }
+.segmented button:disabled { cursor: default; }
+.segmented button:disabled:not(.active) { opacity: .45; }
 .sort-select { display: flex; align-items: center; gap: 8px; color: #6c7a71; font-size: 8px; font-weight: 700; letter-spacing: .12em; }
 .sort-select select { height: 34px; max-width: 260px; padding: 0 10px; border: 1px solid #34483b; border-radius: 6px; background: #09130d; color: #dfe7e2; font-size: 11px; }
 .highlights { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; margin-bottom: 16px; }
@@ -515,6 +517,11 @@
 }
 
 @media (max-width: 650px) {
+  /* The shared phone styles hide horizontal overflow on .app-shell, which makes the shell the sticky
+     container and stops sticky bars (such as the lobby start bar) following the page. `clip` hides the
+     same overflow without creating a scroll container. The top bar keeps scrolling away on phones. */
+  .app-shell.online-shell { overflow-x: clip; }
+  .online-shell .online-topbar { position: relative; }
   .online-topbar { grid-template-columns: auto 1fr auto; }
   .online-nav { display: none; }
   .user-menu-button { height: 34px; padding: 0 6px; }
@@ -558,6 +565,23 @@
 }
 
 @media (orientation: landscape) and (max-height: 650px) {
+  .app-shell.online-shell { overflow-x: clip; }
   .online-main { display: block; }
   .online-match .header-actions .back-button, .online-match .header-actions .match-stats-button { display: grid; width: 28px; height: 28px; }
 }
+
+/* ── Online play: solo board, waiting states, claims ───────────────────── */
+.scoreboard.solo { grid-template-columns: minmax(0, 560px); justify-content: center; }
+.scoreboard.solo .player-card:first-child { border-right: 0; }
+.offline-flag { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 2px; border-radius: 50%; background: #3a2a1a; color: #e2a35d; }
+.waiting-note { min-height: 120px; }
+.waiting-note b { color: #e7eee9; }
+.claim-note { display: flex; align-items: center; gap: 5px; margin-top: 8px; color: #8a998f; font-size: 10px; }
+.claim-button { margin-top: 10px; height: 34px; }
+.ranked-note { color: #e4c565; }
+.autosave-note { display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 0; color: #8fae9b; font-size: 11px; }
+.match-sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.light .offline-flag { background: #fff1e0; color: #a35d12; }
+.light .waiting-note b { color: #17211b; }
+.light .ranked-note { color: #8a6400; }
+.light .autosave-note { color: #4f6b58; }

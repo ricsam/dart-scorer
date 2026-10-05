@@ -1,6 +1,8 @@
 .training-intro { max-width: 670px; color: #9bac9f; font-size: 13px; line-height: 1.7; margin-bottom: 0; }
 .arena-mark { color: var(--green); flex: none; }
-.training-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.training-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+a.training-mode { text-decoration: none; }
+a.training-mode:hover { border-color: #3d7c55; }
 .training-mode { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; text-align: left; color: inherit; }
 button.training-mode { cursor: pointer; }
 .training-mode.selected { border-color: var(--green); background: color-mix(in srgb, var(--green) 8%, transparent); }

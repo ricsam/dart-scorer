@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Bot, Target, Users } from 'lucide-react'
+import { ArrowRight, Bot, Crosshair, Target, Users } from 'lucide-react'
 import type { LeagueDetail } from '../../shared/api'
 import { TRAINING_MODES, type TrainingMode, type TrainingSession } from '../../shared/training'
 import { api, errorMessage } from '../api'
@@ -46,7 +46,10 @@ export function TrainingPage() {
     <div className="page-head"><div><span className="eyebrow">PRACTICE WITH PURPOSE</span><h1>Training arena</h1><p className="training-intro">Your space to improve. Play solo, bring your crew, or take on a house bot. No ratings. No win/loss record.</p></div><Target className="arena-mark" size={52} /></div>
     <div className="training-modes">
       {TRAINING_MODES.map((item) => <button key={item.id} className={`panel training-mode ${mode === item.id ? 'selected' : ''}`} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}><Target size={24} /><strong>{item.name}</strong><span>{item.description}</span><small>SOLO OR MULTIPLAYER <ArrowRight size={13} /></small></button>)}
-      <section className="panel training-mode bot-practice"><Bot size={24} /><h2>House bot practice</h2><p>Six rivals, six levels. Play 101–701 with automatic opponents and keep your training averages.</p><small>CHOOSE A LEAGUE BELOW TO PLAY</small></section>
+      {user?.guest
+        ? <section className="panel training-mode bot-practice"><Bot size={24} /><h2>House bot practice</h2><p>Six rivals, six levels. Play 101–701 with automatic opponents and keep your training averages.</p><small>CHOOSE YOUR LEAGUE BELOW TO PLAY</small></section>
+        : <Link className="panel training-mode bot-practice" to="/play?bot=1"><Bot size={24} /><strong>House bot practice</strong><span>Six rivals, six levels. Play 101–701 with automatic opponents and keep your training averages.</span><small>PLAY A BOT <ArrowRight size={13} /></small></Link>}
+      {!user?.guest && <Link className="panel training-mode" to="/play"><Crosshair size={24} /><strong>Solo x01</strong><span>Play legs of 101–701 on your own. Every game feeds your 3-dart average trend.</span><small>START SOLO <ArrowRight size={13} /></small></Link>}
     </div>
     <section className="panel training-setup" aria-labelledby="training-setup-title">
       <div className="panel-head"><h2 id="training-setup-title">Make it your session</h2><Users size={18} /></div>
@@ -56,8 +59,8 @@ export function TrainingPage() {
         {leagueId && league.loading && !league.data && <Loading label="Loading players…" />}
         {leagueId && league.error && <ErrorState message={league.error.message} onRetry={league.reload} />}
         {league.data && <div><p className="field-hint">You are playing. Add up to seven league players or guests. Take turns on one device, or open the session link on their devices.</p><div className="member-picker">{league.data.league.members.filter((member) => member.id !== user?.id).map((member) => <button type="button" key={member.id} aria-pressed={companions.includes(member.id)} className={companions.includes(member.id) ? 'picked' : ''} disabled={busy || (!companions.includes(member.id) && companions.length >= 7)} onClick={() => setCompanions((current) => current.includes(member.id) ? current.filter((id) => id !== member.id) : [...current, member.id])}>{member.name}{member.guest && <small>GUEST</small>}</button>)}</div></div>}
-        {!leagueId && <p className="field-hint">Solo challenges need no league. For bots or friends, select a league. <Link to="/">Create or join a league →</Link></p>}
-        <div className="training-start-actions"><button className="primary-button" disabled={busy || (!!leagueId && (!league.data || !!league.error))} onClick={start}>{busy ? 'STARTING…' : `START ${definition.name.toUpperCase()}`} <ArrowRight size={15} /></button><button className="ghost-button" disabled={busy || !league.data || !!league.error} onClick={() => league.data && setBotLeague(league.data.league)}><Bot size={16} /> PLAY BOTS</button></div>
+        {!leagueId && <p className="field-hint">Solo challenges need no league. To take turns with friends, select one of your leagues. <Link to="/leagues">Create or join a league →</Link></p>}
+        <div className="training-start-actions"><button className="primary-button" disabled={busy || (!!leagueId && (!league.data || !!league.error))} onClick={start}>{busy ? 'STARTING…' : `START ${definition.name.toUpperCase()}`} <ArrowRight size={15} /></button>{leagueId && <button className="ghost-button" disabled={busy || !league.data || !!league.error} onClick={() => league.data && setBotLeague(league.data.league)}><Bot size={16} /> BOT MATCH IN THIS LEAGUE</button>}</div>
         {error && <div className="form-error" role="alert">{error}</div>}
       </div>
     </section>
@@ -66,7 +69,7 @@ export function TrainingPage() {
       <ChallengeProgress sessions={completed} userId={user?.id ?? ''} />
       <section className="panel"><div className="panel-head"><h2>Challenge history</h2><span className="panel-sub">Latest saved sessions</span></div>{completed.length ? <div className="training-session-list">{completed.map((session) => <SessionLink key={session.id} session={session} />)}</div> : <EmptyState title="Your next personal best starts here">Complete a challenge to keep your score and track your practice over time.</EmptyState>}</section>
     </>}
-    {!user?.guest && (botStats.error ? <ErrorState message={botStats.error.message} onRetry={botStats.reload} /> : botStats.data && <section className="panel"><div className="panel-head"><h2>Bot practice progress</h2><Link to="/me">ALL MY STATS →</Link></div><div className="stat-grid"><StatTile label="TRAINING MATCHES" value={botStats.data.training.totals.matches} /><StatTile label="3-DART AVG" value={formatAverage(botStats.data.training.totals.average)} /><StatTile label="180s" value={botStats.data.training.totals.scores180} /></div><StatsProgress history={botStats.data.training.history} title="Bot practice · monthly average" /><div className="match-list">{botStats.data.training.recentMatches.map((match) => <MatchRow key={match.id} match={match} leagueName={match.leagueName} />)}</div></section>)}
+    {!user?.guest && (botStats.error ? <ErrorState message={botStats.error.message} onRetry={botStats.reload} /> : botStats.data && <section className="panel"><div className="panel-head"><h2>Practice games</h2><Link to="/me">ALL MY STATS →</Link></div><p className="field-hint">Solo x01 and bot games.</p><div className="stat-grid"><StatTile label="PRACTICE GAMES" value={botStats.data.training.totals.matches} /><StatTile label="3-DART AVG" value={formatAverage(botStats.data.training.totals.average)} /><StatTile label="180s" value={botStats.data.training.totals.scores180} /></div><StatsProgress history={botStats.data.training.history} title="Practice · monthly average" /><div className="match-list">{botStats.data.training.recentMatches.map((match) => <MatchRow key={match.id} match={match} leagueName={match.leagueName} />)}</div></section>)}
     {botLeague && <NewMatchDialog league={botLeague} botsInitiallyOpen requireBot onClose={() => setBotLeague(null)} />}
   </div>
 }

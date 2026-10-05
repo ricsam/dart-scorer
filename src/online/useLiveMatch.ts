@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { reduceMatchAction } from '../shared/match-reducer'
 import type { GameAction, GameState } from '../game/types'
-import type { MatchConflictResponse, MatchDetail, MatchEvent } from '../shared/api'
+import type { ChatEvent, LobbyEvent, MatchConflictResponse, MatchDetail, MatchEvent } from '../shared/api'
 import { api, ApiRequestError, errorMessage } from './api'
-import { useEventStream, type StreamStatus } from './hooks'
+import { useEventStreams, type StreamStatus } from './hooks'
 
 function isNewer(next: MatchDetail, current: MatchDetail | null) {
   if (!current) return true
@@ -22,7 +22,18 @@ export type LiveMatch = {
   dismissNotice: () => void
   dispatch: (action: GameAction) => void
   finish: () => Promise<void>
+  /** Concede your own slot, or claim the idle opponent's slot. */
+  forfeit: (slot: number) => Promise<boolean>
   reload: () => Promise<void>
+}
+
+type LiveMatchOptions = {
+  /** Chat messages delivered on the match stream. */
+  onChat?: (event: ChatEvent) => void
+  /** Lobby events (a lobby match's next game started). */
+  onLobby?: (event: LobbyEvent) => void
+  /** After the stream (re)connects, for example to refetch missed chat. */
+  onReconnect?: () => void
 }
 
 /**
@@ -30,7 +41,7 @@ export type LiveMatch = {
  * one at a time with the version they were based on; a stale version (another device scored
  * first) discards the local queue and adopts the server's state.
  */
-export function useLiveMatch(matchId: string): LiveMatch {
+export function useLiveMatch(matchId: string, options: LiveMatchOptions = {}): LiveMatch {
   const [match, setMatch] = useState<MatchDetail | null>(null)
   const [queue, setQueue] = useState<GameAction[]>([])
   const [loadError, setLoadError] = useState<ApiRequestError | null>(null)
@@ -74,15 +85,19 @@ export function useLiveMatch(matchId: string): LiveMatch {
     void reload()
   }, [reload])
 
-  const stream = useEventStream<MatchEvent>(loadError && [401, 403, 404].includes(loadError.status) ? null : `/api/matches/${encodeURIComponent(matchId)}/events`, 'match', ({ match: next }) => {
-    // While one of our own actions is in flight the broadcast of it may arrive first;
-    // hold it back so the optimistic copy is not applied twice.
-    if (busy.current) {
-      if (!buffered.current || isNewer(next, buffered.current)) buffered.current = next
-      return
-    }
-    accept(next)
-  }, () => { if (!busy.current) void reload() })
+  const stream = useEventStreams(loadError && [401, 403, 404].includes(loadError.status) ? null : `/api/matches/${encodeURIComponent(matchId)}/events`, {
+    match: ({ match: next }: MatchEvent) => {
+      // While one of our own actions is in flight the broadcast of it may arrive first;
+      // hold it back so the optimistic copy is not applied twice.
+      if (busy.current) {
+        if (!buffered.current || isNewer(next, buffered.current)) buffered.current = next
+        return
+      }
+      accept(next)
+    },
+    chat: (event: ChatEvent) => options.onChat?.(event),
+    lobby: (event: LobbyEvent) => options.onLobby?.(event),
+  }, () => { if (!busy.current) void reload() }, options.onReconnect)
 
   const flushBuffered = useCallback(() => {
     if (buffered.current) {
@@ -128,7 +143,7 @@ export function useLiveMatch(matchId: string): LiveMatch {
     if (!latest.current?.canScore || latest.current.status !== 'live') return
     const current = latest.current
     const projected = pending.current.reduce((state, queued) => reduceMatchAction(state, queued, current.players), current.state)
-    if (action.type === 'submit' && current.players[projected.active]?.botId) return
+    if (action.type === 'submit' && (current.players[projected.active]?.botId || !current.controlledSlots.includes(projected.active))) return
     pending.current = [...pending.current, action]
     setQueue(pending.current)
     void pump()
@@ -144,7 +159,29 @@ export function useLiveMatch(matchId: string): LiveMatch {
     } catch (error) {
       const conflict = error instanceof ApiRequestError && error.status === 409 ? (error.body as MatchConflictResponse | null)?.match : null
       if (conflict) accept(conflict)
+      // Saved automatically or by another player a moment earlier: the stream brings the result.
+      if (!(error instanceof ApiRequestError && error.status === 400 && /already finished/.test(error.message))) setNotice(errorMessage(error))
+      else void reload()
+    } finally {
+      busy.current = false
+      setSyncing(false)
+      flushBuffered()
+    }
+  }, [accept, flushBuffered, matchId, reload])
+
+  const forfeit = useCallback(async (slot: number) => {
+    if (busy.current || !latest.current || pending.current.length) return false
+    busy.current = true
+    setSyncing(true)
+    try {
+      const { match: next } = await api.forfeitMatch(matchId, latest.current.version, slot)
+      accept(next)
+      return true
+    } catch (error) {
+      const conflict = error instanceof ApiRequestError && error.status === 409 ? (error.body as MatchConflictResponse | null)?.match : null
+      if (conflict) accept(conflict)
       setNotice(errorMessage(error))
+      return false
     } finally {
       busy.current = false
       setSyncing(false)
@@ -164,6 +201,7 @@ export function useLiveMatch(matchId: string): LiveMatch {
     dismissNotice: useCallback(() => setNotice(null), []),
     dispatch,
     finish,
+    forfeit,
     reload,
   }
 }

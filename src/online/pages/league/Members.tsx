@@ -36,10 +36,10 @@ export function Members({ league, onChanged, onInvite, onRename }: { league: Lea
       } else if (pending.kind === 'leave') {
         await api.removeMember(league.id, user.id)
         if (user.guest) await signOut()
-        navigate('/', { replace: true })
+        navigate('/leagues', { replace: true })
       } else {
         await api.deleteLeague(league.id)
-        navigate('/', { replace: true })
+        navigate('/leagues', { replace: true })
       }
     } catch (caught) {
       setError(errorMessage(caught))

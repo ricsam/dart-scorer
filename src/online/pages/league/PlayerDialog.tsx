@@ -1,35 +1,12 @@
 import { useState } from 'react'
 import type { LeagueDetail } from '../../../shared/api'
 import { api } from '../../api'
-import { formatAverage, formatBestLeg, formatDate, formatDelta, formatPercent, formatRating } from '../../format'
+import { formatAverage, formatBestLeg, formatDelta, formatPercent, formatRating } from '../../format'
 import { useResource } from '../../hooks'
 import { Avatar, ErrorState, FormDots, Loading, Segmented, Sheet, StatTile } from '../../ui'
+import { RatingChart } from '../components/Charts'
 import { MatchRow } from '../components/MatchRow'
 import { StatsProgress, TrainingTotals } from '../components/StatsProgress'
-
-function RatingChart({ points }: { points: { at: string; rating: number }[] }) {
-  if (points.length < 2) return <p className="muted-note">The rating chart appears after two ranked matches.</p>
-  const series = [1000, ...points.map((point) => point.rating)]
-  const min = Math.min(...series) - 10
-  const max = Math.max(...series) + 10
-  const width = 440
-  const height = 96
-  const x = (index: number) => (index / (series.length - 1)) * width
-  const y = (value: number) => height - ((value - min) / (max - min)) * height
-  const line = series.map((value, index) => `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(' ')
-  const area = `${line} L${width},${height} L0,${height} Z`
-  const baseline = y(1000)
-  return (
-    <figure className="rating-chart">
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`Rating history from 1000 to ${formatRating(series[series.length - 1])}`}>
-        <line x1="0" x2={width} y1={baseline} y2={baseline} className="baseline" />
-        <path d={area} className="area" />
-        <path d={line} className="line" />
-      </svg>
-      <figcaption><span>{formatDate(points[0].at)}</span><span>{formatDate(points[points.length - 1].at)}</span></figcaption>
-    </figure>
-  )
-}
 
 export function PlayerDialog({ league, userId, onClose }: { league: LeagueDetail; userId: string; onClose: () => void }) {
   const stats = useResource(`player:${league.id}:${userId}`, () => api.playerStats(league.id, userId))

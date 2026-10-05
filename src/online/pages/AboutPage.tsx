@@ -6,7 +6,7 @@ const sections = [
   ['what-counts', 'What counts'],
   ['scoring', 'Scoring & match rules'],
   ['statistics', 'Averages & statistics'],
-  ['ratings', 'League ratings (Elo)'],
+  ['ratings', 'Ratings (Elo)'],
   ['leaderboards', 'Reading the leaderboard'],
   ['checkouts', 'Checkout suggestions'],
 ] as const
@@ -27,11 +27,11 @@ export function AboutPage() {
       <header className="about-intro">
         <span className="eyebrow"><Info size={14} aria-hidden="true" /> OCHE ONLINE · THE NUMBERS EXPLAINED</span>
         <h1>About & scoring</h1>
-        <p className="lead">From your first dart to your league rating. Here’s how Oche turns the darts you enter into scores, statistics and leaderboards.</p>
+        <p className="lead">From your first practice dart to your global rating. Here’s how Oche turns the darts you enter into scores, statistics and leaderboards.</p>
         <div className="about-at-a-glance">
           <div><Calculator size={20} aria-hidden="true" /><strong>Every dart counts</strong><span>Misses and bust darts stay in your averages.</span></div>
-          <div><Trophy size={20} aria-hidden="true" /><strong>1000 to start</strong><span>A separate Elo rating in every league.</span></div>
-          <div><BarChart3 size={20} aria-hidden="true" /><strong>Save to make it count</strong><span>Only saved results update league and career stats.</span></div>
+          <div><Trophy size={20} aria-hidden="true" /><strong>1000 to start</strong><span>One Elo rating per league, plus a global rating from ranked games.</span></div>
+          <div><BarChart3 size={20} aria-hidden="true" /><strong>Save to make it count</strong><span>Only saved results update ratings and career stats.</span></div>
         </div>
       </header>
 
@@ -44,10 +44,14 @@ export function AboutPage() {
         <h2 id="what-counts" tabIndex={-1}>01 · What counts</h2>
         <p>Online Oche is a casual, self-reported darts scorer for you and your crew—not a verified competition ranking. The numbers describe the darts entered, so record each dart accurately.</p>
         <ul>
-          <li><b>League and career statistics:</b> a league match counts after the final leg is won and someone selects <b>Save result</b>. Live statistics include the leg in progress, but unfinished or abandoned matches do not enter the leaderboard. On the live scorecard, AVG is match-wide while DARTS is for the current leg and resets each leg.</li>
-          <li><b>Quick game:</b> the local scorer does not save a league result or affect online ratings or career statistics.</li>
-          <li><b>Guests:</b> their darts and results appear in match history and match statistics, but guests have no Elo rating, ranked leaderboard entry or account career stats. Signing in later creates a separate account identity; it does not convert old guest results.</li>
-          <li><b>House bots:</b> add a fictional opponent in New match, from novice to pro-level. Bots throw automatically and follow the same scoring rules. Their displayed averages are approximate for 501, single in / double out. Matches with any bot are training for everyone, including matches with multiple account players. Past and new bot games never count toward competition wins, losses, form, head-to-head, averages or ratings. Saved practice statistics appear separately under Training. Undo removes subsequent bot darts and returns to the latest human dart in the current leg.</li>
+          <li><b>Play & lobbies:</b> <b>Play</b> opens your lobby. As its leader you choose the game, in/out rules and match length, then start whenever you like: on your own, against house bots, with someone throwing on your device (a <b>local player</b>), or with friends on their own phones. A <b>private</b> lobby is joined with its invite link or a direct invite from the leader; a <b>public</b> lobby is listed on the Global page while its leader is online and anyone signed in can take a free seat. Lobbies have a chat that continues into their games. You sit in one lobby at a time.</li>
+          <li><b>Ranked lobbies:</b> games in a ranked lobby update every player’s <b>global rating</b>. Ranked games are between two to eight account players only—no bots, guests or local players. Unranked lobby games against other people still count as competition (wins, losses, averages) but never change a rating.</li>
+          <li><b>Fair play online:</b> in lobby games each player enters and undoes only their own darts (the leader enters darts for local players). Restarting a leg or rewinding needs control of every human player. If an account opponent at the oche makes no entry for three minutes, the others can <b>claim the match</b>; anyone can <b>concede</b>. The player who concedes or is claimed finishes last, everyone else is placed by legs won, and the result is rated like any other. Ranked games can’t be abandoned. A decided lobby game is <b>saved automatically</b> after two minutes if nobody saves it.</li>
+          <li><b>Leagues & career statistics:</b> a league is a persistent group with its own leaderboard and ratings. A league match counts after the final leg is won and someone selects <b>Save result</b>. Live statistics include the leg in progress, but unfinished or abandoned matches do not count. On the live scorecard, AVG is match-wide while DARTS is for the current leg and resets each leg.</li>
+          <li><b>Practice:</b> solo games and every game with a house bot are <b>training</b>. They keep full statistics (averages, checkouts, 180s) under Training and in your All games trend, but never count as wins, losses, form, head-to-head or ratings.</li>
+          <li><b>Without an account:</b> the local scorer on the start page keeps score on one device and saves nothing online.</li>
+          <li><b>Guests:</b> league guests’ darts and results appear in match history and match statistics, but guests have no Elo rating, ranked leaderboard entry or account career stats. Signing in later creates a separate account identity; it does not convert old guest results.</li>
+          <li><b>House bots:</b> add a fictional opponent to your lobby (or to a league match), from novice to pro-level. Bots throw automatically and follow the same scoring rules. Their displayed averages are approximate for 501, single in / double out. Matches with any bot are training for everyone, including matches with multiple account players. Past and new bot games never count toward competition wins, losses, form, head-to-head, averages or ratings. Saved practice statistics appear separately under Training. Undo removes subsequent bot darts and returns to the latest human dart in the current leg.</li>
           <li><b>Training arena:</b> play Around the clock (hit 1–20 in order, any ring, within 60 darts) or the Nine-dart challenge (highest score from nine darts). Play privately solo or with up to eight league players and guests in three-dart turns. Enter one dart at a time; challenge results save automatically when everyone finishes. Undo is available while the session is live. Each mode has its own personal bests and monthly progress, separate from bot averages and competition.</li>
           <li><b>Mixed formats:</b> 101, 301, 501 and 701, all in/out rules and all match lengths share the same league leaderboard. There is no format adjustment—agree on a format if you want a consistent league.</li>
           <li><b>Corrections:</b> use Undo, restart or visit rewind before saving. Saved matches cannot be edited. If a host deletes a mistaken result, its statistics disappear and the league’s ratings are replayed from the remaining results in completion order.</li>
@@ -62,7 +66,7 @@ export function AboutPage() {
           <div><dt>Single in / double in</dt><dd>Single in allows scoring immediately. Double in requires a double or inner bull to open each leg; that opening dart scores too. Earlier darts score zero but still count as darts thrown.</dd></div>
           <div><dt>Single out / double out</dt><dd>Single out allows any dart that reaches exactly zero, including doubles and trebles. Double out requires the final dart to be a double or inner bull.</dd></div>
           <div><dt>Busts</dt><dd>Going below zero is a bust. With double out, leaving 1 or reaching zero without a double is also a bust. The visit ends immediately, scores zero and restores the score and double-in status from the start of the visit. Only darts actually recorded up to and including the bust count—not an automatic three darts.</dd></div>
-          <div><dt>Legs, matches & placing</dt><dd>Online matches have 2–8 players and are first to 1–11 legs. The starting player rotates each leg. The first player to reach the leg target wins the match and places first; everyone else is placed by legs won. Equal leg totals share a place (for example, 1st, 2nd, 2nd, 4th).</dd></div>
+          <div><dt>Legs, matches & placing</dt><dd>Lobby games have 1–8 players; league matches 2–8. A match is first to 1–11 legs (solo games simply play that many legs). The starting player rotates each leg, and in a lobby the first thrower rotates each game. The first player to reach the leg target wins the match and places first; everyone else is placed by legs won. Equal leg totals share a place (for example, 1st, 2nd, 2nd, 4th).</dd></div>
         </dl>
         <aside className="about-example">
           <strong>Enter darts, not visit totals</strong>
@@ -110,8 +114,8 @@ export function AboutPage() {
       </section>
 
       <section aria-labelledby="ratings">
-        <h2 id="ratings" tabIndex={-1}>04 · League ratings (Elo)</h2>
-        <p>Every account player starts at <b>1000 in each league</b>. Ratings estimate relative results within that league, not a global skill level. Only saved matches with at least two account players and no bots can change ratings. Guests are excluded from the pair comparisons; a non-bot match with only one account player leaves that player’s rating unchanged, but still counts toward their competition statistics.</p>
+        <h2 id="ratings" tabIndex={-1}>04 · Ratings (Elo)</h2>
+        <p>Every account player starts at <b>1000 in each league</b> and at <b>1000 globally</b>. League ratings estimate relative results within that league; the <b>global rating</b> comes only from ranked lobby games and is shown on the Global page rankings. Both use the same formula below. Only saved matches with at least two account players and no bots can change league ratings. Guests are excluded from the pair comparisons; a non-bot match with only one account player leaves that player’s rating unchanged, but still counts toward their competition statistics. Players with fewer than five ranked games are marked as new in the global rankings.</p>
         <p>In multiplayer, Oche compares every pair of account players by final placing. Finishing ahead scores <b>1</b>, tying scores <b>½</b>, and finishing behind scores <b>0</b>. You can gain rating without winning the whole match. Guests can win matches and affect leg totals, but they are never rated opponents.</p>
 
         <h3>The formula</h3>
@@ -139,7 +143,7 @@ export function AboutPage() {
           <div><dt>Form</dt><dd>Up to five latest match results within the selected period, newest first. W means you won the match; L means you did not, regardless of your Elo change.</dd></div>
           <div><dt>Highlights & green cells</dt><dd>Leaderboard highlights pick the best available nonzero value among players active in the selected period; a tie shows the first in the underlying rating/wins/name/ID order. Match-stat tables highlight all players tied for the best available value in a highlighted row. Neither awards bonus rating.</dd></div>
           <div><dt>Rating history & head to head</dt><dd>Player details use all-time league results. The chart appears after two saved non-bot results, starts at 1000 and plots the rounded rating after each non-bot match, oldest to newest. Matches are evenly spaced, not spaced by elapsed time. Head-to-head wins and losses compare your placing against each account opponent in non-training matches, including multiplayer matches. Equal placings add neither a win nor a loss, and guests and bots are excluded.</dd></div>
-          <div><dt>My stats · Career</dt><dd>Competition and Training tabs keep non-bot and bot results separate, with monthly UTC dart-weighted average charts and tables. Career totals combine your saved non-bot account results across leagues, including retained results from leagues you have left. They sum points, darts and checkout counts before calculating rates. League ratings stay separate—there is no combined career Elo.</dd></div>
+          <div><dt>My stats</dt><dd><b>All games</b> combines every saved game, including solo practice, with a game-by-game chart of your 3-dart average and a rolling five-game average. <b>Competition</b> covers saved league and lobby matches against at least one other person without bots, with wins and losses. <b>Training</b> covers solo and bot games. Monthly charts use UTC months and dart-weighted averages. Career totals include retained results from leagues you have left and sum points, darts and checkout counts before calculating rates. League ratings stay separate from each other and from the global rating.</dd></div>
         </dl>
       </section>
 

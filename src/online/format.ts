@@ -1,4 +1,17 @@
-import type { MatchSettings } from '../shared/api'
+import type { MatchContext, MatchSettings } from '../shared/api'
+
+/** Where a match counts: a league's table, the global ranking, practice or a casual lobby game. */
+export function matchContextLabel(match: MatchContext & { players: { length: number } }, leagueName?: string | null) {
+  if (match.leagueId) return leagueName ?? 'League'
+  if (match.practice) return match.players.length === 1 ? 'Solo practice' : 'Bot practice'
+  return match.ranked ? 'Ranked' : 'Lobby game'
+}
+
+/** "1:05" style countdown; never negative. */
+export function formatCountdown(ms: number) {
+  const seconds = Math.max(0, Math.ceil(ms / 1000))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
 
 export const formatAverage = (value: number | null | undefined) => value === null || value === undefined || Number.isNaN(value) ? '—' : value.toFixed(1)
 

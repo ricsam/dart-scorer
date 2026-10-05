@@ -7,7 +7,7 @@ import { Avatar } from '../../ui'
 type Row = { player: MatchPlayer; stats: PlayerStats; legs: number; result?: MatchResult }
 
 /** Side-by-side match statistics, darts-app style: one column per player. */
-export function MatchStatsTable({ rows, showRatings = false }: { rows: Row[]; showRatings?: boolean }) {
+export function MatchStatsTable({ rows, showRatings = false, ratingLabel = 'League rating' }: { rows: Row[]; showRatings?: boolean; ratingLabel?: string }) {
   const lines: { label: string; values: string[]; best?: 'high' | 'low'; raw?: (number | null)[] }[] = [
     { label: 'Legs won', values: rows.map((row) => String(row.legs)), raw: rows.map((row) => row.legs), best: 'high' },
     { label: '3-dart average', values: rows.map((row) => formatAverage(row.stats.darts ? row.stats.average : null)), raw: rows.map((row) => row.stats.darts ? row.stats.average : null), best: 'high' },
@@ -22,7 +22,7 @@ export function MatchStatsTable({ rows, showRatings = false }: { rows: Row[]; sh
   ]
   if (showRatings && !rows.some((row) => row.player.botId)) {
     lines.push({
-      label: 'League rating',
+      label: ratingLabel,
       values: rows.map((row) => row.result?.ratingAfter !== null && row.result?.ratingAfter !== undefined && row.result.ratingBefore !== null
         ? `${formatRating(row.result.ratingAfter)} (${formatDelta(row.result.ratingAfter - row.result.ratingBefore)})`
         : row.player.guest ? 'Guest' : '—'),

@@ -60,9 +60,23 @@ export type StreamStatus = 'connecting' | 'open' | 'reconnecting'
  * closes the stream for good (for example after a deploy) we reconnect with a back-off.
  */
 export function useEventStream<T>(url: string | null, eventName: string, onEvent: (data: T) => void, onDisconnect?: () => void): StreamStatus {
+  return useEventStreams(url, { [eventName]: onEvent as (data: unknown) => void }, onDisconnect)
+}
+
+/**
+ * Like `useEventStream`, for streams that carry several named events (for example `match`,
+ * `chat` and `lobby`). Handlers may change between renders; the set of event names may not.
+ * `onOpen` runs after every (re)connection, for example to refetch what was missed.
+ */
+export function useEventStreams(url: string | null, handlers: Record<string, (data: never) => void>, onDisconnect?: () => void, onOpen?: () => void): StreamStatus {
   const [status, setStatus] = useState<StreamStatus>('connecting')
-  const handleEvent = useEffectEvent(onEvent)
+  const handlerRef = useRef(handlers)
+  useLayoutEffect(() => {
+    handlerRef.current = handlers
+  })
   const disconnected = useEffectEvent(() => onDisconnect?.())
+  const opened = useEffectEvent(() => onOpen?.())
+  const names = Object.keys(handlers).sort().join(',')
 
   useEffect(() => {
     if (!url) return
@@ -77,14 +91,19 @@ export function useEventStream<T>(url: string | null, eventName: string, onEvent
       source.onopen = () => {
         attempts = 0
         setStatus('open')
+        opened()
       }
-      source.addEventListener(eventName, (event) => {
-        try {
-          handleEvent(JSON.parse((event as MessageEvent<string>).data) as T)
-        } catch {
-          // Ignore malformed events.
-        }
-      })
+      for (const name of names.split(',').filter(Boolean)) {
+        source.addEventListener(name, (event) => {
+          let data: unknown
+          try {
+            data = JSON.parse((event as MessageEvent<string>).data)
+          } catch {
+            return // Ignore malformed events.
+          }
+          handlerRef.current[name]?.(data as never)
+        })
+      }
       source.addEventListener('match-deleted', () => {
         source?.close()
         disconnected()
@@ -114,9 +133,20 @@ export function useEventStream<T>(url: string | null, eventName: string, onEvent
       document.removeEventListener('visibilitychange', onVisible)
       source?.close()
     }
-  }, [url, eventName])
+  }, [url, names])
 
   return status
+}
+
+/** Re-renders every `intervalMs` (for countdowns and relative times). */
+export function useNow(intervalMs = 1000, enabled = true) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!enabled) return
+    const timer = window.setInterval(() => setNow(Date.now()), intervalMs)
+    return () => window.clearInterval(timer)
+  }, [intervalMs, enabled])
+  return now
 }
 
 export function useDocumentTitle(title: string) {

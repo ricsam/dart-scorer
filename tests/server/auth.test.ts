@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { sanitizeReturnTo } from '../../server/auth'
-import { loadConfig } from '../../server/config'
+import { loadConfig, loadLimitOverrides } from '../../server/config'
 import { CONTENT_SECURITY_POLICY } from '../../server/security'
 import { Client, DAY, devLogin, ORIGIN, setup, type TestContext } from './helpers'
 
@@ -172,6 +172,14 @@ describe('dev login', () => {
     expect(warnings.some((warning) => warning.includes('DEV_LOGIN'))).toBe(true)
     expect(loadConfig({ DEV_LOGIN: 'true' }).config.devLogin).toBe(true)
     expect(loadConfig({}).config.devLogin).toBe(false)
+  })
+
+  it('reads an optional auth rate-limit override', () => {
+    expect(loadLimitOverrides({})).toEqual({})
+    expect(loadLimitOverrides({ AUTH_RATE_LIMIT_PER_MINUTE: ' ' })).toEqual({})
+    expect(loadLimitOverrides({ AUTH_RATE_LIMIT_PER_MINUTE: '1000' })).toEqual({ authPerMinute: 1000 })
+    expect(() => loadLimitOverrides({ AUTH_RATE_LIMIT_PER_MINUTE: '0' })).toThrow(/AUTH_RATE_LIMIT_PER_MINUTE/)
+    expect(() => loadLimitOverrides({ AUTH_RATE_LIMIT_PER_MINUTE: 'lots' })).toThrow(/AUTH_RATE_LIMIT_PER_MINUTE/)
   })
 
   it('returns 404 when disabled', async () => {

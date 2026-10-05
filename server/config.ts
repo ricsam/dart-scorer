@@ -79,3 +79,15 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     warnings,
   }
 }
+
+/**
+ * Optional rate-limit overrides. `AUTH_RATE_LIMIT_PER_MINUTE` raises the per-IP `/auth` limit for
+ * environments where many players share one address (such as the end-to-end test harness).
+ */
+export function loadLimitOverrides(env: Record<string, string | undefined> = process.env): { authPerMinute?: number } {
+  const raw = env.AUTH_RATE_LIMIT_PER_MINUTE?.trim()
+  if (!raw) return {}
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 1 || value > 100_000) throw new Error(`Invalid AUTH_RATE_LIMIT_PER_MINUTE: ${raw}`)
+  return { authPerMinute: value }
+}

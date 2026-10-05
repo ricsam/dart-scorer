@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Radio, Trophy, Users } from 'lucide-react'
+import { Globe2, LineChart, Trophy, Users } from 'lucide-react'
 import { api, errorMessage, googleSignInUrl } from '../api'
 import { safeReturnTo } from '../format'
 import { useDocumentTitle } from '../hooks'
@@ -27,19 +27,20 @@ export function LoginPage() {
         <span className="login-mark brand-mark" aria-hidden="true"><i /><i /><i /></span>
         <span className="eyebrow">OCHE ONLINE</span>
         <h1>Your darts crew, one oche.</h1>
-        <p className="lead">Create a league, invite your friends and score matches together. Every leg counts toward your league’s leaderboard.</p>
+        <p className="lead">Practise solo and watch your average climb, settle it with friends in a league, or take on anyone in ranked games.</p>
         {user?.guest && <p className="muted-note">Signing in starts a separate account session. It does not merge your guest slot or rank past guest matches. Join the league with its invite after signing in.</p>}
         {errorCode && <div className="form-error" role="alert">{ERRORS[errorCode] ?? 'Sign-in failed. Please try again.'}</div>}
         {me?.auth.google && <GoogleButton href={googleSignInUrl(returnTo)} />}
         {me && !me.auth.google && !me.auth.dev && <p className="muted-note">Google sign-in is not configured on this server.</p>}
         {me?.auth.dev && <DevLoginForm returnTo={returnTo} />}
         <ul className="login-features">
-          <li><Users size={16} /><span><b>Leagues and invites</b>Share a link or QR code to bring players in.</span></li>
-          <li><Radio size={16} /><span><b>Live scoring</b>Everyone in the league follows the match from their own phone.</span></li>
-          <li><Trophy size={16} /><span><b>Leaderboards</b>League ratings, averages, checkout rates, 180s and best legs.</span></li>
+          <li><LineChart size={16} /><span><b>Track your game</b>Solo practice and bot games build your 3-dart average, checkout rate and personal bests over time.</span></li>
+          <li><Users size={16} /><span><b>Play with friends</b>Lobbies with chat and invites, or a league with its own leaderboard. Everyone scores on their own phone.</span></li>
+          <li><Globe2 size={16} /><span><b>The global stage</b>Join public lobbies and climb the ranked table.</span></li>
+          <li><Trophy size={16} /><span><b>Every stat</b>Ratings, averages, first nine, checkouts, 180s and best legs.</span></li>
         </ul>
         <Link to="/" className="text-link">Just keeping score? Play without an account →</Link>
-        <small className="fine-print">We only use your Google name, email and picture to identify you to your leagues. <Link to="/privacy">Privacy</Link></small>
+        <small className="fine-print">We only use your Google name, email and picture to identify you to other players. <Link to="/privacy">Privacy</Link></small>
       </div>
     </section>
   )

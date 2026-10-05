@@ -17,7 +17,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 320, height: 740 
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
       await page.screenshot({ path: testInfo.outputPath(`about-${theme}.png`) })
-      await page.getByRole('navigation', { name: 'On this page' }).getByRole('link', { name: 'League ratings (Elo)' }).click()
+      await page.getByRole('navigation', { name: 'On this page' }).getByRole('link', { name: 'Ratings (Elo)' }).click()
       await expect(page).toHaveURL(/\/about#ratings$/)
       await expect(page.locator('#ratings')).toBeInViewport()
       await expect(page.getByLabel('Elo formulas')).toContainText('32 ÷ (n − 1)')
@@ -47,9 +47,9 @@ test('guide remains public if the session API fails', async ({ page }) => {
 })
 
 for (const width of [320, 1280]) {
-  test(`online quick game opens the guide without losing the current game at ${width}px`, async ({ page }) => {
+  test(`the signed-out scorer opens the guide without losing the current game at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 740 })
-    await page.goto('/play')
+    await page.goto('/')
     await page.getByLabel('Enter dart hits').fill('20')
     await page.getByLabel('Enter dart hits').press('Enter')
     await expect(page.locator('.scoreboard .big-score')).toHaveText(['81', '101'])
@@ -73,7 +73,7 @@ test('account menu, profile and leaderboard link to the guide', async ({ page })
   await page.getByRole('button', { name: 'Account menu for Guide reader' }).click()
   await page.getByRole('menuitem', { name: 'About & scoring' }).click()
   await expect(page.getByRole('heading', { name: 'About & scoring', exact: true })).toBeVisible()
-  await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'MY STATS' }).click()
+  await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'STATS' }).click()
   await page.getByRole('link', { name: 'How ratings & stats work' }).click()
   await expect(page).toHaveURL(/\/about$/)
   await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'LEAGUES' }).click()

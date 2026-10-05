@@ -9,7 +9,7 @@ import {
   PLAYER_NAME_MAX_LENGTH,
   type GameAction,
 } from '../src/game'
-import type { MatchConflictResponse, MatchEvent, MatchResponse, MatchSettings, CreateMatchRequest, MyMatchesResponse } from '../src/shared/api'
+import type { MatchConflictResponse, MatchEvent, MatchesResponse, MatchResponse, MatchSettings, CreateMatchRequest, MyMatchesResponse } from '../src/shared/api'
 import { getBot } from '../src/shared/bots'
 import { reduceMatchAction, undoTargetSlot } from '../src/shared/match-reducer'
 import { MAX_STATE_BYTES } from './match-limits'
@@ -375,6 +375,17 @@ export function matchRoutes(services: Services) {
     return c.json<MyMatchesResponse>({
       matches: rows.map(({ league_name: leagueName, ...row }) => ({ ...matchSummary(buildMatchView(db, row)), leagueName })),
     })
+  })
+
+  /** Live games from public lobbies that anyone signed in may watch, most recently active first. */
+  app.get('/public-matches', (c) => {
+    requireUser(c)
+    const since = new Date(services.now().getTime() - 30 * 60 * 1000).toISOString()
+    const rows = db.all<MatchRow>(
+      "SELECT * FROM matches WHERE status = 'live' AND visibility = 'public' AND updated_at >= ? ORDER BY ranked DESC, updated_at DESC, id LIMIT 12",
+      since,
+    )
+    return c.json<MatchesResponse>({ matches: rows.map((row) => matchSummary(buildMatchView(db, row))), hasMore: false })
   })
 
   return app
