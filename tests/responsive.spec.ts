@@ -12,6 +12,22 @@ async function layoutSnapshot(page: Page) {
   })
 }
 
+/**
+ * The layout once web fonts have loaded and nothing is still moving. On a cold start (as in CI) the
+ * first paint can still swap fonts or be replaced by a dev-server reload, which made the baseline flaky.
+ */
+async function settledLayout(page: Page) {
+  let settled: Awaited<ReturnType<typeof layoutSnapshot>> | undefined
+  await expect(async () => {
+    await page.evaluate(async () => { await document.fonts.ready })
+    const first = await layoutSnapshot(page)
+    await page.waitForTimeout(150)
+    expect(await layoutSnapshot(page)).toEqual(first)
+    settled = first
+  }).toPass({ timeout: 10_000 })
+  return settled!
+}
+
 for (const viewport of [
   { name: 'phone portrait', width: 390, height: 844 },
   { name: 'phone landscape', width: 844, height: 390 },
@@ -21,7 +37,7 @@ for (const viewport of [
     await page.setViewportSize(viewport)
     await page.goto('/')
 
-    const beforeFocus = await layoutSnapshot(page)
+    const beforeFocus = await settledLayout(page)
     const shellClassBeforeFocus = await page.locator('.app-shell').getAttribute('class')
     await scoreInput(page).focus()
     const afterFocus = await layoutSnapshot(page)
