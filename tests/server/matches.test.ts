@@ -1,26 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import { eloDeltas } from '../../server/ratings'
-import type { MatchConflictResponse, MatchDetail, RoomDetail } from '../../src/shared/api'
-import { act, CHECKOUT_101, createMatch, createRoom, devLogin, finish, joinRoom, play, setup, type Client } from './helpers'
+import type { MatchConflictResponse, MatchDetail, LeagueDetail } from '../../src/shared/api'
+import { act, CHECKOUT_101, createMatch, createLeague, devLogin, finish, joinLeague, play, setup, type Client } from './helpers'
 
-async function roomWithPlayers() {
+async function leagueWithPlayers() {
   const ctx = setup()
   const owner = await devLogin(ctx.app, 'Olivia')
   const max = await devLogin(ctx.app, 'Max')
   const nora = await devLogin(ctx.app, 'Nora')
   const outsider = await devLogin(ctx.app, 'Otto')
-  const room = await createRoom(owner, 'Arrows')
-  await joinRoom(max, room.inviteCode)
-  await joinRoom(nora, room.inviteCode)
-  return { ctx, owner, max, nora, outsider, room }
+  const league = await createLeague(owner, 'Arrows')
+  await joinLeague(max, league.inviteCode)
+  await joinLeague(nora, league.inviteCode)
+  return { ctx, owner, max, nora, outsider, league }
 }
 
 const players = (...clients: Client[]) => clients.map((client) => ({ userId: client.userId! }))
 
 describe('match creation', () => {
   it('validates players and settings strictly', async () => {
-    const { owner, max, outsider, room } = await roomWithPlayers()
-    const url = `/api/rooms/${room.id}/matches`
+    const { owner, max, outsider, league } = await leagueWithPlayers()
+    const url = `/api/leagues/${league.id}/matches`
     const settings = { game: 501, doubleIn: false, doubleOut: true, legsToWin: 3 }
     const bad = async (body: unknown) => expect(await owner.json('POST', url, 400, body)).toMatchObject({ error: 'bad_request' })
 
@@ -43,13 +43,13 @@ describe('match creation', () => {
   })
 
   it('snapshots the roster and starts a live match at version 1', async () => {
-    const { owner, max, nora, room } = await roomWithPlayers()
-    const match = await createMatch(max, room.id, [{ userId: max.userId! }, { guestName: ' Grandpa ' }, { userId: owner.userId! }], {
+    const { owner, max, nora, league } = await leagueWithPlayers()
+    const match = await createMatch(max, league.id, [{ userId: max.userId! }, { guestName: ' Grandpa ' }, { userId: owner.userId! }], {
       game: 301, doubleIn: true, doubleOut: false, legsToWin: 2,
     })
     expect(match).toMatchObject({
-      roomId: room.id,
-      roomName: 'Arrows',
+      leagueId: league.id,
+      leagueName: 'Arrows',
       status: 'live',
       version: 1,
       settings: { game: 301, doubleIn: true, doubleOut: false, legsToWin: 2 },
@@ -73,23 +73,23 @@ describe('match creation', () => {
     await max.json('PATCH', '/api/me', 200, { name: 'Maximilian' })
     expect((await max.json<{ match: MatchDetail }>('GET', `/api/matches/${match.id}`, 200)).match.players[0].name).toBe('Max')
 
-    // Permissions per viewer: Nora is a member but not involved; Olivia plays and owns the room.
+    // Permissions per viewer: Nora is a member but not involved; Olivia plays and owns the league.
     const noraView = (await nora.json<{ match: MatchDetail }>('GET', `/api/matches/${match.id}`, 200)).match
     expect([noraView.canScore, noraView.canDelete]).toEqual([false, false])
     const ownerView = (await owner.json<{ match: MatchDetail }>('GET', `/api/matches/${match.id}`, 200)).match
     expect([ownerView.canScore, ownerView.canDelete]).toEqual([true, true])
 
-    const detail = (await nora.json<{ room: RoomDetail }>('GET', `/api/rooms/${room.id}`, 200)).room
+    const detail = (await nora.json<{ league: LeagueDetail }>('GET', `/api/leagues/${league.id}`, 200)).league
     expect(detail.defaults).toEqual({ game: 301, doubleIn: true, doubleOut: false, legsToWin: 2 })
     expect(detail.liveMatches).toHaveLength(1)
     expect(detail.liveMatches[0]).toMatchObject({ id: match.id, status: 'live', active: 0, awaitingConfirmation: false })
     expect(detail.liveMatches[0].players[1]).toMatchObject({ name: 'Grandpa', guest: true, legs: 0, score: 301, average: 0, won: false })
   })
 
-  it('allows at most 10 live matches per room', async () => {
-    const { owner, max, room } = await roomWithPlayers()
-    for (let i = 0; i < 10; i += 1) await createMatch(owner, room.id, players(owner, max))
-    expect(await owner.json('POST', `/api/rooms/${room.id}/matches`, 400, {
+  it('allows at most 10 live matches per league', async () => {
+    const { owner, max, league } = await leagueWithPlayers()
+    for (let i = 0; i < 10; i += 1) await createMatch(owner, league.id, players(owner, max))
+    expect(await owner.json('POST', `/api/leagues/${league.id}/matches`, 400, {
       players: players(owner, max), settings: { game: 501, doubleIn: false, doubleOut: true, legsToWin: 1 },
     })).toMatchObject({ error: 'bad_request' })
   })
@@ -97,8 +97,8 @@ describe('match creation', () => {
 
 describe('match actions', () => {
   it('applies scoring with optimistic concurrency', async () => {
-    const { owner, max, nora, room } = await roomWithPlayers()
-    const match = await createMatch(owner, room.id, players(max, nora))
+    const { owner, max, nora, league } = await leagueWithPlayers()
+    const match = await createMatch(owner, league.id, players(max, nora))
 
     const afterDart = await act(max, match, { type: 'submit', entry: 'T20' })
     expect(afterDart.version).toBe(2)
@@ -113,7 +113,7 @@ describe('match actions', () => {
     expect(conflict.match.version).toBe(2)
     expect(conflict.match.state.players[0].score).toBe(41)
 
-    // The creator (room owner) may score even when not playing.
+    // The creator (league owner) may score even when not playing.
     const afterVisit = await act(owner, afterDart, { type: 'submit', entry: '9 D16' })
     expect(afterVisit.version).toBe(3)
     expect(afterVisit.state.matchWinner).toBe(0)
@@ -130,8 +130,8 @@ describe('match actions', () => {
   })
 
   it('rejects non-scorers, outsiders and disallowed or malformed actions', async () => {
-    const { owner, max, nora, outsider, room } = await roomWithPlayers()
-    const match = await createMatch(max, room.id, [{ userId: max.userId! }, { guestName: 'Guest' }])
+    const { owner, max, nora, outsider, league } = await leagueWithPlayers()
+    const match = await createMatch(max, league.id, [{ userId: max.userId! }, { guestName: 'Guest' }])
     const url = `/api/matches/${match.id}/actions`
     const post = (client: Client, status: number, body: unknown) => client.json(client === outsider ? 'POST' : 'POST', url, status, body)
 
@@ -167,8 +167,8 @@ describe('match actions', () => {
   })
 
   it('supports rewinding to a visit in a completed leg', async () => {
-    const { owner, max, room } = await roomWithPlayers()
-    let match = await createMatch(owner, room.id, players(owner, max), { game: 101, doubleIn: false, doubleOut: true, legsToWin: 2 })
+    const { owner, max, league } = await leagueWithPlayers()
+    let match = await createMatch(owner, league.id, players(owner, max), { game: 101, doubleIn: false, doubleOut: true, legsToWin: 2 })
     match = await play(owner, match, 'T20 M M', 'M M M', '9 D16')
     expect(match.state.winner).toBe(0)
     expect(match.state.legHistory).toHaveLength(1)
@@ -183,13 +183,13 @@ describe('match actions', () => {
 
 describe('finishing matches', () => {
   it('records results and Elo ratings (1000 vs 1000 → 1016 / 984)', async () => {
-    const { owner, max, nora, room } = await roomWithPlayers()
-    let match = await createMatch(owner, room.id, players(max, nora))
+    const { owner, max, nora, league } = await leagueWithPlayers()
+    let match = await createMatch(owner, league.id, players(max, nora))
     await finish(max, match, 400) // no winner yet
     match = await play(max, match, CHECKOUT_101)
     expect(match.state.matchWinner).toBe(0)
 
-    const summary = (await max.json<{ room: RoomDetail }>('GET', `/api/rooms/${room.id}`, 200)).room.liveMatches[0]
+    const summary = (await max.json<{ league: LeagueDetail }>('GET', `/api/leagues/${league.id}`, 200)).league.liveMatches[0]
     expect(summary.awaitingConfirmation).toBe(true)
 
     await max.json('POST', `/api/matches/${match.id}/finish`, 409, { baseVersion: match.version - 1 })
@@ -203,28 +203,28 @@ describe('finishing matches', () => {
     expect(done.results![0].stats).toMatchObject({ legsWon: 1, legsPlayed: 1, darts: 3, points: 101, average: 101, checkouts: 1, highestCheckout: 101, bestLegDarts: 3 })
     expect(done.results![1].stats).toMatchObject({ legsWon: 0, legsPlayed: 1, darts: 0, points: 0 })
 
-    // The room owner (not a player) can only delete; players can no longer score.
+    // The league owner (not a player) can only delete; players can no longer score.
     const ownerView = (await owner.json<{ match: MatchDetail }>('GET', `/api/matches/${match.id}`, 200)).match
     expect([ownerView.canScore, ownerView.canDelete]).toEqual([false, true])
     await max.json('POST', `/api/matches/${match.id}/actions`, 400, { action: { type: 'undo' }, baseVersion: done.version })
     await max.json('POST', `/api/matches/${match.id}/actions`, 409, { action: { type: 'undo' }, baseVersion: match.version })
     await max.json('POST', `/api/matches/${match.id}/finish`, 400, { baseVersion: done.version })
 
-    const detail = (await owner.json<{ room: RoomDetail }>('GET', `/api/rooms/${room.id}`, 200)).room
+    const detail = (await owner.json<{ league: LeagueDetail }>('GET', `/api/leagues/${league.id}`, 200)).league
     expect(detail.liveMatches).toHaveLength(0)
     expect(detail.recentMatches[0]).toMatchObject({ id: match.id, status: 'completed', active: null, awaitingConfirmation: false })
     expect(detail.recentMatches[0].players.map((p) => p.won)).toEqual([true, false])
     expect(detail.members.map((m) => [m.name, m.rating, m.matches])).toEqual([['Olivia', 1000, 0], ['Max', 1016, 1], ['Nora', 984, 1]])
 
-    const rooms = (await max.json<{ rooms: { myRating: number; myRank: number | null; completedMatches: number }[] }>('GET', '/api/rooms', 200)).rooms
-    expect(rooms[0]).toMatchObject({ myRating: 1016, myRank: 1, completedMatches: 1 })
-    expect((await nora.json<{ rooms: { myRank: number | null }[] }>('GET', '/api/rooms', 200)).rooms[0].myRank).toBe(2)
-    expect((await owner.json<{ rooms: { myRank: number | null }[] }>('GET', '/api/rooms', 200)).rooms[0].myRank).toBeNull()
+    const leagues = (await max.json<{ leagues: { myRating: number; myRank: number | null; completedMatches: number }[] }>('GET', '/api/leagues', 200)).leagues
+    expect(leagues[0]).toMatchObject({ myRating: 1016, myRank: 1, completedMatches: 1 })
+    expect((await nora.json<{ leagues: { myRank: number | null }[] }>('GET', '/api/leagues', 200)).leagues[0].myRank).toBe(2)
+    expect((await owner.json<{ leagues: { myRank: number | null }[] }>('GET', '/api/leagues', 200)).leagues[0].myRank).toBeNull()
   })
 
   it('does not rate guests or matches with fewer than two ranked players', async () => {
-    const { owner, room } = await roomWithPlayers()
-    let match = await createMatch(owner, room.id, [{ userId: owner.userId! }, { guestName: 'Guest' }])
+    const { owner, league } = await leagueWithPlayers()
+    let match = await createMatch(owner, league.id, [{ userId: owner.userId! }, { guestName: 'Guest' }])
     match = await finish(owner, await play(owner, match, CHECKOUT_101))
     expect(match.results!.map((r) => [r.ratingBefore, r.ratingAfter])).toEqual([[1000, 1000], [null, null]])
   })
@@ -241,25 +241,25 @@ describe('finishing matches', () => {
 
 describe('deleting matches', () => {
   it('enforces permissions and recomputes ratings after deleting a completed match', async () => {
-    const { ctx, owner, max, nora, room } = await roomWithPlayers()
-    const live = await createMatch(max, room.id, players(max, nora))
+    const { ctx, owner, max, nora, league } = await leagueWithPlayers()
+    const live = await createMatch(max, league.id, players(max, nora))
     await nora.json('DELETE', `/api/matches/${live.id}`, 403)
     expect((await max.delete(`/api/matches/${live.id}`)).status).toBe(204)
     await max.json('GET', `/api/matches/${live.id}`, 404)
 
-    const liveByNora = await createMatch(nora, room.id, players(max, nora))
+    const liveByNora = await createMatch(nora, league.id, players(max, nora))
     expect((await owner.delete(`/api/matches/${liveByNora.id}`)).status).toBe(204)
 
-    const first = await finish(max, await play(max, await createMatch(max, room.id, players(max, nora)), CHECKOUT_101))
+    const first = await finish(max, await play(max, await createMatch(max, league.id, players(max, nora)), CHECKOUT_101))
     ctx.clock.advance(60_000)
-    const second = await finish(max, await play(max, await createMatch(max, room.id, players(max, nora)), CHECKOUT_101))
+    const second = await finish(max, await play(max, await createMatch(max, league.id, players(max, nora)), CHECKOUT_101))
     expect(second.results!.map((r) => [r.ratingBefore, r.ratingAfter])).toEqual([[1016, 1031], [984, 969]])
 
     await max.json('DELETE', `/api/matches/${first.id}`, 403) // completed: owner only
     expect((await owner.delete(`/api/matches/${first.id}`)).status).toBe(204)
     const replayed = (await max.json<{ match: MatchDetail }>('GET', `/api/matches/${second.id}`, 200)).match
     expect(replayed.results!.map((r) => [r.ratingBefore, r.ratingAfter])).toEqual([[1000, 1016], [1000, 984]])
-    const members = (await owner.json<{ room: RoomDetail }>('GET', `/api/rooms/${room.id}`, 200)).room.members
+    const members = (await owner.json<{ league: LeagueDetail }>('GET', `/api/leagues/${league.id}`, 200)).league.members
     expect(members.map((m) => [m.name, m.rating, m.matches])).toEqual([['Olivia', 1000, 0], ['Max', 1016, 1], ['Nora', 984, 1]])
   })
 })

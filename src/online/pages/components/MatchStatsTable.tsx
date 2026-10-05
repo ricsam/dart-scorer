@@ -22,7 +22,7 @@ export function MatchStatsTable({ rows, showRatings = false }: { rows: Row[]; sh
   ]
   if (showRatings && !rows.some((row) => row.player.botId)) {
     lines.push({
-      label: 'Room rating',
+      label: 'League rating',
       values: rows.map((row) => row.result?.ratingAfter !== null && row.result?.ratingAfter !== undefined && row.result.ratingBefore !== null
         ? `${formatRating(row.result.ratingAfter)} (${formatDelta(row.result.ratingAfter - row.result.ratingBefore)})`
         : row.player.guest ? 'Guest' : '—'),

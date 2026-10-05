@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, Award, Crown, Flame, Target, Zap } from 'lucide-react'
-import type { LeaderboardEntry, LeaderboardPeriod, RoomDetail } from '../../../shared/api'
+import type { LeaderboardEntry, LeaderboardPeriod, LeagueDetail } from '../../../shared/api'
 import { api } from '../../api'
 import { formatAverage, formatBestLeg, formatDelta, formatPercent, formatRating } from '../../format'
 import { useResource } from '../../hooks'
@@ -20,7 +20,7 @@ type Column = {
 }
 
 const COLUMNS: Column[] = [
-  { key: 'rating', label: 'RATING', title: 'Room rating (Elo, starts at 1000)', value: (entry) => entry.rating, render: (entry) => formatRating(entry.rating) },
+  { key: 'rating', label: 'RATING', title: 'League rating (Elo, starts at 1000)', value: (entry) => entry.rating, render: (entry) => formatRating(entry.rating) },
   { key: 'wins', label: 'W–L', title: 'Matches won and lost', value: (entry) => entry.wins, render: (entry) => `${entry.wins}–${entry.losses}` },
   { key: 'winRate', label: 'WIN %', title: 'Share of matches won', value: (entry) => entry.winRate, render: (entry) => formatPercent(entry.winRate) },
   { key: 'average', label: 'AVG', title: 'Three-dart average', value: (entry) => entry.average, render: (entry) => formatAverage(entry.average) },
@@ -66,11 +66,11 @@ function best(entries: LeaderboardEntry[], pick: (entry: LeaderboardEntry) => nu
   return winner && winnerValue !== null ? { entry: winner, value: winnerValue } : null
 }
 
-export function Leaderboard({ room, refreshKey }: { room: RoomDetail; refreshKey: number }) {
+export function Leaderboard({ league, refreshKey }: { league: LeagueDetail; refreshKey: number }) {
   const [period, setPeriod] = useState<LeaderboardPeriod>('all')
   const [sortKey, setSortKey] = useState<SortKey>('rating')
   const [selected, setSelected] = useState<string | null>(null)
-  const board = useResource(`leaderboard:${room.id}:${period}:${refreshKey}`, () => api.leaderboard(room.id, period))
+  const board = useResource(`leaderboard:${league.id}:${period}:${refreshKey}`, () => api.leaderboard(league.id, period))
 
   const column = COLUMNS.find((item) => item.key === sortKey) ?? COLUMNS[0]
   const entries = board.data?.entries ?? []
@@ -172,7 +172,7 @@ export function Leaderboard({ room, refreshKey }: { room: RoomDetail; refreshKey
         </>
       )}
 
-      {selected && <PlayerDialog room={room} userId={selected} onClose={() => setSelected(null)} />}
+      {selected && <PlayerDialog league={league} userId={selected} onClose={() => setSelected(null)} />}
     </section>
   )
 }

@@ -7,7 +7,7 @@ export function NotFoundPage() {
   return (
     <div className="page">
       <EmptyState title="Bounced out">
-        That page doesn’t exist. <Link to="/" className="text-link">Back to your rooms →</Link>
+        That page doesn’t exist. <Link to="/" className="text-link">Back to your leagues →</Link>
       </EmptyState>
     </div>
   )

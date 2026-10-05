@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { RoomDetail } from '../../../shared/api'
+import type { LeagueDetail } from '../../../shared/api'
 import { api } from '../../api'
 import { formatAverage, formatBestLeg, formatDate, formatDelta, formatPercent, formatRating } from '../../format'
 import { useResource } from '../../hooks'
@@ -31,18 +31,18 @@ function RatingChart({ points }: { points: { at: string; rating: number }[] }) {
   )
 }
 
-export function PlayerDialog({ room, userId, onClose }: { room: RoomDetail; userId: string; onClose: () => void }) {
-  const stats = useResource(`player:${room.id}:${userId}`, () => api.playerStats(room.id, userId))
+export function PlayerDialog({ league, userId, onClose }: { league: LeagueDetail; userId: string; onClose: () => void }) {
+  const stats = useResource(`player:${league.id}:${userId}`, () => api.playerStats(league.id, userId))
   const [mode, setMode] = useState<'competition' | 'training'>('competition')
-  const member = room.members.find((item) => item.id === userId)
+  const member = league.members.find((item) => item.id === userId)
 
   return (
-    <Sheet title={member?.name ?? stats.data?.player.name ?? 'Player'} eyebrow={`${room.name.toUpperCase()} · PLAYER`} onClose={onClose} labelledBy="player-dialog-title" wide>
+    <Sheet title={member?.name ?? stats.data?.player.name ?? 'Player'} eyebrow={`${league.name.toUpperCase()} · PLAYER`} onClose={onClose} labelledBy="player-dialog-title" wide>
       {stats.loading && !stats.data ? <Loading /> : stats.error ? <ErrorState message={stats.error.message} onRetry={stats.reload} /> : stats.data && (
         <div className="player-dialog">
           <div className="stats-mode"><Segmented label="Stats category" value={mode} options={[{ value: 'competition', label: 'Competition' }, { value: 'training', label: 'Training' }]} onChange={setMode} /></div>
           {mode === 'training' ? <section aria-label="Training stats">
-            <p className="stats-mode-note">Completed bot matches in this room. Training does not affect competition wins, losses or ratings.</p>
+            <p className="stats-mode-note">Completed bot matches in this league. Training does not affect competition wins, losses or ratings.</p>
             <TrainingTotals totals={stats.data.training.totals} />
             <StatsProgress history={stats.data.training.history} title="Training monthly average" />
             <h3 className="section-label">RECENT TRAINING MATCHES</h3>

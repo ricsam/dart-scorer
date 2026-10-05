@@ -1,6 +1,6 @@
 # Oche server
 
-Node server for the signed-in ("online") edition: Google sign-in, rooms, live matches with
+Node server for the signed-in ("online") edition: Google sign-in, leagues, live matches with
 server-sent events, Elo ratings, leaderboards and statistics. It also serves the built SPA.
 The HTTP contract lives in [`src/shared/api.ts`](../src/shared/api.ts); the darts rules are the
 shared engine in [`src/game`](../src/game).
@@ -49,9 +49,9 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
 - `GET /healthz` (process up) and `GET /readyz` (database answers).
 - SSE: `GET /api/matches/:id/events` (event `match`; additionally `match-deleted` with
   `{ matchId }` just before the stream closes when the match is deleted) and
-  `GET /api/rooms/:id/events` (event `room`). Streams start with `retry: 3000`, send a heartbeat
+  `GET /api/leagues/:id/events` (event `league`). Streams start with `retry: 3000`, send a heartbeat
   comment every 25 s. Logout immediately closes only that session's streams (other sessions
-  remain connected); removal or room deletion closes streams immediately without draining queued
+  remain connected); removal or league deletion closes streams immediately without draining queued
   events. Session expiry/revocation and membership are checked before each write and heartbeat.
 
 ## Behaviour notes
@@ -63,15 +63,15 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
 - Rate limits (in memory): 30 `/auth` requests per IP per minute, 300 mutations per user per
   minute, 60 public invite previews per IP per minute, 20 concurrent SSE streams per user.
   Each rate-limit map is capped at 10,000 keys and fails closed for new keys until expiry.
-- Rooms and matches the viewer can't see are 404. Limits: room names 1–40 characters, 20 owned
-  rooms per user, 100 members per room, 10 live matches per room; guest names 1–18, display
+- Leagues and matches the viewer can't see are 404. Limits: league names 1–40 characters, 20 owned
+  leagues per user, 100 members per league, 10 live matches per league; guest names 1–18, display
   names 1–24 characters.
 - Matches: only `submit`, `undo`, `resetLeg`, `nextLeg` and `rewind` actions. Every accepted
   change (including finishing) increments `version`; a stale `baseVersion` gets 409 with the
   current match, a no-op action returns 200 with the version unchanged. Submit entries use
   `evaluateOnlineEntry` before applying the reducer: invalid or physically impossible darts
   return 400 without changing the version. Numeric shorthand such as 36 and 60 remains valid.
-- Ratings: per room, Elo with K = 32 over all pairs of signed-in players (K/(n−1) scaling),
+- Ratings: per league, Elo with K = 32 over all pairs of signed-in players (K/(n−1) scaling),
   replayed from scratch in completion order whenever a match is finished or a finished match is
   deleted. Stored at full precision; the API rounds to integers.
 - House bots: select one of six fictional characters in New match. Requests accept `{ botId }`
@@ -83,7 +83,7 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
   and resume partial visits after restart. Humans still start the next leg and save results.
   Manual `submit` during a bot turn is rejected. Undo removes trailing bot darts and undoes the
   last human dart/visit in the current leg; if no human has thrown, it is a no-op. Rewind and reset
-  reschedule the bot safely. Match/room deletion and server shutdown stop pending work.
+  reschedule the bot safely. Match/league deletion and server shutdown stop pending work.
 - Any match containing a bot is training for **all** participants, even with multiple registered
   humans. Historical and new bot results are excluded from all competition aggregates, W/L,
   form, head-to-head and recent-match statistics using participant-based queries. Its separate
@@ -93,7 +93,7 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
   `GET/DELETE /api/training/:id`, `POST /api/training/:id/actions` with `{baseVersion, action}`.
   Actions are `submit` (one physical dart) and `undo` (live only). Automatic completion is immutable.
   Conflict returns 409 and latest `session`. Creator can delete; only participants score. Solo is private;
-  room sessions require current membership even after body reads. Limit 10 live sessions per participant.
+  league sessions require current membership even after body reads. Limit 10 live sessions per participant.
   The UI polls every two seconds. The list returns at most 100 latest accessible participant sessions.
-- Career totals (`/api/me/stats`) include results from rooms the user has since left; recent
-  matches only list rooms the user can still see.
+- Career totals (`/api/me/stats`) include results from leagues the user has since left; recent
+  matches only list leagues the user can still see.

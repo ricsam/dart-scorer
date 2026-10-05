@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowUp, Minus, Plus, Shuffle, UserPlus, X } from 'lucide-react'
 import { GAMES, MAX_PLAYERS, MIN_PLAYERS, PLAYER_NAME_MAX_LENGTH } from '../../../game/engine'
-import type { CreateMatchRequest, MatchSettings, RoomDetail } from '../../../shared/api'
+import type { CreateMatchRequest, MatchSettings, LeagueDetail } from '../../../shared/api'
 import { BOT_ROSTER, type BotProfile } from '../../../shared/bots'
 import { BotAvatar, BotBadge } from '../../BotAvatar'
 import { api, errorMessage } from '../../api'
@@ -11,22 +11,22 @@ import { Avatar, Segmented, Sheet } from '../../ui'
 import '../../stats-progress.css'
 
 type Slot = { botId: string | null; key: string; userId: string | null; guestId: string | null; name: string; avatarUrl: string | null }
-const memberSlot = (member: RoomDetail['members'][number]): Slot => ({
+const memberSlot = (member: LeagueDetail['members'][number]): Slot => ({
   botId: null, key: member.id, userId: member.guest ? null : member.id, guestId: member.guest ? member.id : null, name: member.name, avatarUrl: member.avatarUrl,
 })
 
 const MAX_LEGS = 11
 
-export function NewMatchDialog({ room, onClose, botsInitiallyOpen = false, requireBot = false }: { room: RoomDetail; onClose: () => void; botsInitiallyOpen?: boolean; requireBot?: boolean }) {
+export function NewMatchDialog({ league, onClose, botsInitiallyOpen = false, requireBot = false }: { league: LeagueDetail; onClose: () => void; botsInitiallyOpen?: boolean; requireBot?: boolean }) {
   const { user } = useSession()
   const { navigate } = useRouter()
-  const me = room.members.find((member) => member.id === user?.id)
+  const me = league.members.find((member) => member.id === user?.id)
   const [slots, setSlots] = useState<Slot[]>(() => me ? [memberSlot(me)] : [])
-  const [addedGuests, setAddedGuests] = useState<RoomDetail['members']>([])
+  const [addedGuests, setAddedGuests] = useState<LeagueDetail['members']>([])
   const [adding, setAdding] = useState(false)
-  const members = [...room.members, ...addedGuests.filter((guest) => !room.members.some((member) => member.id === guest.id))]
+  const members = [...league.members, ...addedGuests.filter((guest) => !league.members.some((member) => member.id === guest.id))]
   const [guestName, setGuestName] = useState('')
-  const [settings, setSettings] = useState<MatchSettings>(room.defaults)
+  const [settings, setSettings] = useState<MatchSettings>(league.defaults)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [botsOpen, setBotsOpen] = useState(botsInitiallyOpen)
@@ -37,7 +37,7 @@ export function NewMatchDialog({ room, onClose, botsInitiallyOpen = false, requi
   const toggleBot = (bot: BotProfile) => setSlots((current) => current.some((slot) => slot.botId === bot.id)
     ? current.filter((slot) => slot.botId !== bot.id)
     : current.length >= MAX_PLAYERS ? current : [...current, { key: `bot-${bot.id}`, botId: bot.id, userId: null, guestId: null, name: bot.name, avatarUrl: null }])
-  const toggleMember = (member: RoomDetail['members'][number]) => {
+  const toggleMember = (member: LeagueDetail['members'][number]) => {
     setSlots((current) => current.some((slot) => slot.key === member.id)
       ? current.filter((slot) => slot.key !== member.id)
       : current.length >= MAX_PLAYERS ? current : [...current, memberSlot(member)])
@@ -49,7 +49,7 @@ export function NewMatchDialog({ room, onClose, botsInitiallyOpen = false, requi
     setAdding(true)
     setError(null)
     try {
-      const { guest } = await api.addGuest(room.id, name)
+      const { guest } = await api.addGuest(league.id, name)
       setAddedGuests((current) => [...current.filter((item) => item.id !== guest.id), guest])
       setSlots((current) => current.some((slot) => slot.key === guest.id) || current.length >= MAX_PLAYERS ? current : [...current, memberSlot(guest)])
       setGuestName('')
@@ -86,7 +86,7 @@ export function NewMatchDialog({ room, onClose, botsInitiallyOpen = false, requi
       settings,
     }
     try {
-      const { match } = await api.createMatch(room.id, body)
+      const { match } = await api.createMatch(league.id, body)
       navigate(`/matches/${match.id}`)
     } catch (caught) {
       setError(errorMessage(caught))
@@ -95,13 +95,13 @@ export function NewMatchDialog({ room, onClose, botsInitiallyOpen = false, requi
   }
 
   return (
-    <Sheet title={requireBot ? 'Bot practice' : 'New match'} eyebrow={room.name.toUpperCase()} onClose={onClose} labelledBy="new-match-title" wide>
+    <Sheet title={requireBot ? 'Bot practice' : 'New match'} eyebrow={league.name.toUpperCase()} onClose={onClose} labelledBy="new-match-title" wide>
       <form className="sheet-form new-match" onSubmit={submit}>
         <div className="settings-section">
           <div className="roster-heading">
             <div className="settings-copy">
               <strong>Players & throw order</strong>
-              <span>Tap room players to add them. The first player throws first; the starter rotates each leg.</span>
+              <span>Tap league players to add them. The first player throws first; the starter rotates each leg.</span>
             </div>
             <span className="player-count">{slots.length}/{MAX_PLAYERS}</span>
           </div>
@@ -126,7 +126,7 @@ export function NewMatchDialog({ room, onClose, botsInitiallyOpen = false, requi
             <button type="button" className="ghost-button" onClick={addGuest} disabled={!guestName.trim() || full || busy || adding}><UserPlus size={15} /> {adding ? 'ADDING…' : 'ADD GUEST'}</button>
           </div>
 
-          <p className="field-hint">Guests stay in the room roster even if you cancel this match. They can connect to their slot from the invite link and are never ranked.</p>
+          <p className="field-hint">Guests stay in the league roster even if you cancel this match. They can connect to their slot from the invite link and are never ranked.</p>
 
           <details className="bot-picker-disclosure" open={botsOpen} onToggle={(event) => setBotsOpen(event.currentTarget.open)}>
           <summary>Practice against bots <span>{slots.filter((slot) => slot.botId).length} selected · {BOT_ROSTER.length} available</span></summary>
@@ -143,7 +143,7 @@ export function NewMatchDialog({ room, onClose, botsInitiallyOpen = false, requi
               </button>
             })}
           </div>
-          <p className="field-hint bot-roster-note">Bots throw automatically, one dart at a time. Include at least one human (a room player or guest). Averages are approximate for 501, single in / double out. All characters are fictional.</p>
+          <p className="field-hint bot-roster-note">Bots throw automatically, one dart at a time. Include at least one human (a league player or guest). Averages are approximate for 501, single in / double out. All characters are fictional.</p>
           </details>
           <p className="field-hint">All bot games are training-only for everyone: no impact on competition wins, losses or ratings. Statistics are saved separately under Training.</p>
 

@@ -2,9 +2,9 @@ import { Hono } from 'hono'
 import type { CareerStatsResponse, MeResponse, UpdateMeResponse } from '../src/shared/api'
 import { requireUser } from './auth'
 import type { AppEnv, Services } from './context'
-import { buildMatchView, matchSummary, memberRows, type MatchRow, type ResultRow, type RoomRow } from './data'
+import { buildMatchView, matchSummary, memberRows, type MatchRow, type ResultRow, type LeagueRow } from './data'
 import { expectObject, expectText, readJson, forbidden } from './http'
-import { displayRating, INITIAL_RATING, rankIn, roomRatings } from './ratings'
+import { displayRating, INITIAL_RATING, rankIn, leagueRatings } from './ratings'
 import { aggregateResults, aggregateTrainingResults, resultsHistory } from './stats'
 import { toUser, USER_NAME_MAX_LENGTH } from './users'
 
@@ -32,7 +32,7 @@ export function meRoutes(services: Services) {
   app.get('/me/stats', (c) => {
     const user = requireUser(c)
     if (user.is_guest) throw forbidden('Guests do not have career statistics.')
-    // Totals cover every result the user ever recorded (their own numbers), including rooms they left.
+    // Totals cover every result the user ever recorded (their own numbers), including leagues they left.
     const resultRows = (training: boolean) => db.all<ResultRow>(
       `SELECT * FROM match_results WHERE user_id = ?
        AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = match_results.match_id AND bp.bot_id IS NOT NULL)
@@ -41,37 +41,37 @@ export function meRoutes(services: Services) {
     const results = resultRows(false)
     const trainingRows = resultRows(true)
 
-    const rooms = db.all<RoomRow>(
-      'SELECT r.* FROM room_members m JOIN rooms r ON r.id = m.room_id WHERE m.user_id = ? ORDER BY m.joined_at, r.id',
+    const leagues = db.all<LeagueRow>(
+      'SELECT r.* FROM league_members m JOIN leagues r ON r.id = m.league_id WHERE m.user_id = ? ORDER BY m.joined_at, r.id',
       user.id,
-    ).map((room) => {
-      const ratings = roomRatings(db, room.id)
+    ).map((league) => {
+      const ratings = leagueRatings(db, league.id)
       const mine = ratings.get(user.id)
       return {
-        id: room.id,
-        name: room.name,
+        id: league.id,
+        name: league.name,
         rating: displayRating(mine?.rating ?? INITIAL_RATING),
-        rank: rankIn(ratings, memberRows(db, room.id).filter((member) => !member.is_guest).map((member) => member.id), user.id),
+        rank: rankIn(ratings, memberRows(db, league.id).filter((member) => !member.is_guest).map((member) => member.id), user.id),
         matches: mine?.matches ?? 0,
       }
     })
 
-    // Match details are only shown for rooms the user can still see.
-    const recent = (training: boolean) => db.all<MatchRow & { room_name: string }>(
-      `SELECT m.*, r.name AS room_name FROM matches m
-       JOIN rooms r ON r.id = m.room_id
-       JOIN room_members rm ON rm.room_id = m.room_id AND rm.user_id = ?
+    // Match details are only shown for leagues the user can still see.
+    const recent = (training: boolean) => db.all<MatchRow & { league_name: string }>(
+      `SELECT m.*, r.name AS league_name FROM matches m
+       JOIN leagues r ON r.id = m.league_id
+       JOIN league_members rm ON rm.league_id = m.league_id AND rm.user_id = ?
        WHERE m.status = 'completed'
          AND EXISTS (SELECT 1 FROM match_players p WHERE p.match_id = m.id AND p.user_id = ?)
          AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = m.id AND bp.bot_id IS NOT NULL)
        ORDER BY m.completed_at DESC, m.id DESC LIMIT 10`,
       user.id, user.id,
-    ).map(({ room_name: roomName, ...row }) => ({ ...matchSummary(buildMatchView(db, row)), roomName }))
+    ).map(({ league_name: leagueName, ...row }) => ({ ...matchSummary(buildMatchView(db, row)), leagueName }))
 
     return c.json<CareerStatsResponse>({
       user: toUser(user),
       totals: aggregateResults(results),
-      rooms,
+      leagues,
       history: resultsHistory(results),
       recentMatches: recent(false),
       training: {

@@ -1,13 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 
-async function roomFor(page: Page, name: string) {
+async function leagueFor(page: Page, name: string) {
   await page.goto('/login')
   await page.getByLabel('Name').fill(name)
   await page.getByLabel('Email').fill(`bots-${name}-${Date.now()}@example.com`)
   await page.getByRole('button', { name: 'SIGN IN (DEV)' }).click()
-  await page.getByRole('button', { name: 'NEW ROOM' }).click()
-  await page.getByLabel('Room name').fill('House rivals')
-  await page.getByRole('button', { name: 'CREATE ROOM' }).click()
+  await page.getByRole('button', { name: 'NEW LEAGUE' }).click()
+  await page.getByLabel('League name').fill('House rivals')
+  await page.getByRole('button', { name: 'CREATE LEAGUE' }).click()
   await expect(page.getByRole('heading', { name: 'House rivals' })).toBeVisible()
 }
 async function enter(page: Page, darts: string) {
@@ -16,8 +16,8 @@ async function enter(page: Page, darts: string) {
 }
 
 test('house bots throw across devices, block manual scoring, survive reload and undo human corrections', async ({ page }, testInfo) => {
-  await roomFor(page, 'Alex')
-  const roomUrl = page.url()
+  await leagueFor(page, 'Alex')
+  const leagueUrl = page.url()
   await page.getByRole('button', { name: 'NEW MATCH' }).click()
   await expect(page.locator('.bot-card').first()).toBeHidden()
   await page.locator('.bot-picker-disclosure summary').focus()
@@ -62,7 +62,7 @@ test('house bots throw across devices, block manual scoring, survive reload and 
   await expect(page.locator('.visit-progress .dart-slots .filled')).toHaveCount(2)
   await expect(page.locator('.bot-match-note')).toContainText('TRAINING')
 
-  await other.goto(roomUrl)
+  await other.goto(leagueUrl)
   await expect(other.locator('.live-card')).toContainText('TRAINING')
   await expect(other.locator('.live-card .bot-badge')).toHaveText('BOT · 6')
   await other.close()
@@ -71,7 +71,7 @@ test('house bots throw across devices, block manual scoring, survive reload and 
 test('match history keeps bot badges beside names and score columns aligned', async ({ page }, testInfo) => {
   const humanName = 'W'.repeat(24)
   const botNames = ['Rookie Rue', 'Captain Checkout']
-  await roomFor(page, humanName)
+  await leagueFor(page, humanName)
   await page.getByRole('button', { name: 'NEW MATCH' }).click()
   await page.locator('.bot-picker-disclosure summary').click()
   await page.getByRole('button', { name: 'Add Rookie Rue, level 1, Novice' }).click()
@@ -82,7 +82,7 @@ test('match history keeps bot badges beside names and score columns aligned', as
   await page.getByRole('button', { name: 'START MATCH' }).click()
   await enter(page, 'T20 9 D16')
   await page.getByRole('button', { name: 'SAVE RESULT' }).click()
-  await page.getByRole('link', { name: 'ROOM', exact: true }).click()
+  await page.getByRole('link', { name: 'LEAGUE', exact: true }).click()
   await page.getByRole('tab', { name: /MATCHES/ }).click()
 
   const history = page.getByRole('region', { name: 'Match history' })
@@ -123,7 +123,7 @@ test('match history keeps bot badges beside names and score columns aligned', as
       await history.screenshot({ path: testInfo.outputPath(`bot-history-${width}-${theme}.png`) })
     }
   }
-  const roomUrl = page.url()
+  const leagueUrl = page.url()
   await page.goto('/me')
   await expect(page.getByText('No completed matches yet', { exact: true })).toBeVisible()
   await page.getByRole('group', { name: 'Stats category' }).getByRole('button', { name: 'Training', exact: true }).click()
@@ -134,7 +134,7 @@ test('match history keeps bot badges beside names and score columns aligned', as
   await expect(training.getByRole('table')).toContainText('101.0')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await training.screenshot({ path: testInfo.outputPath('training-profile-mobile-light.png') })
-  await page.goto(roomUrl)
+  await page.goto(leagueUrl)
   await page.locator('.leaderboard-table tbody tr').filter({ hasText: humanName }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('button', { name: 'Training', exact: true }).click()
@@ -146,7 +146,7 @@ test('match history keeps bot badges beside names and score columns aligned', as
 
 test('mobile roster selection, human/capacity rules, bot result and bot-preserving rematch', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await roomFor(page, 'Taylor')
+  await leagueFor(page, 'Taylor')
   await page.getByRole('button', { name: 'NEW MATCH' }).click()
   await page.locator('.bot-picker-disclosure summary').click()
   await page.getByRole('button', { name: 'Add Rookie Rue, level 1, Novice' }).click()

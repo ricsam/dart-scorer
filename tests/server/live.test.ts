@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import type { MatchEvent, RoomEvent } from '../../src/shared/api'
+import type { MatchEvent, LeagueEvent } from '../../src/shared/api'
 import { CONTENT_SECURITY_POLICY } from '../../server/security'
-import { act, CHECKOUT_101, Client, createMatch, createRoom, devLogin, finish, joinRoom, play, setup } from './helpers'
+import { act, CHECKOUT_101, Client, createMatch, createLeague, devLogin, finish, joinLeague, play, setup } from './helpers'
 
 type Frame = { event?: string; data?: string; retry?: string; comments: string[] }
 
@@ -70,10 +70,10 @@ describe('live match events', () => {
     const owner = await devLogin(ctx.app, 'Olivia')
     const max = await devLogin(ctx.app, 'Max')
     const nora = await devLogin(ctx.app, 'Nora')
-    const room = await createRoom(owner)
-    await joinRoom(max, room.inviteCode)
-    await joinRoom(nora, room.inviteCode)
-    const match = await createMatch(max, room.id, [{ userId: max.userId! }, { guestName: 'Guest' }])
+    const league = await createLeague(owner)
+    await joinLeague(max, league.inviteCode)
+    await joinLeague(nora, league.inviteCode)
+    const match = await createMatch(max, league.id, [{ userId: max.userId! }, { guestName: 'Guest' }])
 
     const maxStream = new SseReader(await max.get(`/api/matches/${match.id}/events`))
     const first = await maxStream.next()
@@ -103,19 +103,19 @@ describe('live match events', () => {
     const ctx = setup({ limits: { streamsPerUser: 2 } })
     const owner = await devLogin(ctx.app, 'Olivia')
     const outsider = await devLogin(ctx.app, 'Otto')
-    const room = await createRoom(owner)
-    const match = await createMatch(owner, room.id, [{ userId: owner.userId! }, { guestName: 'Guest' }])
+    const league = await createLeague(owner)
+    const match = await createMatch(owner, league.id, [{ userId: owner.userId! }, { guestName: 'Guest' }])
 
     expect(await outsider.json('GET', `/api/matches/${match.id}/events`, 404)).toMatchObject({ error: 'not_found' })
-    expect(await outsider.json('GET', `/api/rooms/${room.id}/events`, 404)).toMatchObject({ error: 'not_found' })
-    await new Client(ctx.app).json('GET', `/api/rooms/${room.id}/events`, 401)
+    expect(await outsider.json('GET', `/api/leagues/${league.id}/events`, 404)).toMatchObject({ error: 'not_found' })
+    await new Client(ctx.app).json('GET', `/api/leagues/${league.id}/events`, 401)
 
     const a = new SseReader(await owner.get(`/api/matches/${match.id}/events`))
-    const b = new SseReader(await owner.get(`/api/rooms/${room.id}/events`))
-    expect(await owner.json('GET', `/api/rooms/${room.id}/events`, 429)).toMatchObject({ error: 'rate_limited' })
+    const b = new SseReader(await owner.get(`/api/leagues/${league.id}/events`))
+    expect(await owner.json('GET', `/api/leagues/${league.id}/events`, 429)).toMatchObject({ error: 'rate_limited' })
     await a.cancel()
     await vi.waitFor(() => expect(ctx.app.services.hub.countForUser(owner.userId!)).toBe(1))
-    const c = new SseReader(await owner.get(`/api/rooms/${room.id}/events`))
+    const c = new SseReader(await owner.get(`/api/leagues/${league.id}/events`))
     await b.cancel()
     await c.cancel()
   })
@@ -123,9 +123,9 @@ describe('live match events', () => {
   it('sends heartbeats and closes streams on shutdown', async () => {
     const ctx = setup({ limits: { heartbeatMs: 20 } })
     const owner = await devLogin(ctx.app, 'Olivia')
-    const room = await createRoom(owner)
-    const stream = new SseReader(await owner.get(`/api/rooms/${room.id}/events`))
-    await stream.nextEvent<RoomEvent>('room')
+    const league = await createLeague(owner)
+    const stream = new SseReader(await owner.get(`/api/leagues/${league.id}/events`))
+    await stream.nextEvent<LeagueEvent>('league')
     let frame = await stream.next()
     while (frame && frame.comments.length === 0) frame = await stream.next()
     expect(frame?.comments).toEqual(['heartbeat'])
@@ -138,44 +138,44 @@ describe('live match events', () => {
   })
 })
 
-describe('live room events', () => {
+describe('live league events', () => {
   it('publishes match changes, deletions, refreshes and ends removed members’ streams', async () => {
     const ctx = setup()
     const owner = await devLogin(ctx.app, 'Olivia')
     const max = await devLogin(ctx.app, 'Max')
-    const room = await createRoom(owner)
-    await joinRoom(max, room.inviteCode)
+    const league = await createLeague(owner)
+    await joinLeague(max, league.inviteCode)
 
-    const ownerStream = new SseReader(await owner.get(`/api/rooms/${room.id}/events`))
-    expect(await ownerStream.nextEvent<RoomEvent>('room')).toEqual({ type: 'refresh' })
-    const maxStream = new SseReader(await max.get(`/api/rooms/${room.id}/events`))
-    expect(await maxStream.nextEvent<RoomEvent>('room')).toEqual({ type: 'refresh' })
+    const ownerStream = new SseReader(await owner.get(`/api/leagues/${league.id}/events`))
+    expect(await ownerStream.nextEvent<LeagueEvent>('league')).toEqual({ type: 'refresh' })
+    const maxStream = new SseReader(await max.get(`/api/leagues/${league.id}/events`))
+    expect(await maxStream.nextEvent<LeagueEvent>('league')).toEqual({ type: 'refresh' })
 
-    const match = await createMatch(max, room.id, [{ userId: max.userId! }, { userId: owner.userId! }])
-    const created = await ownerStream.nextEvent<RoomEvent>('room')
+    const match = await createMatch(max, league.id, [{ userId: max.userId! }, { userId: owner.userId! }])
+    const created = await ownerStream.nextEvent<LeagueEvent>('league')
     expect(created).toMatchObject({ type: 'match', match: { id: match.id, status: 'live', active: 0 } })
 
     const won = await play(max, match, CHECKOUT_101)
-    expect(await ownerStream.nextEvent<RoomEvent>('room')).toMatchObject({ type: 'match', match: { awaitingConfirmation: true } })
+    expect(await ownerStream.nextEvent<LeagueEvent>('league')).toMatchObject({ type: 'match', match: { awaitingConfirmation: true } })
     await finish(max, won)
-    expect(await ownerStream.nextEvent<RoomEvent>('room')).toMatchObject({ type: 'match', match: { status: 'completed' } })
+    expect(await ownerStream.nextEvent<LeagueEvent>('league')).toMatchObject({ type: 'match', match: { status: 'completed' } })
 
-    await owner.json('PATCH', `/api/rooms/${room.id}`, 200, { name: 'Renamed' })
-    expect(await ownerStream.nextEvent<RoomEvent>('room')).toEqual({ type: 'refresh' })
+    await owner.json('PATCH', `/api/leagues/${league.id}`, 200, { name: 'Renamed' })
+    expect(await ownerStream.nextEvent<LeagueEvent>('league')).toEqual({ type: 'refresh' })
 
     const matchStream = new SseReader(await max.get(`/api/matches/${match.id}/events`))
     await matchStream.nextEvent<MatchEvent>('match')
     await owner.json('DELETE', `/api/matches/${match.id}`, 204)
-    expect(await ownerStream.nextEvent<RoomEvent>('room')).toEqual({ type: 'match-deleted', matchId: match.id })
+    expect(await ownerStream.nextEvent<LeagueEvent>('league')).toEqual({ type: 'match-deleted', matchId: match.id })
     expect(await matchStream.nextEvent<{ matchId: string }>('match-deleted')).toEqual({ matchId: match.id })
     expect(await matchStream.next()).toBeNull()
 
-    // Max's room stream: skip events until the removal ends it.
-    await owner.json('DELETE', `/api/rooms/${room.id}/members/${max.userId}`, 204)
+    // Max's league stream: skip events until the removal ends it.
+    await owner.json('DELETE', `/api/leagues/${league.id}/members/${max.userId}`, 204)
     let frame = await maxStream.next()
     while (frame) frame = await maxStream.next()
     expect(frame).toBeNull()
-    expect(await ownerStream.nextEvent<RoomEvent>('room')).toEqual({ type: 'refresh' })
+    expect(await ownerStream.nextEvent<LeagueEvent>('league')).toEqual({ type: 'refresh' })
     await ownerStream.cancel()
   })
 })
@@ -198,7 +198,7 @@ describe('static web app', () => {
     expect(index.headers.get('cache-control')).toBe('no-cache')
     expect(index.headers.get('content-security-policy')).toBe(CONTENT_SECURITY_POLICY)
 
-    const route = await client.get('/rooms/abc/leaderboard')
+    const route = await client.get('/leagues/abc/leaderboard')
     expect(route.status).toBe(200)
     expect(route.headers.get('content-type')).toContain('text/html')
     expect(route.headers.get('cache-control')).toBe('no-cache')

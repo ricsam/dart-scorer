@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { StandaloneApp } from '../standalone/StandaloneApp'
-import { AboutAction, OnlineInvite, OnlineLayout, RoomsAction, ScoringInfo, SignInAction } from './Layout'
+import { AboutAction, OnlineInvite, OnlineLayout, LeaguesAction, ScoringInfo, SignInAction } from './Layout'
 import { matchPath, RouterProvider, useRouter } from './router'
 import { SessionProvider, useSession } from './session'
 import { safeReturnTo } from './format'
@@ -13,7 +13,7 @@ import { MatchPage } from './pages/MatchPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { ProfilePage } from './pages/ProfilePage'
-import { RoomPage } from './pages/RoomPage'
+import { LeaguePage } from './pages/LeaguePage'
 import { TrainingPage } from './pages/TrainingPage'
 import { TrainingSessionPage } from './pages/TrainingSessionPage'
 import './online.css'
@@ -50,7 +50,7 @@ function Routes() {
     if (!user || path === '/play') {
       return (
         <StandaloneApp
-          accountAction={<><AboutAction />{user ? <RoomsAction /> : <SignInAction />}</>}
+          accountAction={<><AboutAction />{user ? <LeaguesAction /> : <SignInAction />}</>}
           accountSettings={<>{!user && <OnlineInvite onSignIn={() => navigate('/login')} />}<ScoringInfo /></>}
         />
       )
@@ -64,8 +64,8 @@ function Routes() {
   const training = matchPath('/training/:sessionId', path)
   if (training) return <OnlineLayout><TrainingSessionPage key={training.sessionId} sessionId={training.sessionId} /></OnlineLayout>
 
-  const room = matchPath('/rooms/:roomId', path)
-  if (room) return <OnlineLayout><RoomPage key={room.roomId} roomId={room.roomId} /></OnlineLayout>
+  const league = matchPath('/leagues/:leagueId', path)
+  if (league) return <OnlineLayout><LeaguePage key={league.leagueId} leagueId={league.leagueId} /></OnlineLayout>
 
   const match = matchPath('/matches/:matchId', path)
   if (match) return <MatchPage key={match.matchId} matchId={match.matchId} />

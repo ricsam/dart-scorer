@@ -563,7 +563,7 @@ footer i { width: 2px; height: 2px; background: #526158; border-radius: 50%; }
 }
 
 
-/* Account entry point (sign in / back to rooms) shared by the standalone and online editions. */
+/* Account entry point (sign in / back to leagues) shared by the standalone and online editions. */
 .account-button { width: auto; min-width: 38px; padding: 0 12px; display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--green); border-color: #2b5238; text-decoration: none; font-size: 9px; font-weight: 700; letter-spacing: .1em; white-space: nowrap; }
 .account-button .avatar { margin: -2px 0; }
 .light .account-button { color: #0e7638; border-color: #9fcfae; }

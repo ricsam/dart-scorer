@@ -19,7 +19,7 @@ function App() {
   return (
     <StandaloneApp
       accountAction={onlineUrl ? (
-        <a className="icon-button account-button" href={`${onlineUrl}/login`} aria-label="Sign in for rooms and leaderboards">
+        <a className="icon-button account-button" href={`${onlineUrl}/login`} aria-label="Sign in for leagues and leaderboards">
           <LogIn size={17} /><span>SIGN IN</span>
         </a>
       ) : undefined}

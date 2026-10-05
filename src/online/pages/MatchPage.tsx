@@ -29,7 +29,7 @@ export function MatchPage({ matchId }: { matchId: string }) {
     return (
       <OnlineLayout>
         {live.loadError.status === 404
-          ? <ErrorState message="This match doesn’t exist, was deleted, or belongs to a room you are not a member of." />
+          ? <ErrorState message="This match doesn’t exist, was deleted, or belongs to a league you are not a member of." />
           : <ErrorState message={live.loadError.message} onRetry={live.reload} />}
       </OnlineLayout>
     )
@@ -120,7 +120,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
   return (
     <div className={`app-shell ${theme} online-match`}>
       <header className="topbar">
-        <Link to={`/rooms/${match.roomId}`} className="brand-link" aria-label={`Back to ${match.roomName}`}><Brand /></Link>
+        <Link to={`/leagues/${match.leagueId}`} className="brand-link" aria-label={`Back to ${match.leagueName}`}><Brand /></Link>
         <div className="match-settings">
           <div className="game-select static"><span>GAME</span><strong>{game}</strong></div>
           <button className="rules-summary" onClick={() => setStatsOpen(true)} aria-label="Open match details">
@@ -136,7 +136,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
           {canScore && <button className="icon-button" onClick={() => setConfirmResetOpen(true)} aria-label="Restart leg" disabled={winner !== null}><RotateCcw size={19} /></button>}
           <button className="icon-button match-stats-button" onClick={() => setStatsOpen(true)} aria-label="Match statistics"><BarChart3 size={19} /></button>
           <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
-          <Link to={`/rooms/${match.roomId}`} className="icon-button back-button" aria-label={`Back to ${match.roomName}`}><ArrowLeft size={19} /></Link>
+          <Link to={`/leagues/${match.leagueId}`} className="icon-button back-button" aria-label={`Back to ${match.leagueName}`}><ArrowLeft size={19} /></Link>
         </div>
       </header>
 
@@ -178,7 +178,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
                 </div>
                 <strong>{currentVisit.reduce((sum, hit) => sum + (hit.counts ? hit.value : 0), 0)}</strong>
               </div>
-              {activeBot ? <div className="spectator-note bot-throwing-note" role="status"><BotAvatar botId={activeBot} size={48} /><span><b>{players[active]?.name}{winner !== null ? ' has finished.' : live.stream !== 'open' ? ' · reconnecting…' : ' is throwing…'}</b><br />{winner !== null ? 'Waiting for the next leg.' : 'Darts arrive automatically. Sit back and watch the visit unfold.'}</span></div> : <div className="spectator-note"><Eye size={16} /><span><b>Watching live.</b> Scores update as the players enter them. Only the match’s players, its creator and the room host can score.</span></div>}
+              {activeBot ? <div className="spectator-note bot-throwing-note" role="status"><BotAvatar botId={activeBot} size={48} /><span><b>{players[active]?.name}{winner !== null ? ' has finished.' : live.stream !== 'open' ? ' · reconnecting…' : ' is throwing…'}</b><br />{winner !== null ? 'Waiting for the next leg.' : 'Darts arrive automatically. Sit back and watch the visit unfold.'}</span></div> : <div className="spectator-note"><Eye size={16} /><span><b>Watching live.</b> Scores update as the players enter them. Only the match’s players, its creator and the league host can score.</span></div>}
             </div>
           )}
 
@@ -194,7 +194,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
         </section>
       </main>
 
-      <footer><span>{players.length} PLAYERS</span><i /> <span>FIRST TO {state.legsToWin} {state.legsToWin === 1 ? 'LEG' : 'LEGS'}</span><i /> <span>{rulesLabel({ doubleIn, doubleOut })}</span><i /> <span>{game} FORMAT</span><i /> <Link to={`/rooms/${match.roomId}`}>{match.roomName.toUpperCase()}</Link></footer>
+      <footer><span>{players.length} PLAYERS</span><i /> <span>FIRST TO {state.legsToWin} {state.legsToWin === 1 ? 'LEG' : 'LEGS'}</span><i /> <span>{rulesLabel({ doubleIn, doubleOut })}</span><i /> <span>{game} FORMAT</span><i /> <Link to={`/leagues/${match.leagueId}`}>{match.leagueName.toUpperCase()}</Link></footer>
 
       {live.notice && <Toast message={live.notice} onDismiss={live.dismissNotice} tone="error" />}
 
@@ -237,7 +237,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
       )}
 
       {statsOpen && (
-        <Sheet title="Match statistics" eyebrow={`${match.roomName.toUpperCase()} · ${game} · FIRST TO ${state.legsToWin}`} onClose={() => setStatsOpen(false)} labelledBy="match-stats-title" wide>
+        <Sheet title="Match statistics" eyebrow={`${match.leagueName.toUpperCase()} · ${game} · FIRST TO ${state.legsToWin}`} onClose={() => setStatsOpen(false)} labelledBy="match-stats-title" wide>
           <MatchStatsTable rows={statRows(match, state, true)} />
           {legHistory.length > 0 && <div className="leg-history">{legHistory.map((leg) => <button key={leg.id} onClick={() => { setStatsOpen(false); setSelectedLegId(leg.id) }}>LEG {leg.leg} · {leg.winnerName}</button>)}</div>}
           {match.canDelete && <button className="ghost-button danger" onClick={() => { setStatsOpen(false); setDeleteOpen(true) }}><Trash2 size={14} /> ABANDON MATCH</button>}
@@ -246,7 +246,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
       )}
 
       {deleteOpen && <ConfirmDialog icon={<Trash2 size={30} />} eyebrow="ABANDON MATCH" title="Abandon this match?" titleId="abandon-title" confirmLabel="ABANDON" onCancel={() => setDeleteOpen(false)} onConfirm={async () => {
-        try { await api.deleteMatch(match.id); navigate(`/rooms/${match.roomId}`) } catch (caught) { setDeleteError(errorMessage(caught)) }
+        try { await api.deleteMatch(match.id); navigate(`/leagues/${match.leagueId}`) } catch (caught) { setDeleteError(errorMessage(caught)) }
       }}>This unfinished match will be removed. No result will count toward the leaderboard.{deleteError && <><br />{deleteError}</>}</ConfirmDialog>}
 
       {showResultModal && winner !== null && (
@@ -257,7 +257,7 @@ function LiveMatchView({ live, match, state }: { live: LiveMatch; match: MatchDe
             <h2>{players[winner].name} {matchWinner !== null ? 'wins the match!' : 'wins!'}</h2>
             {matchWinner !== null ? (
               <>
-                <p>Final score {legScore}. {hasBots ? 'Save this training result to keep your practice statistics. Wins, losses and room ratings are unchanged.' : 'Save the result to update the room leaderboard.'}</p>
+                <p>Final score {legScore}. {hasBots ? 'Save this training result to keep your practice statistics. Wins, losses and league ratings are unchanged.' : 'Save the result to update the league leaderboard.'}</p>
                 <MatchStatsTable rows={statRows(match, state, false)} />
               </>
             ) : (
@@ -300,7 +300,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
     setError(null)
     const order = [...match.players.slice(1), match.players[0]]
     try {
-      const { match: created } = await api.createMatch(match.roomId, {
+      const { match: created } = await api.createMatch(match.leagueId, {
         players: order.map((player) => player.botId ? { botId: player.botId } : player.userId ? { userId: player.userId } : player.guestId ? { guestId: player.guestId } : { guestName: player.name }),
         settings: match.settings,
       })
@@ -315,7 +315,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
     setBusy(true)
     try {
       await api.deleteMatch(match.id)
-      navigate(`/rooms/${match.roomId}`, { replace: true })
+      navigate(`/leagues/${match.leagueId}`, { replace: true })
     } catch (caught) {
       setError(errorMessage(caught))
       setBusy(false)
@@ -327,12 +327,12 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
     <div className="page match-summary">
       <div className="page-head">
         <div>
-          <span className="eyebrow"><Link to={`/rooms/${match.roomId}`} className="crumb">{match.roomName.toUpperCase()}</Link> / {match.completedAt ? formatDateTime(match.completedAt).toUpperCase() : 'MATCH'}</span>
+          <span className="eyebrow"><Link to={`/leagues/${match.leagueId}`} className="crumb">{match.leagueName.toUpperCase()}</Link> / {match.completedAt ? formatDateTime(match.completedAt).toUpperCase() : 'MATCH'}</span>
           <h1><Trophy size={26} className="title-icon" /> {winnerRow?.player.name} won {rows.map((row) => row.legs).join('–')}</h1>
-          <div className="room-meta">{match.settings.game} · {rulesLabel(match.settings)} · FIRST TO {match.settings.legsToWin}</div>
+          <div className="league-meta">{match.settings.game} · {rulesLabel(match.settings)} · FIRST TO {match.settings.legsToWin}</div>
         </div>
         <div className="page-actions">
-          <Link className="ghost-button" to={`/rooms/${match.roomId}`}><ArrowLeft size={16} /> ROOM</Link>
+          <Link className="ghost-button" to={`/leagues/${match.leagueId}`}><ArrowLeft size={16} /> LEAGUE</Link>
           <button className="primary-button" onClick={rematch} disabled={busy}><RefreshCw size={16} /> REMATCH</button>
         </div>
       </div>
@@ -381,7 +381,7 @@ function MatchSummaryView({ match }: { match: MatchDetail }) {
           onConfirm={remove}
           busy={busy}
         >
-          {hasBots ? 'This training result and its practice statistics are removed from room history. Wins, losses and ratings are unchanged.' : 'The result is removed from the room history and every rating is recalculated without it.'}
+          {hasBots ? 'This training result and its practice statistics are removed from league history. Wins, losses and ratings are unchanged.' : 'The result is removed from the league history and every rating is recalculated without it.'}
         </ConfirmDialog>
       )}
     </div>

@@ -73,7 +73,7 @@ export function ProfilePage() {
               onChange={(event) => { setName(event.target.value); setError(null); setSaved(false) }}
             />
           </label>
-          <p id="nickname-hint" className="field-hint">1–24 characters. This is the name other players see in rooms, on leaderboards and in new matches. It won’t change your Google account name.</p>
+          <p id="nickname-hint" className="field-hint">1–24 characters. This is the name other players see in leagues, on leaderboards and in new matches. It won’t change your Google account name.</p>
           {error && <div id="nickname-error" className="form-error" role="alert">{error}</div>}
           <div className="nickname-actions">
             <button className="primary-button" disabled={busy || !name.trim() || !changed}><Check size={16} /> {busy ? 'SAVING…' : 'SAVE NICKNAME'}</button>
@@ -87,18 +87,18 @@ export function ProfilePage() {
         <>
           <div className="stats-mode"><Segmented label="Stats category" value={mode} options={[{ value: 'competition', label: 'Competition' }, { value: 'training', label: 'Training' }]} onChange={setMode} /></div>
           {mode === 'training' ? <section className="panel" aria-label="Training stats">
-            <div className="panel-head"><h2>Training</h2><span className="panel-sub">All rooms · completed bot matches</span></div>
+            <div className="panel-head"><h2>Training</h2><span className="panel-sub">All leagues · completed bot matches</span></div>
             <p className="stats-mode-note">Bot matches are training-only. They do not affect competition wins, losses or ratings. <Link to="/training">View training challenges & progress</Link></p>
             <TrainingTotals totals={stats.data.training.totals} />
             <StatsProgress history={stats.data.training.history} title="Training monthly average" />
             <h3 className="section-label">RECENT TRAINING MATCHES</h3>
-            {stats.data.training.recentMatches.length === 0 ? <p className="muted-note">No completed training matches yet.</p> : <div className="match-list">{stats.data.training.recentMatches.map((match) => <MatchRow key={match.id} match={match} roomName={match.roomName} highlightUserId={user.id} />)}</div>}
+            {stats.data.training.recentMatches.length === 0 ? <p className="muted-note">No completed training matches yet.</p> : <div className="match-list">{stats.data.training.recentMatches.map((match) => <MatchRow key={match.id} match={match} leagueName={match.leagueName} highlightUserId={user.id} />)}</div>}
           </section> : <>
           <section className="panel">
-            <div className="panel-head"><h2>Career</h2><span className="panel-sub">All rooms · completed matches</span></div>
+            <div className="panel-head"><h2>Career</h2><span className="panel-sub">All leagues · completed matches</span></div>
             <p className="table-footnote stats-guide"><Link to="/about">How ratings & stats work</Link></p>
             {totals.matches === 0 ? (
-              <EmptyState title="No completed matches yet">Play a match in one of your rooms and save the result to start your career stats.</EmptyState>
+              <EmptyState title="No completed matches yet">Play a match in one of your leagues and save the result to start your career stats.</EmptyState>
             ) : (
               <div className="stat-grid">
                 <StatTile label="MATCHES" value={totals.matches} hint={`${totals.wins} W · ${totals.losses} L`} />
@@ -115,16 +115,16 @@ export function ProfilePage() {
             <StatsProgress history={stats.data.history} title="Competition monthly average" />
           </section>
 
-          {stats.data.rooms.length > 0 && (
+          {stats.data.leagues.length > 0 && (
             <section className="panel">
-              <div className="panel-head"><h2>Rooms</h2></div>
-              <div className="profile-rooms">
-                {stats.data.rooms.map((room) => (
-                  <Link key={room.id} to={`/rooms/${room.id}`} className="profile-room">
-                    <b>{room.name}</b>
-                    <span><small>RATING</small>{formatRating(room.rating)}</span>
-                    <span><small>RANK</small>{room.rank ? `#${room.rank}` : '—'}</span>
-                    <span><small>MATCHES</small>{room.matches}</span>
+              <div className="panel-head"><h2>Leagues</h2></div>
+              <div className="profile-leagues">
+                {stats.data.leagues.map((league) => (
+                  <Link key={league.id} to={`/leagues/${league.id}`} className="profile-league">
+                    <b>{league.name}</b>
+                    <span><small>RATING</small>{formatRating(league.rating)}</span>
+                    <span><small>RANK</small>{league.rank ? `#${league.rank}` : '—'}</span>
+                    <span><small>MATCHES</small>{league.matches}</span>
                   </Link>
                 ))}
               </div>
@@ -135,7 +135,7 @@ export function ProfilePage() {
             <section className="panel">
               <div className="panel-head"><h2>Recent matches</h2></div>
               <div className="match-list">
-                {stats.data.recentMatches.map((match) => <MatchRow key={match.id} match={match} roomName={match.roomName} highlightUserId={user.id} />)}
+                {stats.data.recentMatches.map((match) => <MatchRow key={match.id} match={match} leagueName={match.leagueName} highlightUserId={user.id} />)}
               </div>
             </section>
           )}

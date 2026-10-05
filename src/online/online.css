@@ -174,17 +174,17 @@
 /* ── Home ───────────────────────────────────────────────────────────────── */
 .home-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
 .home-side { display: grid; gap: 20px; }
-.room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
-.room-card { display: grid; gap: 12px; padding: 16px; border: 1px solid #25382d; border-radius: 9px; background: linear-gradient(160deg, rgba(20, 44, 29, .55), rgba(10, 20, 14, .6)); text-decoration: none; transition: border-color .15s, transform .15s; }
-.room-card:hover { border-color: #3d7c55; transform: translateY(-1px); }
-.room-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.room-card-top strong { font-family: 'Barlow Condensed'; font-size: 22px; line-height: 1.05; }
-.room-card-members { display: flex; align-items: center; gap: 9px; color: #84938a; font-size: 11px; }
-.room-card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding-top: 10px; border-top: 1px solid #1f3127; }
-.room-card-stats span { display: grid; gap: 2px; }
-.room-card-stats small, .member-rating small, .profile-room small { color: #66756c; font-size: 7px; font-weight: 700; letter-spacing: .13em; }
-.room-card-stats b { font-family: 'Barlow Condensed'; font-size: 19px; }
-.room-card-foot { display: flex; align-items: center; gap: 5px; color: #5d6b62; font-size: 9px; }
+.league-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.league-card { display: grid; gap: 12px; padding: 16px; border: 1px solid #25382d; border-radius: 9px; background: linear-gradient(160deg, rgba(20, 44, 29, .55), rgba(10, 20, 14, .6)); text-decoration: none; transition: border-color .15s, transform .15s; }
+.league-card:hover { border-color: #3d7c55; transform: translateY(-1px); }
+.league-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.league-card-top strong { font-family: 'Barlow Condensed'; font-size: 22px; line-height: 1.05; }
+.league-card-members { display: flex; align-items: center; gap: 9px; color: #84938a; font-size: 11px; }
+.league-card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding-top: 10px; border-top: 1px solid #1f3127; }
+.league-card-stats span { display: grid; gap: 2px; }
+.league-card-stats small, .member-rating small, .profile-league small { color: #66756c; font-size: 7px; font-weight: 700; letter-spacing: .13em; }
+.league-card-stats b { font-family: 'Barlow Condensed'; font-size: 19px; }
+.league-card-foot { display: flex; align-items: center; gap: 5px; color: #5d6b62; font-size: 9px; }
 .quick-game-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; margin-top: 14px; padding: 14px 16px; border: 1px dashed #335a41; border-radius: 9px; color: var(--green) !important; text-decoration: none; }
 .quick-game-card:hover { background: rgba(31, 227, 116, .05); }
 .quick-game-card b { display: block; color: #e3ebe6; font-size: 13px; }
@@ -213,9 +213,9 @@
 .outcome.win { color: #04150b; background: #2fcf73; }
 .outcome.loss { color: #ffcfcf; background: #4f2a2a; }
 
-/* ── Room ───────────────────────────────────────────────────────────────── */
-.room-title { display: flex; align-items: center; flex-wrap: wrap; }
-.room-meta { display: flex; align-items: center; gap: 9px; margin-top: 10px; color: #84938a; font-size: 11px; letter-spacing: .04em; }
+/* ── League ───────────────────────────────────────────────────────────────── */
+.league-title { display: flex; align-items: center; flex-wrap: wrap; }
+.league-meta { display: flex; align-items: center; gap: 9px; margin-top: 10px; color: #84938a; font-size: 11px; letter-spacing: .04em; }
 .live-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
 .live-card { display: grid; gap: 12px; padding: 14px 16px; border: 1px solid #2b6a43; border-radius: 10px; background: linear-gradient(150deg, rgba(20, 60, 35, .6), rgba(12, 28, 19, .8)); text-decoration: none; box-shadow: 0 0 0 1px rgba(31, 227, 116, .05), 0 12px 30px rgba(0, 0, 0, .25); }
 .live-card:hover { border-color: #3fa566; }
@@ -409,11 +409,11 @@
 .nickname-form { display: grid; gap: 12px; max-width: 480px; }
 .nickname-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .nickname-saved { margin: 0; color: var(--green); font-size: 12px; }
-.profile-rooms { display: grid; gap: 6px; }
-.profile-room { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 70px); align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #1f3127; border-radius: 7px; text-decoration: none; }
-.profile-room:hover { border-color: #3d7c55; }
-.profile-room b { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.profile-room span { display: grid; font-family: 'Barlow Condensed'; font-size: 18px; font-weight: 700; text-align: right; }
+.profile-leagues { display: grid; gap: 6px; }
+.profile-league { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 70px); align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #1f3127; border-radius: 7px; text-decoration: none; }
+.profile-league:hover { border-color: #3d7c55; }
+.profile-league b { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-league span { display: grid; font-family: 'Barlow Condensed'; font-size: 18px; font-weight: 700; text-align: right; }
 .prose { max-width: 720px; margin: 0 auto; display: block; }
 .prose h2 { margin: 28px 0 8px; font-family: 'Barlow Condensed'; font-size: 22px; }
 .prose p, .prose li { color: #a3b0a8; font-size: 13px; line-height: 1.65; }
@@ -445,11 +445,11 @@
 .light .form-error { color: #9b2626; background: #fff1f1; border-color: #e0a8a8; }
 .light .avatar { background: hsl(var(--avatar-hue, 140) 45% 88%); color: hsl(var(--avatar-hue, 140) 45% 28%); box-shadow: 0 0 0 1px rgba(0, 0, 0, .06); }
 .light .avatar-stack .avatar { box-shadow: 0 0 0 2px #fff; }
-.light .stat-tile small, .light .room-card-stats small, .light .member-rating small, .light .profile-room small, .light .highlight small { color: #6d7b72; }
-.light .stat-tile span, .light .room-card-foot, .light .room-meta, .light .room-card-members { color: #66756c; }
-.light .room-card, .light .live-card { background: #fff; border-color: #d4dfd7; }
-.light .room-card:hover, .light .leg-card:hover, .light .highlight:hover, .light .profile-room:hover { border-color: #69b982; }
-.light .room-card-stats, .light .login-features, .light .invite-reset, .light .danger-zone, .light .tabs { border-color: #dde6df; }
+.light .stat-tile small, .light .league-card-stats small, .light .member-rating small, .light .profile-league small, .light .highlight small { color: #6d7b72; }
+.light .stat-tile span, .light .league-card-foot, .light .league-meta, .light .league-card-members { color: #66756c; }
+.light .league-card, .light .live-card { background: #fff; border-color: #d4dfd7; }
+.light .league-card:hover, .light .leg-card:hover, .light .highlight:hover, .light .profile-league:hover { border-color: #69b982; }
+.light .league-card-stats, .light .login-features, .light .invite-reset, .light .danger-zone, .light .tabs { border-color: #dde6df; }
 .light .live-card { border-color: #7fc497; background: linear-gradient(150deg, #effaf2, #fff); }
 .light .live-card-players small { color: #5f7a68; }
 .light .live-card-players em { color: #0e7638; }
@@ -549,7 +549,7 @@
   .sheet-summary { width: 100%; }
   .profile-head { grid-template-columns: auto minmax(0, 1fr); }
   .profile-head > .ghost-button { grid-column: 1 / -1; }
-  .profile-room { grid-template-columns: minmax(0, 1fr) repeat(3, 52px); }
+  .profile-league { grid-template-columns: minmax(0, 1fr) repeat(3, 52px); }
   .login-card { padding: 28px 18px 24px; }
   .h2h-row { grid-template-columns: 22px minmax(70px, 110px) 1fr 40px; }
   .online-match .header-actions .back-button, .online-match .header-actions .match-stats-button { display: grid; width: 34px; height: 34px; }

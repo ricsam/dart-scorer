@@ -5,9 +5,9 @@ afterEach(() => vi.unstubAllGlobals())
 it('sends explicit same-origin JSON on bodyless mutations, including DELETE and logout', async () => {
   const fetch = vi.fn(async () => new Response(null, { status: 204 }))
   vi.stubGlobal('fetch', fetch)
-  await api.deleteRoom('room')
+  await api.deleteLeague('league')
   await api.logout()
-  await api.regenerateInvite('room')
+  await api.regenerateInvite('league')
   for (const [, options] of fetch.mock.calls as unknown as [string, RequestInit][]) {
     expect(options.body).toBe('{}')
     expect(options.headers).toMatchObject({ 'Content-Type': 'application/json' })

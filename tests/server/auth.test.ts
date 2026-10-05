@@ -18,7 +18,7 @@ describe('Google sign-in', () => {
   it('redirects to Google with PKCE, state and nonce', async () => {
     const ctx = setup()
     const client = new Client(ctx.app)
-    const { location, response } = await startGoogle(ctx, client, '/rooms/abc')
+    const { location, response } = await startGoogle(ctx, client, '/leagues/abc')
     expect(location.origin + location.pathname).toBe('https://accounts.google.com/o/oauth2/v2/auth')
     expect(location.searchParams.get('client_id')).toBe('test-client-id')
     expect(location.searchParams.get('redirect_uri')).toBe(`${ORIGIN}/auth/google/callback`)
@@ -44,10 +44,10 @@ describe('Google sign-in', () => {
   it('creates a user and session, then redirects to returnTo', async () => {
     const ctx = setup()
     const client = new Client(ctx.app)
-    const { state } = await startGoogle(ctx, client, '/rooms/abc?tab=live')
+    const { state } = await startGoogle(ctx, client, '/leagues/abc?tab=live')
     const response = await client.get(`/auth/google/callback?code=good&state=${state}`)
     expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('/rooms/abc?tab=live')
+    expect(response.headers.get('location')).toBe('/leagues/abc?tab=live')
     const session = response.headers.getSetCookie().find((value) => value.startsWith('oche_session='))!
     expect(session).toMatch(/HttpOnly/i)
     expect(session).toMatch(/SameSite=Lax/i)
@@ -137,7 +137,7 @@ describe('Google sign-in', () => {
   })
 
   it('sanitizes returnTo to same-origin relative paths', async () => {
-    expect(sanitizeReturnTo('/rooms/1?x=2#y')).toBe('/rooms/1?x=2#y')
+    expect(sanitizeReturnTo('/leagues/1?x=2#y')).toBe('/leagues/1?x=2#y')
     expect(sanitizeReturnTo(undefined)).toBe('/')
     expect(sanitizeReturnTo('')).toBe('/')
     expect(sanitizeReturnTo('https://evil.example/')).toBe('/')
@@ -147,7 +147,7 @@ describe('Google sign-in', () => {
     expect(sanitizeReturnTo('/%0d%0aSet-Cookie:x')).toBe('/%0d%0aSet-Cookie:x')
     expect(sanitizeReturnTo('/\tfoo')).toBe('/')
     expect(sanitizeReturnTo('javascript:alert(1)')).toBe('/')
-    expect(sanitizeReturnTo('rooms')).toBe('/')
+    expect(sanitizeReturnTo('leagues')).toBe('/')
 
     const ctx = setup()
     const client = new Client(ctx.app)
@@ -201,7 +201,7 @@ describe('sessions', () => {
     const ctx = setup()
     const anonymous = new Client(ctx.app)
     expect(await anonymous.json('GET', '/api/me', 200)).toEqual({ user: null, auth: { google: true, dev: true } })
-    expect(await anonymous.json('GET', '/api/rooms', 401)).toMatchObject({ error: 'unauthorized' })
+    expect(await anonymous.json('GET', '/api/leagues', 401)).toMatchObject({ error: 'unauthorized' })
 
     const client = await devLogin(ctx.app, 'Sam')
     const token = client.cookies.get('oche_session')!
@@ -209,14 +209,14 @@ describe('sessions', () => {
     // Only a hash of the token is stored.
     const stored = ctx.db.all<{ token_hash: string }>('SELECT token_hash FROM sessions')
     expect(stored.map((row) => row.token_hash)).toEqual([createHash('sha256').update(token).digest('hex')])
-    await client.json('GET', '/api/rooms', 200)
+    await client.json('GET', '/api/leagues', 200)
 
     const logout = await client.post('/auth/logout')
     expect(logout.status).toBe(204)
     expect(client.cookies.has('oche_session')).toBe(false)
     const stale = new Client(ctx.app)
     stale.cookies.set('oche_session', token)
-    await stale.json('GET', '/api/rooms', 401)
+    await stale.json('GET', '/api/leagues', 401)
     expect(ctx.db.all('SELECT * FROM sessions')).toHaveLength(0)
   })
 
@@ -260,7 +260,7 @@ describe('request hardening', () => {
   it('rejects cross-origin mutations and non-JSON bodies', async () => {
     const ctx = setup()
     const client = await devLogin(ctx.app, 'Sam')
-    const crossOrigin = await client.post('/api/rooms', { name: 'Room' }, { headers: { origin: 'https://evil.example' } })
+    const crossOrigin = await client.post('/api/leagues', { name: 'League' }, { headers: { origin: 'https://evil.example' } })
     expect(crossOrigin.status).toBe(403)
     expect(await crossOrigin.json()).toMatchObject({ error: 'forbidden' })
 
@@ -268,25 +268,25 @@ describe('request hardening', () => {
     expect(crossLogout.status).toBe(403)
     expect((await client.json('GET', '/api/me', 200)).user).not.toBeNull()
 
-    const form = await client.request('POST', '/api/rooms', { rawBody: 'name=Room', headers: { 'content-type': 'application/x-www-form-urlencoded' } })
+    const form = await client.request('POST', '/api/leagues', { rawBody: 'name=League', headers: { 'content-type': 'application/x-www-form-urlencoded' } })
     expect(form.status).toBe(415)
     expect(await form.json()).toMatchObject({ error: 'bad_request' })
 
-    const textPlain = await client.request('POST', '/api/rooms', { rawBody: '{"name":"Room"}', headers: { 'content-type': 'text/plain' } })
+    const textPlain = await client.request('POST', '/api/leagues', { rawBody: '{"name":"League"}', headers: { 'content-type': 'text/plain' } })
     expect(textPlain.status).toBe(415)
 
-    const invalid = await client.request('POST', '/api/rooms', { rawBody: '{nope', headers: { 'content-type': 'application/json' } })
+    const invalid = await client.request('POST', '/api/leagues', { rawBody: '{nope', headers: { 'content-type': 'application/json' } })
     expect(invalid.status).toBe(400)
 
-    const huge = await client.post('/api/rooms', { name: 'x'.repeat(70 * 1024) })
+    const huge = await client.post('/api/leagues', { name: 'x'.repeat(70 * 1024) })
     expect(huge.status).toBe(413)
 
-    const withCharset = await client.request('POST', '/api/rooms', { rawBody: '{"name":"Room"}', headers: { 'content-type': 'application/json; charset=utf-8' } })
+    const withCharset = await client.request('POST', '/api/leagues', { rawBody: '{"name":"League"}', headers: { 'content-type': 'application/json; charset=utf-8' } })
     expect(withCharset.status).toBe(201)
 
     // Requests without an Origin header (e.g. same-origin tooling) are still allowed.
     client.origin = null
-    expect((await client.post('/api/rooms', { name: 'Room 2' })).status).toBe(201)
+    expect((await client.post('/api/leagues', { name: 'League 2' })).status).toBe(201)
   })
 
   it('sets security headers and returns JSON errors', async () => {

@@ -6,7 +6,7 @@ const sections = [
   ['what-counts', 'What counts'],
   ['scoring', 'Scoring & match rules'],
   ['statistics', 'Averages & statistics'],
-  ['ratings', 'Room ratings (Elo)'],
+  ['ratings', 'League ratings (Elo)'],
   ['leaderboards', 'Reading the leaderboard'],
   ['checkouts', 'Checkout suggestions'],
 ] as const
@@ -27,11 +27,11 @@ export function AboutPage() {
       <header className="about-intro">
         <span className="eyebrow"><Info size={14} aria-hidden="true" /> OCHE ONLINE · THE NUMBERS EXPLAINED</span>
         <h1>About & scoring</h1>
-        <p className="lead">From your first dart to your room rating. Here’s how Oche turns the darts you enter into scores, statistics and leaderboards.</p>
+        <p className="lead">From your first dart to your league rating. Here’s how Oche turns the darts you enter into scores, statistics and leaderboards.</p>
         <div className="about-at-a-glance">
           <div><Calculator size={20} aria-hidden="true" /><strong>Every dart counts</strong><span>Misses and bust darts stay in your averages.</span></div>
-          <div><Trophy size={20} aria-hidden="true" /><strong>1000 to start</strong><span>A separate Elo rating in every room.</span></div>
-          <div><BarChart3 size={20} aria-hidden="true" /><strong>Save to make it count</strong><span>Only saved results update room and career stats.</span></div>
+          <div><Trophy size={20} aria-hidden="true" /><strong>1000 to start</strong><span>A separate Elo rating in every league.</span></div>
+          <div><BarChart3 size={20} aria-hidden="true" /><strong>Save to make it count</strong><span>Only saved results update league and career stats.</span></div>
         </div>
       </header>
 
@@ -44,13 +44,13 @@ export function AboutPage() {
         <h2 id="what-counts" tabIndex={-1}>01 · What counts</h2>
         <p>Online Oche is a casual, self-reported darts scorer for you and your crew—not a verified competition ranking. The numbers describe the darts entered, so record each dart accurately.</p>
         <ul>
-          <li><b>Room and career statistics:</b> a room match counts after the final leg is won and someone selects <b>Save result</b>. Live statistics include the leg in progress, but unfinished or abandoned matches do not enter the leaderboard. On the live scorecard, AVG is match-wide while DARTS is for the current leg and resets each leg.</li>
-          <li><b>Quick game:</b> the local scorer does not save a room result or affect online ratings or career statistics.</li>
+          <li><b>League and career statistics:</b> a league match counts after the final leg is won and someone selects <b>Save result</b>. Live statistics include the leg in progress, but unfinished or abandoned matches do not enter the leaderboard. On the live scorecard, AVG is match-wide while DARTS is for the current leg and resets each leg.</li>
+          <li><b>Quick game:</b> the local scorer does not save a league result or affect online ratings or career statistics.</li>
           <li><b>Guests:</b> their darts and results appear in match history and match statistics, but guests have no Elo rating, ranked leaderboard entry or account career stats. Signing in later creates a separate account identity; it does not convert old guest results.</li>
           <li><b>House bots:</b> add a fictional opponent in New match, from novice to pro-level. Bots throw automatically and follow the same scoring rules. Their displayed averages are approximate for 501, single in / double out. Matches with any bot are training for everyone, including matches with multiple account players. Past and new bot games never count toward competition wins, losses, form, head-to-head, averages or ratings. Saved practice statistics appear separately under Training. Undo removes subsequent bot darts and returns to the latest human dart in the current leg.</li>
-          <li><b>Training arena:</b> play Around the clock (hit 1–20 in order, any ring, within 60 darts) or the Nine-dart challenge (highest score from nine darts). Play privately solo or with up to eight room players and guests in three-dart turns. Enter one dart at a time; challenge results save automatically when everyone finishes. Undo is available while the session is live. Each mode has its own personal bests and monthly progress, separate from bot averages and competition.</li>
-          <li><b>Mixed formats:</b> 101, 301, 501 and 701, all in/out rules and all match lengths share the same room leaderboard. There is no format adjustment—agree on a format if you want a consistent league.</li>
-          <li><b>Corrections:</b> use Undo, restart or visit rewind before saving. Saved matches cannot be edited. If a host deletes a mistaken result, its statistics disappear and the room’s ratings are replayed from the remaining results in completion order.</li>
+          <li><b>Training arena:</b> play Around the clock (hit 1–20 in order, any ring, within 60 darts) or the Nine-dart challenge (highest score from nine darts). Play privately solo or with up to eight league players and guests in three-dart turns. Enter one dart at a time; challenge results save automatically when everyone finishes. Undo is available while the session is live. Each mode has its own personal bests and monthly progress, separate from bot averages and competition.</li>
+          <li><b>Mixed formats:</b> 101, 301, 501 and 701, all in/out rules and all match lengths share the same league leaderboard. There is no format adjustment—agree on a format if you want a consistent league.</li>
+          <li><b>Corrections:</b> use Undo, restart or visit rewind before saving. Saved matches cannot be edited. If a host deletes a mistaken result, its statistics disappear and the league’s ratings are replayed from the remaining results in completion order.</li>
         </ul>
       </section>
 
@@ -95,7 +95,7 @@ export function AboutPage() {
           <strong>One finish, two attempts</strong>
           <p>With double out and 60 remaining, <code>20 MISS D20</code> has two attempts: the miss and D20 were both thrown from 40. The opening 20 was thrown from 60, which cannot be finished with one double. That leg contributes <b>1 ÷ 2 = 50.0%</b>.</p>
         </aside>
-        <p>Room and career checkout rates use total checkouts divided by total attempts, not an average of match percentages. With no attempts, the rate is shown as <b>—</b>.</p>
+        <p>League and career checkout rates use total checkouts divided by total attempts, not an average of match percentages. With no attempts, the rate is shown as <b>—</b>.</p>
 
         <h3>Records & counts</h3>
         <dl className="about-definitions">
@@ -110,8 +110,8 @@ export function AboutPage() {
       </section>
 
       <section aria-labelledby="ratings">
-        <h2 id="ratings" tabIndex={-1}>04 · Room ratings (Elo)</h2>
-        <p>Every account player starts at <b>1000 in each room</b>. Ratings estimate relative results within that room, not a global skill level. Only saved matches with at least two account players and no bots can change ratings. Guests are excluded from the pair comparisons; a non-bot match with only one account player leaves that player’s rating unchanged, but still counts toward their competition statistics.</p>
+        <h2 id="ratings" tabIndex={-1}>04 · League ratings (Elo)</h2>
+        <p>Every account player starts at <b>1000 in each league</b>. Ratings estimate relative results within that league, not a global skill level. Only saved matches with at least two account players and no bots can change ratings. Guests are excluded from the pair comparisons; a non-bot match with only one account player leaves that player’s rating unchanged, but still counts toward their competition statistics.</p>
         <p>In multiplayer, Oche compares every pair of account players by final placing. Finishing ahead scores <b>1</b>, tying scores <b>½</b>, and finishing behind scores <b>0</b>. You can gain rating without winning the whole match. Guests can win matches and affect leg totals, but they are never rated opponents.</p>
 
         <h3>The formula</h3>
@@ -133,13 +133,13 @@ export function AboutPage() {
       <section aria-labelledby="leaderboards">
         <h2 id="leaderboards" tabIndex={-1}>05 · Reading the leaderboard</h2>
         <dl className="about-definitions">
-          <div><dt>All time / 30 days / 7 days</dt><dd>The leaderboard lists current account members of the room, not guests or former members. Former members’ retained results still influence rating history. The time filter uses the match’s saved completion time. The 7- and 30-day windows roll back from the current time; they are not calendar weeks or months. Counts, averages, records and form use results within the selected window. Ratings always use the room’s full history and do not reset with the filter.</dd></div>
+          <div><dt>All time / 30 days / 7 days</dt><dd>The leaderboard lists current account members of the league, not guests or former members. Former members’ retained results still influence rating history. The time filter uses the match’s saved completion time. The 7- and 30-day windows roll back from the current time; they are not calendar weeks or months. Counts, averages, records and form use results within the selected window. Ratings always use the league’s full history and do not reset with the filter.</dd></div>
           <div><dt>Sorting & row numbers</dt><dd>Players with matches in the selected period appear first; those without appear below, unnumbered. The # column is the row position for the chosen sort, not a permanent rank. Higher is better except for best leg, where fewer darts wins; missing values sort last. Equal values fall back to rating, then the underlying order of wins in the period, name and ID.</dd></div>
-          <div><dt>Room rank on home / My stats</dt><dd>This compares your rounded rating with current account members who have a saved non-bot result in that room. Rank = 1 + the number of those members with a higher rating. Equal ratings share a rank; a player with only bot matches or no results has no rank. This can differ from the leaderboard’s sequential row numbers.</dd></div>
+          <div><dt>League rank on home / My stats</dt><dd>This compares your rounded rating with current account members who have a saved non-bot result in that league. Rank = 1 + the number of those members with a higher rating. Equal ratings share a rank; a player with only bot matches or no results has no rank. This can differ from the leaderboard’s sequential row numbers.</dd></div>
           <div><dt>Form</dt><dd>Up to five latest match results within the selected period, newest first. W means you won the match; L means you did not, regardless of your Elo change.</dd></div>
           <div><dt>Highlights & green cells</dt><dd>Leaderboard highlights pick the best available nonzero value among players active in the selected period; a tie shows the first in the underlying rating/wins/name/ID order. Match-stat tables highlight all players tied for the best available value in a highlighted row. Neither awards bonus rating.</dd></div>
-          <div><dt>Rating history & head to head</dt><dd>Player details use all-time room results. The chart appears after two saved non-bot results, starts at 1000 and plots the rounded rating after each non-bot match, oldest to newest. Matches are evenly spaced, not spaced by elapsed time. Head-to-head wins and losses compare your placing against each account opponent in non-training matches, including multiplayer matches. Equal placings add neither a win nor a loss, and guests and bots are excluded.</dd></div>
-          <div><dt>My stats · Career</dt><dd>Competition and Training tabs keep non-bot and bot results separate, with monthly UTC dart-weighted average charts and tables. Career totals combine your saved non-bot account results across rooms, including retained results from rooms you have left. They sum points, darts and checkout counts before calculating rates. Room ratings stay separate—there is no combined career Elo.</dd></div>
+          <div><dt>Rating history & head to head</dt><dd>Player details use all-time league results. The chart appears after two saved non-bot results, starts at 1000 and plots the rounded rating after each non-bot match, oldest to newest. Matches are evenly spaced, not spaced by elapsed time. Head-to-head wins and losses compare your placing against each account opponent in non-training matches, including multiplayer matches. Equal placings add neither a win nor a loss, and guests and bots are excluded.</dd></div>
+          <div><dt>My stats · Career</dt><dd>Competition and Training tabs keep non-bot and bot results separate, with monthly UTC dart-weighted average charts and tables. Career totals combine your saved non-bot account results across leagues, including retained results from leagues you have left. They sum points, darts and checkout counts before calculating rates. League ratings stay separate—there is no combined career Elo.</dd></div>
         </dl>
       </section>
 

@@ -1,80 +1,80 @@
 import { useCallback, useState } from 'react'
 import { Pencil, Play, Radio, Share2, Trophy, Users } from 'lucide-react'
-import type { MatchSummary, RoomDetail, RoomEvent } from '../../shared/api'
+import type { MatchSummary, LeagueDetail, LeagueEvent } from '../../shared/api'
 import { api } from '../api'
 import { BotAvatar, BotBadge } from '../BotAvatar'
 import { formatAverage } from '../format'
 import { useDocumentTitle, useEventStream, useResource } from '../hooks'
 import { Link } from '../router'
 import { Avatar, AvatarStack, ErrorState, Loading } from '../ui'
-import { InviteDialog } from './room/InviteDialog'
-import { Leaderboard } from './room/Leaderboard'
-import { MatchHistory } from './room/MatchHistory'
-import { Members, RenameRoomDialog } from './room/Members'
-import { NewMatchDialog } from './room/NewMatchDialog'
+import { InviteDialog } from './league/InviteDialog'
+import { Leaderboard } from './league/Leaderboard'
+import { MatchHistory } from './league/MatchHistory'
+import { Members, RenameLeagueDialog } from './league/Members'
+import { NewMatchDialog } from './league/NewMatchDialog'
 
 type Tab = 'leaderboard' | 'matches' | 'members'
 
-function upsertMatch(room: RoomDetail, match: MatchSummary): RoomDetail {
-  const liveMatches = room.liveMatches.filter((item) => item.id !== match.id)
-  const recentMatches = room.recentMatches.filter((item) => item.id !== match.id)
+function upsertMatch(league: LeagueDetail, match: MatchSummary): LeagueDetail {
+  const liveMatches = league.liveMatches.filter((item) => item.id !== match.id)
+  const recentMatches = league.recentMatches.filter((item) => item.id !== match.id)
   if (match.status === 'live') liveMatches.unshift(match)
   else recentMatches.unshift(match)
-  return { ...room, liveMatches, recentMatches: recentMatches.slice(0, 10) }
+  return { ...league, liveMatches, recentMatches: recentMatches.slice(0, 10) }
 }
 
-export function RoomPage({ roomId }: { roomId: string }) {
-  const room = useResource(`room:${roomId}`, () => api.room(roomId))
+export function LeaguePage({ leagueId }: { leagueId: string }) {
+  const league = useResource(`league:${leagueId}`, () => api.league(leagueId))
   const [tab, setTab] = useState<Tab>('leaderboard')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [newMatchOpen, setNewMatchOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
   const [statsVersion, setStatsVersion] = useState(0)
-  const detail = room.data?.room
-  useDocumentTitle(detail ? `${detail.name} — Oche` : 'Room — Oche')
+  const detail = league.data?.league
+  useDocumentTitle(detail ? `${detail.name} — Oche` : 'League — Oche')
 
-  const { reload, setData } = room
-  const onEvent = useCallback((event: RoomEvent) => {
+  const { reload, setData } = league
+  const onEvent = useCallback((event: LeagueEvent) => {
     if (event.type === 'refresh') {
       void reload()
       setStatsVersion((value) => value + 1)
     } else if (event.type === 'match') {
-      setData((current) => current ? { room: upsertMatch(current.room, event.match) } : current)
+      setData((current) => current ? { league: upsertMatch(current.league, event.match) } : current)
       if (event.match.status === 'completed') setStatsVersion((value) => value + 1)
     } else if (event.type === 'match-deleted') {
       setData((current) => current ? {
-        room: {
-          ...current.room,
-          liveMatches: current.room.liveMatches.filter((item) => item.id !== event.matchId),
-          recentMatches: current.room.recentMatches.filter((item) => item.id !== event.matchId),
+        league: {
+          ...current.league,
+          liveMatches: current.league.liveMatches.filter((item) => item.id !== event.matchId),
+          recentMatches: current.league.recentMatches.filter((item) => item.id !== event.matchId),
         },
       } : current)
       setStatsVersion((value) => value + 1)
     }
   }, [reload, setData])
-  const stream = useEventStream<RoomEvent>(detail && !room.error ? `/api/rooms/${encodeURIComponent(roomId)}/events` : null, 'room', onEvent, () => { void reload() })
+  const stream = useEventStream<LeagueEvent>(detail && !league.error ? `/api/leagues/${encodeURIComponent(leagueId)}/events` : null, 'league', onEvent, () => { void reload() })
 
-  if (room.loading && !detail) return <Loading />
-  if (room.error) {
-    return room.error.status === 404
-      ? <ErrorState message="This room doesn’t exist or you are no longer a member." />
-      : <ErrorState message={room.error.message} onRetry={room.reload} />
+  if (league.loading && !detail) return <Loading />
+  if (league.error) {
+    return league.error.status === 404
+      ? <ErrorState message="This league doesn’t exist or you are no longer a member." />
+      : <ErrorState message={league.error.message} onRetry={league.reload} />
   }
   if (!detail) return null
 
   return (
-    <div className="page room-page">
+    <div className="page league-page">
       <div className="page-head">
         <div>
           <span className="eyebrow">
-            <Link to="/" className="crumb">ROOMS</Link> / {detail.role === 'owner' ? 'YOUR ROOM' : `HOSTED BY ${detail.owner.name.toUpperCase()}`}
+            <Link to="/" className="crumb">LEAGUES</Link> / {detail.role === 'owner' ? 'YOUR LEAGUE' : `HOSTED BY ${detail.owner.name.toUpperCase()}`}
             {stream === 'open' && <span className="stream-dot" title="Live updates connected" />}
           </span>
-          <h1 className="room-title">
+          <h1 className="league-title">
             {detail.name}
-            {detail.role === 'owner' && <button className="inline-icon" onClick={() => setRenameOpen(true)} aria-label="Rename room"><Pencil size={15} /></button>}
+            {detail.role === 'owner' && <button className="inline-icon" onClick={() => setRenameOpen(true)} aria-label="Rename league"><Pencil size={15} /></button>}
           </h1>
-          <div className="room-meta">
+          <div className="league-meta">
             <AvatarStack users={detail.members} max={6} size={22} />
             <span>{detail.members.length} {detail.members.length === 1 ? 'member' : 'members'}</span>
           </div>
@@ -94,24 +94,24 @@ export function RoomPage({ roomId }: { roomId: string }) {
       {detail.members.length === 1 && (
         <div className="callout">
           <Users size={18} />
-          <span><b>Invite your crew.</b> Share the invite link so friends can join this room — or start a match right away with guests or a house bot.</span>
+          <span><b>Invite your crew.</b> Share the invite link so friends can join this league — or start a match right away with guests or a house bot.</span>
           <button className="ghost-button" onClick={() => setInviteOpen(true)}>SHARE INVITE</button>
         </div>
       )}
 
-      <div className="tabs" role="tablist" aria-label="Room sections">
+      <div className="tabs" role="tablist" aria-label="League sections">
         <button role="tab" aria-selected={tab === 'leaderboard'} className={tab === 'leaderboard' ? 'active' : ''} onClick={() => setTab('leaderboard')}><Trophy size={15} /> LEADERBOARD</button>
         <button role="tab" aria-selected={tab === 'matches'} className={tab === 'matches' ? 'active' : ''} onClick={() => setTab('matches')}>MATCHES</button>
         <button role="tab" aria-selected={tab === 'members'} className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>MEMBERS <span className="tab-count">{detail.members.length}</span></button>
       </div>
 
-      {tab === 'leaderboard' && <Leaderboard room={detail} refreshKey={statsVersion} />}
-      {tab === 'matches' && <MatchHistory room={detail} refreshKey={statsVersion} />}
-      {tab === 'members' && <Members room={detail} onChanged={room.reload} onInvite={() => setInviteOpen(true)} onRename={() => setRenameOpen(true)} />}
+      {tab === 'leaderboard' && <Leaderboard league={detail} refreshKey={statsVersion} />}
+      {tab === 'matches' && <MatchHistory league={detail} refreshKey={statsVersion} />}
+      {tab === 'members' && <Members league={detail} onChanged={league.reload} onInvite={() => setInviteOpen(true)} onRename={() => setRenameOpen(true)} />}
 
-      {inviteOpen && <InviteDialog room={detail} onClose={() => setInviteOpen(false)} onRegenerated={(inviteCode) => room.setData((current) => current ? { room: { ...current.room, inviteCode } } : current)} />}
-      {newMatchOpen && <NewMatchDialog room={detail} onClose={() => setNewMatchOpen(false)} />}
-      {renameOpen && <RenameRoomDialog room={detail} onClose={() => setRenameOpen(false)} onRenamed={(updated) => room.setData({ room: updated })} />}
+      {inviteOpen && <InviteDialog league={detail} onClose={() => setInviteOpen(false)} onRegenerated={(inviteCode) => league.setData((current) => current ? { league: { ...current.league, inviteCode } } : current)} />}
+      {newMatchOpen && <NewMatchDialog league={detail} onClose={() => setNewMatchOpen(false)} />}
+      {renameOpen && <RenameLeagueDialog league={detail} onClose={() => setRenameOpen(false)} onRenamed={(updated) => league.setData({ league: updated })} />}
     </div>
   )
 }

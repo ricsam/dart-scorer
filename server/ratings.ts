@@ -30,16 +30,16 @@ export function displayRating(value: number) {
 type ResultKey = { match_id: string; slot: number; user_id: string | null; placing: number }
 
 /**
- * Replays a room's completed matches in order (completed_at, id) and rewrites every
+ * Replays a league's completed matches in order (completed_at, id) and rewrites every
  * result's rating_before/rating_after. Call inside the transaction that changed the results.
  */
-export function recomputeRoomRatings(db: Db, roomId: string) {
+export function recomputeLeagueRatings(db: Db, leagueId: string) {
   const rows = db.all<ResultKey>(
-    'SELECT match_id, slot, user_id, placing FROM match_results WHERE room_id = ? ORDER BY completed_at, match_id, slot',
-    roomId,
+    'SELECT match_id, slot, user_id, placing FROM match_results WHERE league_id = ? ORDER BY completed_at, match_id, slot',
+    leagueId,
   )
   const botMatches = new Set(db.all<{ match_id: string }>(
-    'SELECT DISTINCT p.match_id FROM match_players p JOIN matches m ON m.id = p.match_id WHERE m.room_id = ? AND p.bot_id IS NOT NULL', roomId,
+    'SELECT DISTINCT p.match_id FROM match_players p JOIN matches m ON m.id = p.match_id WHERE m.league_id = ? AND p.bot_id IS NOT NULL', leagueId,
   ).map((row) => row.match_id))
   const ratings = new Map<string, number>()
   const current = (userId: string) => ratings.get(userId) ?? INITIAL_RATING
@@ -72,11 +72,11 @@ export function recomputeRoomRatings(db: Db, roomId: string) {
   return ratings
 }
 
-/** Current (full precision) rating and rated-match count for every user with ranked results in a room. */
-export function roomRatings(db: Db, roomId: string) {
+/** Current (full precision) rating and rated-match count for every user with ranked results in a league. */
+export function leagueRatings(db: Db, leagueId: string) {
   const rows = db.all<{ user_id: string; rating_after: number | null }>(
-    'SELECT user_id, rating_after FROM match_results WHERE room_id = ? AND user_id IS NOT NULL AND rating_after IS NOT NULL ORDER BY completed_at, match_id',
-    roomId,
+    'SELECT user_id, rating_after FROM match_results WHERE league_id = ? AND user_id IS NOT NULL AND rating_after IS NOT NULL ORDER BY completed_at, match_id',
+    leagueId,
   )
   const ratings = new Map<string, { rating: number; matches: number }>()
   for (const row of rows) {

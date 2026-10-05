@@ -11,7 +11,7 @@ import { ApiException, errorResponse, type ApiErrorCode } from './http'
 import { LiveHub } from './live'
 import { matchRoutes } from './matches'
 import { meRoutes } from './me'
-import { roomRoutes } from './rooms'
+import { leagueRoutes } from './leagues'
 import { assertRateLimit, clientIp, isMutating, originGuard, RateLimiter, securityHeaders } from './security'
 import { mountStatic } from './static'
 import { statsRoutes } from './stats'
@@ -117,7 +117,7 @@ export function createApp(deps: AppDeps): App {
   app.route('/auth', authRoutes(services))
   const api = new Hono<AppEnv>()
   api.route('/', meRoutes(services))
-  api.route('/', roomRoutes(services))
+  api.route('/', leagueRoutes(services))
   api.route('/', matchRoutes(services))
   api.route('/', statsRoutes(services))
   api.route('/', trainingRoutes(services))

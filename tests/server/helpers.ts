@@ -171,17 +171,17 @@ export async function devLogin(app: App, name: string, email = `${name.toLowerCa
 
 export const DEFAULTS_101: MatchSettings = { game: 101, doubleIn: false, doubleOut: true, legsToWin: 1 }
 
-export async function createRoom(client: Client, name = 'Tuesday League') {
-  const { room } = await client.json<{ room: { id: string; inviteCode: string } }>('POST', '/api/rooms', 201, { name })
-  return room
+export async function createLeague(client: Client, name = 'Tuesday League') {
+  const { league } = await client.json<{ league: { id: string; inviteCode: string } }>('POST', '/api/leagues', 201, { name })
+  return league
 }
 
-export async function joinRoom(client: Client, inviteCode: string) {
-  return client.json<{ roomId: string }>('POST', `/api/invites/${inviteCode}/join`, 200)
+export async function joinLeague(client: Client, inviteCode: string) {
+  return client.json<{ leagueId: string }>('POST', `/api/invites/${inviteCode}/join`, 200)
 }
 
-export async function createMatch(client: Client, roomId: string, players: ({ userId: string } | { guestName: string })[], settings: MatchSettings = DEFAULTS_101) {
-  const { match } = await client.json<{ match: MatchDetail }>('POST', `/api/rooms/${roomId}/matches`, 201, { players, settings })
+export async function createMatch(client: Client, leagueId: string, players: ({ userId: string } | { guestName: string })[], settings: MatchSettings = DEFAULTS_101) {
+  const { match } = await client.json<{ match: MatchDetail }>('POST', `/api/leagues/${leagueId}/matches`, 201, { players, settings })
   return match
 }
 

@@ -12,13 +12,13 @@ export type TrainingPlayer = { id: string; name: string; guest: boolean }
 export type TrainingState = { active: number; throws: { slot: number; entry: string }[] }
 export type TrainingPlayerResult = { playerId: string; name: string; darts: number; points: number; hits: number; finished: boolean; score: number }
 export type TrainingSession = {
-  id: string; roomId: string | null; roomName: string | null; mode: TrainingMode; status: 'live' | 'completed'
+  id: string; leagueId: string | null; leagueName: string | null; mode: TrainingMode; status: 'live' | 'completed'
   players: TrainingPlayer[]; state: TrainingState; version: number; createdAt: string; completedAt: string | null
   canScore: boolean; canDelete: boolean; results: TrainingPlayerResult[]
 }
 export type TrainingResponse = { session: TrainingSession }
 export type TrainingListResponse = { sessions: TrainingSession[] }
-export type CreateTrainingRequest = { mode: TrainingMode; roomId?: string; playerIds?: string[] }
+export type CreateTrainingRequest = { mode: TrainingMode; leagueId?: string; playerIds?: string[] }
 export type TrainingAction = { type: 'submit'; entry: string } | { type: 'undo' }
 
 /** Explicit rings disambiguate clock targets; numeric totals above 20 are accepted only in points mode. */

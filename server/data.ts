@@ -7,18 +7,18 @@ import type {
   MatchStatus,
   MatchSummary,
   MemberRole,
-  RoomMember,
+  LeagueMember,
   UserRef,
 } from '../src/shared/api'
 import type { UserRow } from './context'
 import type { Db } from './db'
 import { notFound } from './http'
-import { displayRating, INITIAL_RATING, roomRatings } from './ratings'
+import { displayRating, INITIAL_RATING, leagueRatings } from './ratings'
 import { toUserRef } from './users'
 
 // ── Rows ────────────────────────────────────────────────────────────────────
 
-export type RoomRow = {
+export type LeagueRow = {
   id: string
   name: string
   owner_id: string
@@ -29,7 +29,7 @@ export type RoomRow = {
 
 export type MatchRow = {
   id: string
-  room_id: string
+  league_id: string
   created_by: string
   status: MatchStatus
   settings: string
@@ -43,7 +43,7 @@ export type MatchRow = {
 export type ResultRow = {
   match_id: string
   slot: number
-  room_id: string
+  league_id: string
   user_id: string | null
   placing: number
   won: number
@@ -70,41 +70,41 @@ export const DEFAULT_SETTINGS: MatchSettings = { game: 501, doubleIn: false, dou
 
 // ── Membership ──────────────────────────────────────────────────────────────
 
-export type RoomAccess = RoomRow & { role: MemberRole }
+export type LeagueAccess = LeagueRow & { role: MemberRole }
 
-export function roomAccess(db: Db, roomId: string, userId: string): RoomAccess | undefined {
-  return db.get<RoomAccess>(
-    'SELECT r.*, m.role AS role FROM rooms r JOIN room_members m ON m.room_id = r.id AND m.user_id = ? WHERE r.id = ?',
-    userId, roomId,
+export function leagueAccess(db: Db, leagueId: string, userId: string): LeagueAccess | undefined {
+  return db.get<LeagueAccess>(
+    'SELECT r.*, m.role AS role FROM leagues r JOIN league_members m ON m.league_id = r.id AND m.user_id = ? WHERE r.id = ?',
+    userId, leagueId,
   )
 }
 
-/** The room if the user is a current member; otherwise 404 (rooms you can't see don't exist). */
-export function requireRoom(db: Db, roomId: string | undefined, userId: string): RoomAccess {
-  const room = roomId ? roomAccess(db, roomId, userId) : undefined
-  if (!room) throw notFound('Room not found.')
-  return room
+/** The league if the user is a current member; otherwise 404 (leagues you can't see don't exist). */
+export function requireLeague(db: Db, leagueId: string | undefined, userId: string): LeagueAccess {
+  const league = leagueId ? leagueAccess(db, leagueId, userId) : undefined
+  if (!league) throw notFound('League not found.')
+  return league
 }
 
-export function requireMatchRow(db: Db, matchId: string | undefined, userId: string): { match: MatchRow; room: RoomAccess } {
+export function requireMatchRow(db: Db, matchId: string | undefined, userId: string): { match: MatchRow; league: LeagueAccess } {
   const match = matchId ? db.get<MatchRow>('SELECT * FROM matches WHERE id = ?', matchId) : undefined
-  const room = match ? roomAccess(db, match.room_id, userId) : undefined
-  if (!match || !room) throw notFound('Match not found.')
-  return { match, room }
+  const league = match ? leagueAccess(db, match.league_id, userId) : undefined
+  if (!match || !league) throw notFound('Match not found.')
+  return { match, league }
 }
 
-export function memberRows(db: Db, roomId: string) {
+export function memberRows(db: Db, leagueId: string) {
   return db.all<Pick<UserRow, 'id' | 'name' | 'avatar_url' | 'is_guest' | 'claimed'> & { role: MemberRole; joined_at: string }>(
     `SELECT u.id, u.name, u.avatar_url, u.is_guest, u.claimed, m.role, m.joined_at
-     FROM room_members m JOIN users u ON u.id = m.user_id
-     WHERE m.room_id = ? ORDER BY m.joined_at, m.rowid`,
-    roomId,
+     FROM league_members m JOIN users u ON u.id = m.user_id
+     WHERE m.league_id = ? ORDER BY m.joined_at, m.rowid`,
+    leagueId,
   )
 }
 
-export function roomMembers(db: Db, roomId: string): RoomMember[] {
-  const ratings = roomRatings(db, roomId)
-  return memberRows(db, roomId).map((row) => {
+export function leagueMembers(db: Db, leagueId: string): LeagueMember[] {
+  const ratings = leagueRatings(db, leagueId)
+  return memberRows(db, leagueId).map((row) => {
     const rating = ratings.get(row.id)
     return {
       ...toUserRef(row),
@@ -132,8 +132,8 @@ export type MatchView = {
   settings: MatchSettings
   players: MatchPlayer[]
   createdBy: UserRef
-  roomName: string
-  roomOwnerId: string
+  leagueName: string
+  leagueOwnerId: string
   results: MatchResult[] | null
 }
 
@@ -174,7 +174,7 @@ export function buildMatchView(db: Db, row: MatchRow): MatchView {
     avatarUrl: player.user_id ? player.avatar_url : null,
     guest: player.user_id === null && player.bot_id === null,
   }))
-  const room = db.get<{ name: string; owner_id: string }>('SELECT name, owner_id FROM rooms WHERE id = ?', row.room_id)
+  const league = db.get<{ name: string; owner_id: string }>('SELECT name, owner_id FROM leagues WHERE id = ?', row.league_id)
   const results = row.status === 'completed'
     ? db.all<ResultRow>('SELECT * FROM match_results WHERE match_id = ? ORDER BY slot', row.id).map((result): MatchResult => ({
       slot: result.slot,
@@ -191,8 +191,8 @@ export function buildMatchView(db: Db, row: MatchRow): MatchView {
     settings: JSON.parse(row.settings) as MatchSettings,
     players,
     createdBy: userRef(db, row.created_by),
-    roomName: room?.name ?? '',
-    roomOwnerId: room?.owner_id ?? '',
+    leagueName: league?.name ?? '',
+    leagueOwnerId: league?.owner_id ?? '',
     results,
   }
 }
@@ -206,14 +206,14 @@ export function canScore(view: MatchView, viewerId: string) {
   return view.row.status === 'live' && (
     view.players.some((player) => player.userId === viewerId || player.guestId === viewerId)
     || view.row.created_by === viewerId
-    || view.roomOwnerId === viewerId
+    || view.leagueOwnerId === viewerId
   )
 }
 
 export function canDelete(view: MatchView, viewerId: string) {
   return view.row.status === 'live'
-    ? view.row.created_by === viewerId || view.roomOwnerId === viewerId
-    : view.roomOwnerId === viewerId
+    ? view.row.created_by === viewerId || view.leagueOwnerId === viewerId
+    : view.leagueOwnerId === viewerId
 }
 
 export function matchSummary(view: MatchView): MatchSummary {
@@ -223,7 +223,7 @@ export function matchSummary(view: MatchView): MatchSummary {
   const placings = matchPlacings(state)
   return {
     id: row.id,
-    roomId: row.room_id,
+    leagueId: row.league_id,
     status: row.status,
     settings: view.settings,
     players: view.players.map((player) => ({
@@ -248,8 +248,8 @@ export function matchDetail(view: MatchView, viewerId: string): MatchDetail {
   const { row } = view
   return {
     id: row.id,
-    roomId: row.room_id,
-    roomName: view.roomName,
+    leagueId: row.league_id,
+    leagueName: view.leagueName,
     status: row.status,
     settings: view.settings,
     players: view.players,

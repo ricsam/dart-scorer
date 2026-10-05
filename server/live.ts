@@ -2,8 +2,8 @@ import type { SSEStreamingApi } from 'hono/streaming'
 
 /** Channels a client can subscribe to over server-sent events. */
 export type Channel =
-  | { kind: 'match'; matchId: string; roomId: string }
-  | { kind: 'room'; roomId: string }
+  | { kind: 'match'; matchId: string; leagueId: string }
+  | { kind: 'league'; leagueId: string }
 
 /** Events queued beyond this for one slow client close its stream (it reconnects and resyncs). */
 const MAX_PENDING_WRITES = 64
@@ -118,14 +118,14 @@ export class LiveHub {
     return [...this.subscriptions].filter((s) => s.channel.kind === 'match' && s.channel.matchId === matchId && !s.closed)
   }
 
-  roomSubscribers(roomId: string) {
-    return [...this.subscriptions].filter((s) => s.channel.kind === 'room' && s.channel.roomId === roomId && !s.closed)
+  leagueSubscribers(leagueId: string) {
+    return [...this.subscriptions].filter((s) => s.channel.kind === 'league' && s.channel.leagueId === leagueId && !s.closed)
   }
 
-  /** Ends every stream (room and match channels) in a room, optionally only one user's. */
-  closeRoom(roomId: string, userId?: string) {
+  /** Ends every stream (league and match channels) in a league, optionally only one user's. */
+  closeLeague(leagueId: string, userId?: string) {
     for (const subscription of this.subscriptions) {
-      if (subscription.channel.roomId !== roomId) continue
+      if (subscription.channel.leagueId !== leagueId) continue
       if (userId !== undefined && subscription.userId !== userId) continue
       subscription.close()
     }

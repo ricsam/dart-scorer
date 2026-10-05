@@ -19,7 +19,7 @@ export { MAX_STATE_BYTES } from './match-limits'
 import { requireUser } from './auth'
 import type { AppEnv, Services, UserRow } from './context'
 import { nowIso } from './context'
-import { buildMatchView, matchDetail, requireMatchRow, requireRoom, type MatchRow, type MatchView } from './data'
+import { buildMatchView, matchDetail, requireMatchRow, requireLeague, type MatchRow, type MatchView } from './data'
 import { openEventStream, publishMatch, publishMatchDeleted } from './events'
 import {
   ApiException,
@@ -36,9 +36,9 @@ import {
 } from './http'
 import { ensureGuest } from './guests'
 import { randomId } from './ids'
-import { recomputeRoomRatings } from './ratings'
+import { recomputeLeagueRatings } from './ratings'
 
-export const MAX_LIVE_MATCHES_PER_ROOM = 10
+export const MAX_LIVE_MATCHES_PER_LEAGUE = 10
 export const MAX_LEGS_TO_WIN = 11
 
 export function parseSettings(value: unknown): MatchSettings {
@@ -111,9 +111,9 @@ export function parseAction(value: unknown): GameAction {
   }
 }
 
-/** Players in the match, its creator and the room owner may score (while it is live). */
+/** Players in the match, its creator and the league owner may score (while it is live). */
 function isScorer(view: MatchView, userId: string) {
-  return view.players.some((player) => player.userId === userId || player.guestId === userId) || view.row.created_by === userId || view.roomOwnerId === userId
+  return view.players.some((player) => player.userId === userId || player.guestId === userId) || view.row.created_by === userId || view.leagueOwnerId === userId
 }
 
 function conflict(view: MatchView, viewerId: string): ApiException {
@@ -125,17 +125,17 @@ export function matchRoutes(services: Services) {
   const { db } = services
   const app = new Hono<AppEnv>()
 
-  app.post('/rooms/:roomId/matches', async (c) => {
+  app.post('/leagues/:leagueId/matches', async (c) => {
     const user = requireUser(c)
-    const roomId = requireRoom(db, c.req.param('roomId'), user.id).id
+    const leagueId = requireLeague(db, c.req.param('leagueId'), user.id).id
     const body = expectObject(await readJson(c))
     const players = parsePlayers(body.players)
     const settings = parseSettings(body.settings)
 
     const matchId = db.transaction(() => {
-      requireRoom(db, roomId, user.id) // membership may have changed while the body was read
-      const live = db.get<{ count: number }>("SELECT COUNT(*) AS count FROM matches WHERE room_id = ? AND status = 'live'", roomId)?.count ?? 0
-      if (live >= MAX_LIVE_MATCHES_PER_ROOM) throw badRequest(`A room can have at most ${MAX_LIVE_MATCHES_PER_ROOM} live matches. Finish or delete one first.`)
+      requireLeague(db, leagueId, user.id) // membership may have changed while the body was read
+      const live = db.get<{ count: number }>("SELECT COUNT(*) AS count FROM matches WHERE league_id = ? AND status = 'live'", leagueId)?.count ?? 0
+      if (live >= MAX_LIVE_MATCHES_PER_LEAGUE) throw badRequest(`A league can have at most ${MAX_LIVE_MATCHES_PER_LEAGUE} live matches. Finish or delete one first.`)
 
       const roster = players.map((player) => {
         if ('botId' in player) {
@@ -143,15 +143,15 @@ export function matchRoutes(services: Services) {
           return { userId: null, guestId: null, botId: bot.id, name: bot.name }
         }
         if ('guestName' in player) {
-          const guest = ensureGuest(services, roomId, player.guestName)
+          const guest = ensureGuest(services, leagueId, player.guestName)
           return { userId: null, guestId: guest.id, botId: null, name: guest.name }
         }
         const guestInput = 'guestId' in player
         const member = db.get<UserRow>(
-          'SELECT u.* FROM room_members m JOIN users u ON u.id = m.user_id WHERE m.room_id = ? AND m.user_id = ?',
-          roomId, guestInput ? player.guestId : player.userId,
+          'SELECT u.* FROM league_members m JOIN users u ON u.id = m.user_id WHERE m.league_id = ? AND m.user_id = ?',
+          leagueId, guestInput ? player.guestId : player.userId,
         )
-        if (!member || Boolean(member.is_guest) !== guestInput || (guestInput && member.guest_room_id !== roomId)) throw badRequest('Every player must be a member of this room with the correct identity type.')
+        if (!member || Boolean(member.is_guest) !== guestInput || (guestInput && member.guest_league_id !== leagueId)) throw badRequest('Every player must be a member of this league with the correct identity type.')
         return { userId: guestInput ? null : member.id, guestId: guestInput ? member.id : null, botId: null, name: member.name }
       })
       if (new Set(roster.map((player) => player.botId ? `bot:${player.botId}` : player.userId ?? player.guestId)).size !== roster.length) throw badRequest('A player can only be added once.')
@@ -166,9 +166,9 @@ export function matchRoutes(services: Services) {
       const id = randomId()
       const now = nowIso(services)
       db.run(
-        `INSERT INTO matches (id, room_id, created_by, status, settings, state, version, created_at, updated_at, completed_at)
+        `INSERT INTO matches (id, league_id, created_by, status, settings, state, version, created_at, updated_at, completed_at)
          VALUES (?, ?, ?, 'live', ?, ?, 1, ?, ?, NULL)`,
-        id, roomId, user.id, JSON.stringify(settings), JSON.stringify(state), now, now,
+        id, leagueId, user.id, JSON.stringify(settings), JSON.stringify(state), now, now,
       )
       roster.forEach((player, slot) => {
         db.run('INSERT INTO match_players (match_id, slot, user_id, guest_id, bot_id, name) VALUES (?, ?, ?, ?, ?, ?)', id, slot, player.userId, player.guestId, player.botId, player.name)
@@ -191,7 +191,7 @@ export function matchRoutes(services: Services) {
   const loadForScoring = (matchId: string | undefined, userId: string, baseVersion: number) => {
     const { match } = requireMatchRow(db, matchId, userId)
     const view = buildMatchView(db, match)
-    if (!isScorer(view, userId)) throw forbidden('Only the players, the match creator and the room owner can score this match.')
+    if (!isScorer(view, userId)) throw forbidden('Only the players, the match creator and the league owner can score this match.')
     if (baseVersion !== match.version) throw conflict(view, userId)
     if (match.status !== 'live') throw badRequest('This match is already finished.')
     return view
@@ -246,12 +246,12 @@ export function matchRoutes(services: Services) {
         const s = stats[player.slot]
         db.run(
           `INSERT INTO match_results (
-             match_id, slot, room_id, user_id, placing, won,
+             match_id, slot, league_id, user_id, placing, won,
              legs_won, legs_played, darts, points, visits, first9_points, first9_darts,
              scores_180, scores_140, scores_100, checkout_attempts, checkouts, highest_checkout, best_leg_darts,
              rating_before, rating_after, completed_at
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)`,
-          row.id, player.slot, row.room_id, player.userId, placings[player.slot], state.matchWinner === player.slot ? 1 : 0,
+          row.id, player.slot, row.league_id, player.userId, placings[player.slot], state.matchWinner === player.slot ? 1 : 0,
           s.legsWon, s.legsPlayed, s.darts, s.points, s.visits, s.first9Points, s.first9Darts,
           s.scores180, s.scores140, s.scores100, s.checkoutAttempts, s.checkouts, s.highestCheckout, s.bestLegDarts,
           now,
@@ -261,7 +261,7 @@ export function matchRoutes(services: Services) {
         "UPDATE matches SET status = 'completed', version = version + 1, updated_at = ?, completed_at = ? WHERE id = ?",
         now, now, row.id,
       )
-      recomputeRoomRatings(db, row.room_id)
+      recomputeLeagueRatings(db, row.league_id)
     })
 
     publishMatch(services, row.id)
@@ -275,14 +275,14 @@ export function matchRoutes(services: Services) {
     const view = buildMatchView(db, match)
     if (!matchDetail(view, user.id).canDelete) {
       throw forbidden(match.status === 'live'
-        ? 'Only the match creator or the room owner can delete a live match.'
-        : 'Only the room owner can delete a completed match.')
+        ? 'Only the match creator or the league owner can delete a live match.'
+        : 'Only the league owner can delete a completed match.')
     }
     db.transaction(() => {
       db.run('DELETE FROM matches WHERE id = ?', match.id)
-      if (match.status === 'completed') recomputeRoomRatings(db, match.room_id)
+      if (match.status === 'completed') recomputeLeagueRatings(db, match.league_id)
     })
-    publishMatchDeleted(services, match.id, match.room_id)
+    publishMatchDeleted(services, match.id, match.league_id)
     return c.body(null, 204)
   })
 
@@ -290,7 +290,7 @@ export function matchRoutes(services: Services) {
     const user = requireUser(c)
     const { match } = requireMatchRow(db, c.req.param('matchId'), user.id)
     const initial: MatchEvent = { match: matchDetail(buildMatchView(db, match), user.id) }
-    return openEventStream(c, services, user.id, { kind: 'match', matchId: match.id, roomId: match.room_id }, { event: 'match', data: initial })
+    return openEventStream(c, services, user.id, { kind: 'match', matchId: match.id, leagueId: match.league_id }, { event: 'match', data: initial })
   })
 
   return app

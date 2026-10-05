@@ -40,7 +40,7 @@ export function upsertIdentity(db: Db, input: { subject: string; email: string; 
     }
     const row: UserRow = {
       id: randomId(),
-      is_guest: 0, claimed: 1, guest_room_id: null, guest_name_key: null,
+      is_guest: 0, claimed: 1, guest_league_id: null, guest_name_key: null,
       google_sub: input.subject,
       email: input.email,
       name: input.name,

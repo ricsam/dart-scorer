@@ -21,29 +21,29 @@ test('signed-out visitors get the standalone scorer with a way to sign in', asyn
   await page.goto('/')
   await expect(page.getByLabel('Enter dart hits')).toBeVisible()
   await expect(page.locator('.scoreboard .big-score')).toHaveText(['101', '101'])
-  await page.getByRole('link', { name: 'Sign in for rooms and leaderboards' }).click()
+  await page.getByRole('link', { name: 'Sign in for leagues and leaderboards' }).click()
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByRole('heading', { name: 'Your darts crew, one oche.' })).toBeVisible()
   await expect(page.getByText('DEVELOPMENT SIGN-IN')).toBeVisible()
 
-  await page.goto('/rooms/does-not-exist')
-  await expect(page).toHaveURL(/\/login\?returnTo=%2Frooms%2Fdoes-not-exist$/)
+  await page.goto('/leagues/does-not-exist')
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Fleagues%2Fdoes-not-exist$/)
 })
 
-test('rooms, invites, a live match across two devices, and the leaderboard', async ({ browser }, testInfo) => {
+test('leagues, invites, a live match across two devices, and the leaderboard', async ({ browser }, testInfo) => {
   const run = Date.now().toString(36)
   const alice = await newUser(browser)
   const bob = await newUser(browser)
 
-  // Alice signs in and creates a room.
+  // Alice signs in and creates a league.
   await alice.goto('/login')
   await devSignIn(alice, 'Alice', `alice-${run}@example.com`)
   await expect(alice.getByRole('heading', { name: 'Alice' })).toBeVisible()
-  await alice.getByRole('button', { name: 'NEW ROOM' }).click()
-  await alice.getByLabel('Room name').fill('Friday Oche Club')
-  await alice.getByRole('button', { name: 'CREATE ROOM' }).click()
+  await alice.getByRole('button', { name: 'NEW LEAGUE' }).click()
+  await alice.getByLabel('League name').fill('Friday Oche Club')
+  await alice.getByRole('button', { name: 'CREATE LEAGUE' }).click()
   await expect(alice.getByRole('heading', { name: 'Friday Oche Club' })).toBeVisible()
-  await expect(alice.locator('.room-meta')).toContainText('1 member')
+  await expect(alice.locator('.league-meta')).toContainText('1 member')
 
   // Alice shares the invite link.
   await alice.getByRole('button', { name: 'INVITE', exact: true }).click()
@@ -58,11 +58,11 @@ test('rooms, invites, a live match across two devices, and the leaderboard', asy
   await expect(bob.getByText('Hosted by')).toContainText('Alice')
   await bob.getByRole('link', { name: 'SIGN IN TO JOIN' }).click()
   await devSignIn(bob, 'Bob', `bob-${run}@example.com`)
-  await bob.getByRole('button', { name: 'JOIN ROOM' }).click()
+  await bob.getByRole('button', { name: 'JOIN LEAGUE' }).click()
   await expect(bob.getByRole('heading', { name: 'Friday Oche Club' })).toBeVisible()
 
-  // Alice's room page updates live.
-  await expect(alice.locator('.room-meta')).toContainText('2 members')
+  // Alice's league page updates live.
+  await expect(alice.locator('.league-meta')).toContainText('2 members')
   const newBob = alice.locator('.leaderboard-table tbody tr').filter({ hasText: 'Bob' })
   await expect(newBob).toContainText('No matches yet')
   await expect(newBob.locator('td')).toHaveCount(11)
@@ -80,7 +80,7 @@ test('rooms, invites, a live match across two devices, and the leaderboard', asy
   await expect(alice).toHaveURL(/\/matches\/[A-Za-z0-9_-]+$/)
   const matchUrl = alice.url()
 
-  // Bob sees the live match in the room and opens it on his own phone.
+  // Bob sees the live match in the league and opens it on his own phone.
   await expect(bob.locator('.live-card')).toBeVisible()
   await bob.locator('.live-card').click()
   await expect(bob).toHaveURL(matchUrl)
@@ -103,8 +103,8 @@ test('rooms, invites, a live match across two devices, and the leaderboard', asy
   await expect(bob.getByRole('heading', { name: 'Alice won 1–0' })).toBeVisible()
   await expect(alice.locator('.stats-table')).toContainText('1016 (+16)')
 
-  // The room leaderboard reflects the result.
-  await alice.getByRole('link', { name: 'ROOM', exact: true }).click()
+  // The league leaderboard reflects the result.
+  await alice.getByRole('link', { name: 'LEAGUE', exact: true }).click()
   const rows = alice.locator('.leaderboard-table tbody tr')
   await expect(rows.nth(0)).toContainText('Alice')
   await expect(rows.nth(0)).toContainText('1016')
@@ -115,15 +115,15 @@ test('rooms, invites, a live match across two devices, and the leaderboard', asy
   await expect(alice.getByRole('dialog').locator('.h2h-row')).toContainText('1–0')
   await alice.getByRole('button', { name: 'Close' }).click()
 
-  // Someone outside the room cannot see the match.
+  // Someone outside the league cannot see the match.
   const carol = await newUser(browser)
   await carol.goto(matchUrl)
   await devSignIn(carol, 'Carol', `carol-${run}@example.com`)
-  await expect(carol.getByText('doesn’t exist, was deleted, or belongs to a room you are not a member of')).toBeVisible()
+  await expect(carol.getByText('doesn’t exist, was deleted, or belongs to a league you are not a member of')).toBeVisible()
 
   // A new member's rating uses the same column and typography as ranked players.
   await carol.goto(inviteLink)
-  await carol.getByRole('button', { name: 'JOIN ROOM' }).click()
+  await carol.getByRole('button', { name: 'JOIN LEAGUE' }).click()
   const newCarol = rows.filter({ hasText: 'Carol' })
   await expect(newCarol).toContainText('No matches yet')
   await expect(newCarol.locator('td')).toHaveText(['–', /CarolNo matches yet$/, '1000', ...Array<string>(8).fill('—')])
@@ -168,15 +168,15 @@ test('rooms, invites, a live match across two devices, and the leaderboard', asy
   await expect(alice.getByLabel('Invite link')).not.toHaveValue(inviteLink)
   await alice.getByRole('button', { name: 'Close' }).click()
   await alice.getByRole('tab', { name: /MEMBERS/ }).click()
-  await alice.getByRole('button', { name: 'DELETE ROOM', exact: true }).click()
-  await alice.getByRole('alertdialog').getByRole('button', { name: 'DELETE ROOM' }).click()
-  await expect(alice.getByText('No rooms yet')).toBeVisible()
-  await expect(bob.getByText('doesn’t exist, was deleted, or belongs to a room you are not a member of')).toBeVisible()
+  await alice.getByRole('button', { name: 'DELETE LEAGUE', exact: true }).click()
+  await alice.getByRole('alertdialog').getByRole('button', { name: 'DELETE LEAGUE' }).click()
+  await expect(alice.getByText('No leagues yet')).toBeVisible()
+  await expect(bob.getByText('doesn’t exist, was deleted, or belongs to a league you are not a member of')).toBeVisible()
   await alice.getByRole('button', { name: 'Account menu for Alice' }).click()
   await alice.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(alice.getByLabel('Enter dart hits')).toBeVisible()
   await alice.reload()
-  await expect(alice.getByRole('link', { name: 'Sign in for rooms and leaderboards' })).toBeVisible()
+  await expect(alice.getByRole('link', { name: 'Sign in for leagues and leaderboards' })).toBeVisible()
   await Promise.all([alice, bob, carol].map((p) => p.context().close()))
 })
 
@@ -186,11 +186,11 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 320, height: 740 
     const email = `nickname-${viewport.width}-${Date.now()}@example.com`
     await page.goto('/login')
     await devSignIn(page, 'Alice', email)
-    await page.getByRole('button', { name: 'NEW ROOM' }).click()
-    await page.getByLabel('Room name').fill('Nickname club')
-    await page.getByRole('button', { name: 'CREATE ROOM' }).click()
+    await page.getByRole('button', { name: 'NEW LEAGUE' }).click()
+    await page.getByLabel('League name').fill('Nickname club')
+    await page.getByRole('button', { name: 'CREATE LEAGUE' }).click()
     await expect(page.getByRole('heading', { name: 'Nickname club' })).toBeVisible()
-    const roomUrl = page.url()
+    const leagueUrl = page.url()
 
     await page.getByRole('button', { name: 'Account menu for Alice' }).click()
     await page.getByRole('menuitem', { name: 'Edit dart nickname' }).click()
@@ -234,8 +234,8 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 320, height: 740 
     await nickname.press('Enter')
     await expect(page.getByRole('status')).toHaveText('Dart nickname saved.')
 
-    // The same saved name appears in room membership, leaderboards and new matches.
-    await page.goto(roomUrl)
+    // The same saved name appears in league membership, leaderboards and new matches.
+    await page.goto(leagueUrl)
     await expect(page.locator('.leaderboard-table')).toContainText('The Power 🎯')
     await page.getByRole('tab', { name: /MEMBERS/ }).click()
     await expect(page.locator('.member-list')).toContainText('The Power 🎯')
@@ -286,13 +286,13 @@ test('nickname saves show pending and failure states without losing the saved na
 })
 
 for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
-  test(`online room and scoring are usable at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+  test(`online league and scoring are usable at ${viewport.width}×${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport)
     await page.goto('/login')
     await devSignIn(page, 'Mobile player', `mobile-${viewport.width}-${Date.now()}@example.com`)
-    await page.getByRole('button', { name: 'NEW ROOM' }).click()
-    await page.getByLabel('Room name').fill('Mobile club')
-    await page.getByRole('button', { name: 'CREATE ROOM' }).click()
+    await page.getByRole('button', { name: 'NEW LEAGUE' }).click()
+    await page.getByLabel('League name').fill('Mobile club')
+    await page.getByRole('button', { name: 'CREATE LEAGUE' }).click()
     await expect(page.getByRole('heading', { name: 'Mobile club' })).toBeVisible()
     await expect(page.locator('.user-menu-button .avatar')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -325,16 +325,16 @@ for (const width of [1280, 320]) {
     try {
       await host.goto('/login')
       await devSignIn(host, 'Host', `guest-host-${width}-${Date.now()}@example.com`)
-      await host.getByRole('button', { name: 'NEW ROOM' }).click()
-      await host.getByLabel('Room name').fill('Guest club')
-      await host.getByRole('button', { name: 'CREATE ROOM' }).click()
+      await host.getByRole('button', { name: 'NEW LEAGUE' }).click()
+      await host.getByLabel('League name').fill('Guest club')
+      await host.getByRole('button', { name: 'CREATE LEAGUE' }).click()
       await expect(host.getByRole('heading', { name: 'Guest club' })).toBeVisible()
-      const roomUrl = host.url()
+      const leagueUrl = host.url()
       await host.getByRole('button', { name: 'INVITE', exact: true }).click()
       const invite = await host.getByLabel('Invite link').inputValue()
       await host.getByRole('button', { name: 'Close' }).click()
 
-      // A shared-device guest is a persistent room player even before a match starts.
+      // A shared-device guest is a persistent league player even before a match starts.
       await host.getByRole('tab', { name: /MEMBERS/ }).click()
       await host.getByLabel('Guest name').fill('Alex')
       await host.getByRole('button', { name: 'ADD GUEST' }).click()
@@ -354,7 +354,7 @@ for (const width of [1280, 320]) {
       expect(await alex.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
       await alex.screenshot({ path: testInfo.outputPath('guest-invite.png'), fullPage: true })
       await alex.getByRole('button', { name: 'JOIN AS A GUEST' }).click()
-      await expect(alex).toHaveURL(roomUrl)
+      await expect(alex).toHaveURL(leagueUrl)
       await alex.getByRole('tab', { name: /MEMBERS/ }).click()
       await expect(alex.locator('.member-row').filter({ hasText: 'Alex' })).toHaveCount(1)
       await expect(alex.locator('.member-row').filter({ hasText: 'Alex' })).toContainText('Connected to a device')
@@ -365,12 +365,12 @@ for (const width of [1280, 320]) {
       await expect(alex).toHaveURL(matchUrl)
       await expect(alex.getByLabel('Enter dart hits')).toBeVisible()
 
-      // A second invite guest joins the same room, but is only a spectator in this match.
+      // A second invite guest joins the same league, but is only a spectator in this match.
       await sam.goto(invite)
       await expect(sam.getByLabel('Existing guest')).toHaveCount(0)
       await sam.getByLabel('Your name').fill('Sam')
       await sam.getByRole('button', { name: 'JOIN AS A GUEST' }).click()
-      await expect(sam).toHaveURL(roomUrl)
+      await expect(sam).toHaveURL(leagueUrl)
       await sam.locator('.live-card').click()
       await expect(sam.getByLabel('Enter dart hits')).toHaveCount(0)
       await enter(host, '20 20 20')
@@ -380,7 +380,7 @@ for (const width of [1280, 320]) {
       await enter(host, '1 D20')
       await alex.getByRole('button', { name: 'SAVE RESULT' }).click()
       await expect(alex.getByRole('heading', { name: 'Host won 1–0' })).toBeVisible()
-      await alex.getByRole('link', { name: 'ROOM', exact: true }).click()
+      await alex.getByRole('link', { name: 'LEAGUE', exact: true }).click()
       await expect(alex.locator('.leaderboard-table tbody tr')).toHaveCount(1)
       await expect(alex.locator('.leaderboard-table')).not.toContainText('Alex')
       await expect(alex.locator('.leaderboard-table')).not.toContainText('Sam')
@@ -392,7 +392,7 @@ for (const width of [1280, 320]) {
       await expect(alex.locator('.turn-context strong')).toHaveText('ALEX')
       await alex.goto('/')
       await expect(alex.getByText('PLAYING AS A GUEST')).toBeVisible()
-      await expect(alex.getByRole('button', { name: 'NEW ROOM' })).toHaveCount(0)
+      await expect(alex.getByRole('button', { name: 'NEW LEAGUE' })).toHaveCount(0)
       await expect(alex.getByText('Unranked', { exact: true })).toBeVisible()
       expect(await alex.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
       await alex.screenshot({ path: testInfo.outputPath('guest-home.png'), fullPage: true })

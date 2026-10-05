@@ -15,16 +15,16 @@ export function JoinPage({ code }: { code: string }) {
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [guestId, setGuestId] = useState('')
-  useDocumentTitle(invite.data ? `Join ${invite.data.room.name} — Oche` : 'Join room — Oche')
+  useDocumentTitle(invite.data ? `Join ${invite.data.league.name} — Oche` : 'Join league — Oche')
 
   if (invite.loading) return <Loading />
   if (invite.error) {
     return invite.error.status === 404
-      ? <ErrorState message="This invite link is invalid or has been reset. Ask a room member for a new link." />
+      ? <ErrorState message="This invite link is invalid or has been reset. Ask a league member for a new link." />
       : <ErrorState message={invite.error.message} onRetry={invite.reload} />
   }
   if (!invite.data) return null
-  const { room, member, guests } = invite.data
+  const { league, member, guests } = invite.data
   const nameKey = (value: string) => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase()
   const existing = guests.find((guest) => guest.id === guestId)
     ?? guests.find((guest) => nameKey(guest.name) === nameKey(name))
@@ -34,11 +34,11 @@ export function JoinPage({ code }: { code: string }) {
     setBusy(true)
     setError(null)
     try {
-      const { roomId } = asGuest
+      const { leagueId } = asGuest
         ? await api.joinGuest(code, existing ? { guestId: existing.id } : { name: name.trim() })
         : await api.join(code)
       if (asGuest) await refresh()
-      navigate(`/rooms/${roomId}`, { replace: true })
+      navigate(`/leagues/${leagueId}`, { replace: true })
     } catch (caught) {
       setError(errorMessage(caught))
       setBusy(false)
@@ -54,10 +54,10 @@ export function JoinPage({ code }: { code: string }) {
     <section className="login-page">
       <div className="login-card join-card">
         <DoorOpen size={30} className="join-icon" />
-        <span className="eyebrow">ROOM INVITE</span>
-        <h1>{room.name}</h1>
+        <span className="eyebrow">LEAGUE INVITE</span>
+        <h1>{league.name}</h1>
         <p className="lead join-meta">
-          <Avatar user={room.owner} size={22} /> Hosted by <b>{room.owner.name}</b> · <Users size={14} /> {room.memberCount} {room.memberCount === 1 ? 'player' : 'players'}
+          <Avatar user={league.owner} size={22} /> Hosted by <b>{league.owner.name}</b> · <Users size={14} /> {league.memberCount} {league.memberCount === 1 ? 'player' : 'players'}
         </p>
         {error && <div className="form-error" role="alert">{error}</div>}
         {!user ? (
@@ -90,19 +90,19 @@ export function JoinPage({ code }: { code: string }) {
           </>
         ) : member ? (
           <>
-            <p className="muted-note">{user.guest ? `You’ve joined as ${user.name} (guest).` : 'You’re already a member of this room.'}</p>
-            <Link className="primary-button" to={`/rooms/${room.id}`}>OPEN ROOM</Link>
+            <p className="muted-note">{user.guest ? `You’ve joined as ${user.name} (guest).` : 'You’re already a member of this league.'}</p>
+            <Link className="primary-button" to={`/leagues/${league.id}`}>OPEN LEAGUE</Link>
           </>
         ) : user.guest ? (
           <>
-            <p className="muted-note">You’re using a guest identity from another room or a room you’ve left. End that session before joining here. You won’t be able to recover the old guest identity by name.</p>
+            <p className="muted-note">You’re using a guest identity from another league or a league you’ve left. End that session before joining here. You won’t be able to recover the old guest identity by name.</p>
             <button className="ghost-button" disabled={busy} onClick={async () => {
               setBusy(true)
               try { await signOut() } catch (caught) { setError(errorMessage(caught)) } finally { setBusy(false) }
             }}>END GUEST SESSION</button>
           </>
         ) : (
-          <button className="primary-button" onClick={() => { void join() }} disabled={busy}>{busy ? 'JOINING…' : 'JOIN ROOM'}</button>
+          <button className="primary-button" onClick={() => { void join() }} disabled={busy}>{busy ? 'JOINING…' : 'JOIN LEAGUE'}</button>
         )}
       </div>
     </section>

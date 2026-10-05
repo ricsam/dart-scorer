@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../server/app'
 import { type TrainingSession } from '../../src/shared/training'
-import { Client, createRoom, devLogin, joinRoom, setup, type TestContext } from './helpers'
+import { Client, createLeague, devLogin, joinLeague, setup, type TestContext } from './helpers'
 let ctx: TestContext
 const contexts: TestContext[] = []
 afterEach(() => { for (const c of contexts.splice(0)) { c.app.services.bots.stop(); c.db.close() } })
@@ -64,46 +64,46 @@ describe('persistent training API', () => {
     await alice.json('DELETE', `/api/training/${s.id}`, 204)
     reloaded.app.services.bots.stop()
   })
-  it('enforces private solo, room readers, participant scoring, creator deletion and current membership', async () => {
+  it('enforces private solo, league readers, participant scoring, creator deletion and current membership', async () => {
     const alice = await init()
     const bob = await devLogin(ctx.app, 'Bob')
     const reader = await devLogin(ctx.app, 'Reader')
-    const room = await createRoom(alice)
-    await joinRoom(bob, room.inviteCode); await joinRoom(reader, room.inviteCode)
+    const league = await createLeague(alice)
+    await joinLeague(bob, league.inviteCode); await joinLeague(reader, league.inviteCode)
     const solo = await create(alice)
     await bob.json('GET', `/api/training/${solo.id}`, 404)
-    const s = await create(alice, { mode: 'around-clock', roomId: room.id, playerIds: [alice.userId, bob.userId] })
+    const s = await create(alice, { mode: 'around-clock', leagueId: league.id, playerIds: [alice.userId, bob.userId] })
     expect((await reader.json('GET', `/api/training/${s.id}`, 200)).session.canScore).toBe(false)
     expect((await reader.json('GET', '/api/training', 200)).sessions).toHaveLength(0)
     await reader.json('POST', `/api/training/${s.id}/actions`, 403, { baseVersion: 0, action: { type: 'submit', entry: '1' } })
     await bob.json('DELETE', `/api/training/${s.id}`, 403)
     const next = await act(bob, s, 'D1')
     expect(next.results[0].hits).toBe(1)
-    ctx.db.run('DELETE FROM room_members WHERE room_id = ? AND user_id = ?', room.id, bob.userId)
+    ctx.db.run('DELETE FROM league_members WHERE league_id = ? AND user_id = ?', league.id, bob.userId)
     await bob.json('GET', `/api/training/${s.id}`, 404)
     await bob.json('POST', `/api/training/${s.id}/actions`, 404, { baseVersion: 1, action: { type: 'undo' } })
     expect((await bob.json('GET', '/api/training', 200)).sessions).toHaveLength(0)
   })
-  it('allows scoped guests and rejects nonmembers and foreign-room guests', async () => {
+  it('allows scoped guests and rejects nonmembers and foreign-league guests', async () => {
     const alice = await init()
-    const room = await createRoom(alice)
-    const other = await createRoom(alice, 'Other')
-    const guest = (await alice.json('POST', `/api/rooms/${room.id}/guests`, 201, { name: 'Guest' })).guest
-    const foreign = (await alice.json('POST', `/api/rooms/${other.id}/guests`, 201, { name: 'Foreign' })).guest
-    const s = await create(alice, { mode: 'nine-dart', roomId: room.id, playerIds: [alice.userId, guest.id] })
+    const league = await createLeague(alice)
+    const other = await createLeague(alice, 'Other')
+    const guest = (await alice.json('POST', `/api/leagues/${league.id}/guests`, 201, { name: 'Guest' })).guest
+    const foreign = (await alice.json('POST', `/api/leagues/${other.id}/guests`, 201, { name: 'Foreign' })).guest
+    const s = await create(alice, { mode: 'nine-dart', leagueId: league.id, playerIds: [alice.userId, guest.id] })
     expect(s.players[1]).toMatchObject({ id: guest.id, guest: true })
-    for (const id of [foreign.id, 'nonmember', 'bot-rookie']) await alice.json('POST', '/api/training', 400, { mode: 'nine-dart', roomId: room.id, playerIds: [alice.userId, id] })
+    for (const id of [foreign.id, 'nonmember', 'bot-rookie']) await alice.json('POST', '/api/training', 400, { mode: 'nine-dart', leagueId: league.id, playerIds: [alice.userId, id] })
     const guestClient = new Client(ctx.app)
-    await guestClient.json('POST', `/api/invites/${room.inviteCode}/guest`, 200, { guestId: guest.id })
+    await guestClient.json('POST', `/api/invites/${league.inviteCode}/guest`, 200, { guestId: guest.id })
     expect((await create(guestClient)).players[0].guest).toBe(true)
     await act(guestClient, s, 'MISS')
   })
-  it('rechecks room membership after asynchronous body reading', async () => {
+  it('rechecks league membership after asynchronous body reading', async () => {
     const alice = await init()
-    const room = await createRoom(alice)
-    const s = await create(alice, { mode: 'nine-dart', roomId: room.id })
+    const league = await createLeague(alice)
+    const s = await create(alice, { mode: 'nine-dart', leagueId: league.id })
     const stream = new ReadableStream<Uint8Array>({ pull(controller) {
-      ctx.db.run('DELETE FROM room_members WHERE room_id = ? AND user_id = ?', room.id, alice.userId)
+      ctx.db.run('DELETE FROM league_members WHERE league_id = ? AND user_id = ?', league.id, alice.userId)
       controller.enqueue(new TextEncoder().encode(JSON.stringify({ baseVersion: 0, action: { type: 'submit', entry: 'T20' } })))
       controller.close()
     } }, { highWaterMark: 0 })

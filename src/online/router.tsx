@@ -34,7 +34,7 @@ export function useRouter() {
   return value
 }
 
-/** Matches `/rooms/:roomId` style patterns against a path. */
+/** Matches `/leagues/:leagueId` style patterns against a path. */
 export function matchPath(pattern: string, path: string): Record<string, string> | null {
   const patternParts = pattern.split('/').filter(Boolean)
   const pathParts = path.split('/').filter(Boolean)

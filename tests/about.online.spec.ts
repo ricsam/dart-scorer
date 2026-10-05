@@ -17,7 +17,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 320, height: 740 
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
       await page.screenshot({ path: testInfo.outputPath(`about-${theme}.png`) })
-      await page.getByRole('navigation', { name: 'On this page' }).getByRole('link', { name: 'Room ratings (Elo)' }).click()
+      await page.getByRole('navigation', { name: 'On this page' }).getByRole('link', { name: 'League ratings (Elo)' }).click()
       await expect(page).toHaveURL(/\/about#ratings$/)
       await expect(page.locator('#ratings')).toBeInViewport()
       await expect(page.getByLabel('Elo formulas')).toContainText('32 ÷ (n − 1)')
@@ -76,18 +76,18 @@ test('account menu, profile and leaderboard link to the guide', async ({ page })
   await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'MY STATS' }).click()
   await page.getByRole('link', { name: 'How ratings & stats work' }).click()
   await expect(page).toHaveURL(/\/about$/)
-  await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'ROOMS' }).click()
-  await page.getByRole('button', { name: 'NEW ROOM' }).click()
-  await page.getByLabel('Room name').fill('Guide room')
-  await page.getByRole('button', { name: 'CREATE ROOM' }).click()
+  await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'LEAGUES' }).click()
+  await page.getByRole('button', { name: 'NEW LEAGUE' }).click()
+  await page.getByLabel('League name').fill('Guide league')
+  await page.getByRole('button', { name: 'CREATE LEAGUE' }).click()
   await page.getByRole('link', { name: 'How ratings & stats work' }).click()
   await expect(page).toHaveURL(/\/about$/)
   await page.goBack()
-  await expect(page.getByRole('heading', { name: 'Guide room' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Guide league' })).toBeVisible()
 })
 
 test('guests can use the guide from their mobile account menu', async ({ page }) => {
-  // The guide needs no room data; isolate the guest navigation state.
+  // The guide needs no league data; isolate the guest navigation state.
   await page.route('**/api/me', (route) => route.fulfill({ json: {
     user: { id: 'guest-guide', name: 'Guest reader', guest: true, avatarUrl: null, email: null, createdAt: '2026-01-01T00:00:00.000Z' },
   } }))

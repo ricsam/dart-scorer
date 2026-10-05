@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { LeaderboardResponse, MeResponse, RoomResponse, UpdateMeResponse } from '../../src/shared/api'
-import { CHECKOUT_101, Client, createMatch, createRoom, devLogin, finish, joinRoom, play, setup } from './helpers'
+import type { LeaderboardResponse, MeResponse, LeagueResponse, UpdateMeResponse } from '../../src/shared/api'
+import { CHECKOUT_101, Client, createMatch, createLeague, devLogin, finish, joinLeague, play, setup } from './helpers'
 
 describe('dart nicknames', () => {
   it('updates only the signed-in profile and persists across sessions', async () => {
@@ -31,25 +31,25 @@ describe('dart nicknames', () => {
     }
   })
 
-  it('uses the nickname for rooms, leaderboards and new matches without rewriting results', async () => {
+  it('uses the nickname for leagues, leaderboards and new matches without rewriting results', async () => {
     const ctx = setup()
     try {
       const alice = await devLogin(ctx.app, 'Alice')
       const bob = await devLogin(ctx.app, 'Bob')
-      const room = await createRoom(alice)
-      await joinRoom(bob, room.inviteCode)
+      const league = await createLeague(alice)
+      await joinLeague(bob, league.inviteCode)
       const players = [{ userId: alice.userId! }, { userId: bob.userId! }]
-      const recorded = await finish(alice, await play(alice, await createMatch(alice, room.id, players), CHECKOUT_101))
-      const before = await bob.json<LeaderboardResponse>('GET', `/api/rooms/${room.id}/leaderboard`, 200)
+      const recorded = await finish(alice, await play(alice, await createMatch(alice, league.id, players), CHECKOUT_101))
+      const before = await bob.json<LeaderboardResponse>('GET', `/api/leagues/${league.id}/leaderboard`, 200)
       await alice.json('PATCH', '/api/me', 200, { name: 'The Power' })
 
-      const { room: updatedRoom } = await bob.json<RoomResponse>('GET', `/api/rooms/${room.id}`, 200)
-      expect(updatedRoom.owner.name).toBe('The Power')
-      expect(updatedRoom.members.find((member) => member.id === alice.userId)?.name).toBe('The Power')
-      const after = await bob.json<LeaderboardResponse>('GET', `/api/rooms/${room.id}/leaderboard`, 200)
+      const { league: updatedLeague } = await bob.json<LeagueResponse>('GET', `/api/leagues/${league.id}`, 200)
+      expect(updatedLeague.owner.name).toBe('The Power')
+      expect(updatedLeague.members.find((member) => member.id === alice.userId)?.name).toBe('The Power')
+      const after = await bob.json<LeaderboardResponse>('GET', `/api/leagues/${league.id}/leaderboard`, 200)
       expect(after.entries).toEqual(before.entries.map((entry) => entry.id === alice.userId ? { ...entry, name: 'The Power' } : entry))
 
-      const next = await createMatch(bob, room.id, players)
+      const next = await createMatch(bob, league.id, players)
       expect(next.players[0].name).toBe('The Power')
       expect(next.state.players[0].name).toBe('The Power')
       const { match } = await bob.json('GET', `/api/matches/${recorded.id}`, 200)

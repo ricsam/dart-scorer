@@ -5,7 +5,7 @@ import { BOT_DART_DELAY_MS } from '../../server/bots'
 import { Db, migrate, SCHEMA_VERSION } from '../../server/db'
 import { getBot } from '../../src/shared/bots'
 import type { CreateMatchRequest, MatchDetail, MatchResponse, MatchSettings } from '../../src/shared/api'
-import { act, CHECKOUT_101, Client, createMatch, createRoom, DEFAULTS_101, devLogin, finish, joinRoom, play, setup, type TestContext } from './helpers'
+import { act, CHECKOUT_101, Client, createMatch, createLeague, DEFAULTS_101, devLogin, finish, joinLeague, play, setup, type TestContext } from './helpers'
 
 let ctx: TestContext
 beforeEach(() => {
@@ -21,12 +21,12 @@ afterEach(() => {
 
 async function fixture(botFirst = false, settings: MatchSettings = { ...DEFAULTS_101, game: 501 }, extra: CreateMatchRequest['players'] = []) {
   const owner = await devLogin(ctx.app, 'Alex')
-  const room = await createRoom(owner)
+  const league = await createLeague(owner)
   const human = { userId: owner.userId! }
   const bot = { botId: 'the-maximum' }
   const players = botFirst ? [bot, ...extra, human] : [human, bot, ...extra]
-  const { match } = await owner.json<MatchResponse>('POST', `/api/rooms/${room.id}/matches`, 201, { players, settings })
-  return { owner, room, match }
+  const { match } = await owner.json<MatchResponse>('POST', `/api/leagues/${league.id}/matches`, 201, { players, settings })
+  return { owner, league, match }
 }
 async function current(client: Client, id: string) {
   return (await client.json<MatchResponse>('GET', `/api/matches/${id}`, 200)).match
@@ -41,20 +41,20 @@ async function event(reader: ReadableStreamDefaultReader<Uint8Array>, name: stri
 
 describe('online bot identity and validation', () => {
   it('persists bots separately from guests, without adding users, memberships or claimable slots', async () => {
-    const { owner, room, match } = await fixture()
+    const { owner, league, match } = await fixture()
     expect(match.players[1]).toEqual({ slot: 1, userId: null, guestId: null, botId: 'the-maximum', name: getBot('the-maximum')!.name, avatarUrl: null, guest: false })
     expect(match.players[0].botId).toBeNull()
     expect(ctx.db.get<{ count: number }>('SELECT COUNT(*) count FROM users')!.count).toBe(1)
-    const detail = await owner.json('GET', `/api/rooms/${room.id}`, 200)
-    expect(detail.room.members).toHaveLength(1)
-    expect(detail.room.liveMatches[0].players[1].botId).toBe('the-maximum')
-    expect((await owner.json('GET', `/api/invites/${room.inviteCode}`, 200)).guests).toEqual([])
+    const detail = await owner.json('GET', `/api/leagues/${league.id}`, 200)
+    expect(detail.league.members).toHaveLength(1)
+    expect(detail.league.liveMatches[0].players[1].botId).toBe('the-maximum')
+    expect((await owner.json('GET', `/api/invites/${league.inviteCode}`, 200)).guests).toEqual([])
     expect((await current(owner, match.id)).players).toEqual(match.players)
   })
 
   it('rejects unknown, duplicate, ambiguous, bot-only and oversized rosters and enforces membership', async () => {
-    const { owner, room } = await fixture()
-    const url = `/api/rooms/${room.id}/matches`
+    const { owner, league } = await fixture()
+    const url = `/api/leagues/${league.id}/matches`
     const human = { userId: owner.userId }
     for (const players of [
       [human, { botId: 'not-a-bot' }], [human, { botId: 1 }],
@@ -71,13 +71,13 @@ describe('online bot identity and validation', () => {
     await anonymous.json('POST', url, 401, { players: [human, { botId: 'rookie-rue' }], settings: DEFAULTS_101 })
   })
 
-  it('allows room guests to invite and play bots with their existing identity', async () => {
+  it('allows league guests to invite and play bots with their existing identity', async () => {
     const owner = await devLogin(ctx.app, 'Owner')
-    const room = await createRoom(owner)
+    const league = await createLeague(owner)
     const guest = new Client(ctx.app)
-    await guest.json('POST', `/api/invites/${room.inviteCode}/guest`, 200, { name: 'Guest' })
+    await guest.json('POST', `/api/invites/${league.inviteCode}/guest`, 200, { name: 'Guest' })
     const joined = await guest.json('GET', '/api/me', 200)
-    const { match } = await guest.json<MatchResponse>('POST', `/api/rooms/${room.id}/matches`, 201, {
+    const { match } = await guest.json<MatchResponse>('POST', `/api/leagues/${league.id}/matches`, 201, {
       players: [{ guestId: joined.user.id }, { botId: 'rookie-rue' }], settings: DEFAULTS_101,
     })
     expect(match.canScore).toBe(true)
@@ -86,14 +86,14 @@ describe('online bot identity and validation', () => {
 })
 
 describe('server-owned automatic turns', () => {
-  it('throws one dart at a time once per match, broadcasting to two devices and the room', async () => {
-    const { owner, room, match } = await fixture(true)
+  it('throws one dart at a time once per match, broadcasting to two devices and the league', async () => {
+    const { owner, league, match } = await fixture(true)
     const viewer = await devLogin(ctx.app, 'Viewer')
-    await joinRoom(viewer, room.inviteCode)
+    await joinLeague(viewer, league.inviteCode)
     const a = (await owner.get(`/api/matches/${match.id}/events`)).body!.getReader()
     const b = (await viewer.get(`/api/matches/${match.id}/events`)).body!.getReader()
-    const r = (await owner.get(`/api/rooms/${room.id}/events`)).body!.getReader()
-    await event(a, 'match'); await event(b, 'match'); await event(r, 'room')
+    const r = (await owner.get(`/api/leagues/${league.id}/events`)).body!.getReader()
+    await event(a, 'match'); await event(b, 'match'); await event(r, 'league')
     await tick()
     const first = (await event(a, 'match')).match as MatchDetail
     const second = (await event(b, 'match')).match as MatchDetail
@@ -102,7 +102,7 @@ describe('server-owned automatic turns', () => {
     expect(first.state.players[0].score).toBe(441)
     expect(second.state).toEqual(first.state)
     expect(second.canScore).toBe(false)
-    expect((await event(r, 'room')).match.players[0]).toMatchObject({ botId: 'the-maximum', score: 441 })
+    expect((await event(r, 'league')).match.players[0]).toMatchObject({ botId: 'the-maximum', score: 441 })
     await tick(2)
     const done = await current(owner, match.id)
     expect(done.version).toBe(4)
@@ -115,10 +115,10 @@ describe('server-owned automatic turns', () => {
   })
 
   it('blocks manual bot scoring and stale writes, including by the owner', async () => {
-    const { owner, room, match } = await fixture(true)
+    const { owner, league, match } = await fixture(true)
     await owner.json('POST', `/api/matches/${match.id}/actions`, 400, { baseVersion: 1, action: { type: 'submit', entry: 'M' } })
     const spectator = await devLogin(ctx.app, 'Spectator')
-    await joinRoom(spectator, room.inviteCode)
+    await joinLeague(spectator, league.inviteCode)
     await spectator.json('POST', `/api/matches/${match.id}/actions`, 403, { baseVersion: 1, action: { type: 'resetLeg' } })
     await tick()
     const conflict = await owner.json('POST', `/api/matches/${match.id}/actions`, 409, { baseVersion: 1, action: { type: 'resetLeg' } })
@@ -155,8 +155,8 @@ describe('server-owned automatic turns', () => {
     expect((await current(owner, match.id)).version).toBe(7)
   })
 
-  it('resumes partial visits after app restart without clients and cancels on match or room deletion', async () => {
-    const { owner, room, match } = await fixture(true)
+  it('resumes partial visits after app restart without clients and cancels on match or league deletion', async () => {
+    const { owner, league, match } = await fixture(true)
     await tick()
     ctx.app.services.bots.stop()
     const restarted = createApp({ db: ctx.db, config: ctx.config, now: ctx.clock.now, google: null, botRandom: () => 0 })
@@ -166,10 +166,10 @@ describe('server-owned automatic turns', () => {
     await tick(2)
     expect((await current(reconnected, match.id)).state.history).toHaveLength(1)
     await reconnected.json('DELETE', `/api/matches/${match.id}`, 204)
-    const { match: second } = await reconnected.json<MatchResponse>('POST', `/api/rooms/${room.id}/matches`, 201, {
+    const { match: second } = await reconnected.json<MatchResponse>('POST', `/api/leagues/${league.id}/matches`, 201, {
       players: [{ botId: 'the-maximum' }, { userId: owner.userId }], settings: DEFAULTS_101,
     })
-    await reconnected.json('DELETE', `/api/rooms/${room.id}`, 204)
+    await reconnected.json('DELETE', `/api/leagues/${league.id}`, 204)
     await tick(10)
     expect(ctx.db.get('SELECT id FROM matches WHERE id = ?', second.id)).toBeUndefined()
   })
@@ -233,22 +233,22 @@ describe('server-owned automatic turns', () => {
 })
 
 it('keeps even mixed human/bot matches out of Elo and rating history while retaining statistics', async () => {
-  const { owner, room, match: unused } = await fixture()
+  const { owner, league, match: unused } = await fixture()
   await owner.json('DELETE', `/api/matches/${unused.id}`, 204)
   const second = await devLogin(ctx.app, 'Second')
-  await joinRoom(second, room.inviteCode)
+  await joinLeague(second, league.inviteCode)
   const humans = [{ userId: owner.userId! }, { userId: second.userId! }]
-  const ranked = await finish(owner, await play(owner, await createMatch(owner, room.id, humans), CHECKOUT_101))
+  const ranked = await finish(owner, await play(owner, await createMatch(owner, league.id, humans), CHECKOUT_101))
   ctx.clock.advance(1000)
-  const { match: practice } = await owner.json<MatchResponse>('POST', `/api/rooms/${room.id}/matches`, 201, {
+  const { match: practice } = await owner.json<MatchResponse>('POST', `/api/leagues/${league.id}/matches`, 201, {
     players: [...humans, { botId: 'the-maximum' }], settings: DEFAULTS_101,
   })
   const done = await finish(owner, await play(owner, practice, CHECKOUT_101))
   expect(done.results!.map((result) => [result.ratingBefore, result.ratingAfter])).toEqual([[null, null], [null, null], [null, null]])
   expect(done.results![0].stats.points).toBe(101)
-  const roomDetail = await owner.json('GET', `/api/rooms/${room.id}`, 200)
-  expect(roomDetail.room.members.map((member: { rating: number }) => member.rating)).toEqual([1016, 984])
-  const stats = await owner.json('GET', `/api/rooms/${room.id}/players/${owner.userId}`, 200)
+  const leagueDetail = await owner.json('GET', `/api/leagues/${league.id}`, 200)
+  expect(leagueDetail.league.members.map((member: { rating: number }) => member.rating)).toEqual([1016, 984])
+  const stats = await owner.json('GET', `/api/leagues/${league.id}/players/${owner.userId}`, 200)
   expect(stats.ratingHistory).toHaveLength(1)
   expect(stats.entry).toMatchObject({ matches: 1, wins: 1, losses: 0, form: ['W'] })
   expect(stats.headToHead).toEqual([{ opponent: { id: second.userId, name: 'Second', avatarUrl: null }, wins: 1, losses: 0 }])
@@ -258,7 +258,7 @@ it('keeps even mixed human/bot matches out of Elo and rating history while retai
   for (const key of ['wins', 'losses', 'winRate']) expect(stats.training.totals).not.toHaveProperty(key)
 
   // A bot win is still training, including human-v-human pairs in the same game.
-  const { match: loss } = await owner.json<MatchResponse>('POST', `/api/rooms/${room.id}/matches`, 201, {
+  const { match: loss } = await owner.json<MatchResponse>('POST', `/api/leagues/${league.id}/matches`, 201, {
     players: [{ botId: 'the-maximum' }, ...humans], settings: DEFAULTS_101,
   })
   await tick(3)
@@ -268,26 +268,54 @@ it('keeps even mixed human/bot matches out of Elo and rating history while retai
   expect(career.totals).toMatchObject({ matches: 1, wins: 1, losses: 0 })
   expect(career.training.totals).toMatchObject({ matches: 2, average: 101 })
   for (const key of ['wins', 'losses', 'winRate']) expect(career.training.totals).not.toHaveProperty(key)
-  const board = await owner.json('GET', `/api/rooms/${room.id}/leaderboard`, 200)
+  const board = await owner.json('GET', `/api/leagues/${league.id}/leaderboard`, 200)
   expect(board.entries.find((e: { id: string }) => e.id === second.userId)).toMatchObject({ matches: 1, losses: 1, form: ['L'] })
   await owner.json('DELETE', `/api/matches/${ranked.id}`, 204)
   expect((await current(owner, done.id)).results!.every((result) => result.ratingAfter === null)).toBe(true)
-  const roomAfter = await owner.json('GET', `/api/rooms/${room.id}`, 200)
-  expect(roomAfter.room.members.map((member: { rating: number }) => member.rating)).toEqual([1000, 1000])
+  const leagueAfter = await owner.json('GET', `/api/leagues/${league.id}`, 200)
+  expect(leagueAfter.league.members.map((member: { rating: number }) => member.rating)).toEqual([1000, 1000])
 })
 
 it('adds bot identity to a v2 database without altering existing participants or match state', () => {
   const db = new Db(new DatabaseSync(':memory:'))
-  db.raw.exec(`CREATE TABLE match_players (match_id TEXT, slot INTEGER, user_id TEXT, guest_id TEXT, name TEXT);
-    INSERT INTO match_players VALUES ('old', 0, 'human', NULL, 'Human'), ('old', 1, NULL, 'guest', 'Guest');
-    CREATE TABLE matches (id TEXT, state TEXT);
-    INSERT INTO matches VALUES ('old', '{"untouched":true}');
-    PRAGMA user_version = 2;`)
+  migrate(db, 2)
+  db.raw.exec(`INSERT INTO users (id, google_sub, email, name, created_at, last_login_at) VALUES ('human', 'g', 'e', 'Human', 'now', 'now');
+    INSERT INTO users (id, google_sub, email, name, created_at, last_login_at, is_guest, guest_room_id, guest_name_key, claimed)
+      VALUES ('guest', 'guest:guest', '', 'Guest', 'now', 'now', 1, 'league', 'guest', 0);
+    INSERT INTO rooms VALUES ('league', 'League', 'human', 'CODE', 'now', 'now');
+    INSERT INTO matches VALUES ('old', 'league', 'human', 'live', '{}', '{"untouched":true}', 1, 'now', 'now', NULL);
+    INSERT INTO match_players (match_id, slot, user_id, guest_id, name) VALUES ('old', 0, 'human', NULL, 'Human'), ('old', 1, NULL, 'guest', 'Guest');`)
   migrate(db)
   expect(db.get<{ user_version: number }>('PRAGMA user_version')!.user_version).toBe(SCHEMA_VERSION)
   expect(db.all('SELECT name, bot_id FROM match_players')).toEqual([{ name: 'Human', bot_id: null }, { name: 'Guest', bot_id: null }])
-  expect(db.get('SELECT state FROM matches')).toEqual({ state: '{"untouched":true}' })
+  expect(db.get('SELECT state, practice FROM matches')).toEqual({ state: '{"untouched":true}', practice: 0 })
   expect(() => db.run("UPDATE match_players SET bot_id = 'the-maximum' WHERE user_id IS NOT NULL")).toThrow()
   migrate(db)
+  db.close()
+})
+
+it('classifies historical bot matches as practice when upgrading to v5', () => {
+  const db = new Db(new DatabaseSync(':memory:'))
+  migrate(db, 4)
+  db.raw.exec(`INSERT INTO users (id, google_sub, email, name, created_at, last_login_at) VALUES ('human', 'g', 'e', 'Human', 'now', 'now');
+    INSERT INTO rooms VALUES ('league', 'League', 'human', 'CODE', 'now', 'now');
+    INSERT INTO room_members VALUES ('league', 'human', 'owner', 'now');
+    INSERT INTO matches VALUES ('bot', 'league', 'human', 'completed', '{}', '{}', 3, 'now', 'now', 'now'), ('people', 'league', 'human', 'live', '{}', '{}', 1, 'now', 'now', NULL);
+    INSERT INTO match_players (match_id, slot, user_id, guest_id, bot_id, name) VALUES ('bot', 0, 'human', NULL, NULL, 'Human'), ('bot', 1, NULL, NULL, 'pub-pete', 'Pub Pete'),
+      ('people', 0, 'human', NULL, NULL, 'Human'), ('people', 1, NULL, NULL, NULL, 'Friend');
+    INSERT INTO training_sessions VALUES ('t', 'league', 'human', 'nine-dart', 'live', '[]', '{}', 0, 'now', NULL);`)
+  migrate(db)
+  expect(db.all('SELECT id, league_id, practice, ranked FROM matches ORDER BY id')).toEqual([
+    { id: 'bot', league_id: 'league', practice: 1, ranked: 0 },
+    { id: 'people', league_id: 'league', practice: 0, ranked: 0 },
+  ])
+  expect(db.all('SELECT league_id, user_id, role FROM league_members')).toEqual([{ league_id: 'league', user_id: 'human', role: 'owner' }])
+  expect(db.get('SELECT league_id FROM training_sessions')).toEqual({ league_id: 'league' })
+  expect(db.all('SELECT match_id, slot FROM match_players ORDER BY match_id, slot')).toHaveLength(4)
+  expect(db.all('PRAGMA foreign_key_check')).toEqual([])
+  // Deleting a league still cascades through the rebuilt tables.
+  db.run('DELETE FROM leagues WHERE id = ?', 'league')
+  expect(db.all('SELECT id FROM matches')).toEqual([])
+  expect(db.all('SELECT match_id FROM match_players')).toEqual([])
   db.close()
 })

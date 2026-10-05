@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Check, Copy, RefreshCw, Share2 } from 'lucide-react'
-import type { RoomDetail } from '../../../shared/api'
+import type { LeagueDetail } from '../../../shared/api'
 import { api, errorMessage } from '../../api'
 import { Sheet } from '../../ui'
 
-export function InviteDialog({ room, onClose, onRegenerated }: { room: RoomDetail; onClose: () => void; onRegenerated: (inviteCode: string) => void }) {
-  const link = `${window.location.origin}/join/${room.inviteCode}`
+export function InviteDialog({ league, onClose, onRegenerated }: { league: LeagueDetail; onClose: () => void; onRegenerated: (inviteCode: string) => void }) {
+  const link = `${window.location.origin}/join/${league.inviteCode}`
   const [qr, setQr] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -33,7 +33,7 @@ export function InviteDialog({ room, onClose, onRegenerated }: { room: RoomDetai
 
   const share = async () => {
     try {
-      await navigator.share({ title: `Join ${room.name} on Oche`, text: `Join my darts room “${room.name}” on Oche`, url: link })
+      await navigator.share({ title: `Join ${league.name} on Oche`, text: `Join my darts league “${league.name}” on Oche`, url: link })
     } catch {
       // The user closed the share sheet.
     }
@@ -43,7 +43,7 @@ export function InviteDialog({ room, onClose, onRegenerated }: { room: RoomDetai
     setBusy(true)
     setError(null)
     try {
-      const { inviteCode } = await api.regenerateInvite(room.id)
+      const { inviteCode } = await api.regenerateInvite(league.id)
       onRegenerated(inviteCode)
     } catch (caught) {
       setError(errorMessage(caught))
@@ -53,16 +53,16 @@ export function InviteDialog({ room, onClose, onRegenerated }: { room: RoomDetai
   }
 
   return (
-    <Sheet title="Invite players" eyebrow={room.name.toUpperCase()} onClose={onClose} labelledBy="invite-title">
+    <Sheet title="Invite players" eyebrow={league.name.toUpperCase()} onClose={onClose} labelledBy="invite-title">
       <div className="invite-dialog">
-        <p className="field-hint">Anyone with this link can sign in with Google and join the room. Scan the code at the board to join from a phone.</p>
+        <p className="field-hint">Anyone with this link can sign in with Google and join the league. Scan the code at the board to join from a phone.</p>
         <div className="invite-qr">{qr ? <img src={qr} alt={`QR code for ${link}`} width={180} height={180} /> : <span className="spinner" aria-hidden="true" />}</div>
         <div className="copy-field">
           <input id="invite-link" readOnly value={link} onFocus={(event) => event.currentTarget.select()} aria-label="Invite link" />
           <button className="primary-button" onClick={copy}>{copied ? <><Check size={15} /> COPIED</> : <><Copy size={15} /> COPY</>}</button>
         </div>
         {canShare && <button className="ghost-button full" onClick={share}><Share2 size={15} /> SHARE…</button>}
-        {room.role === 'owner' && (
+        {league.role === 'owner' && (
           <div className="invite-reset">
             <span>Shared the link too widely? Resetting it stops the old link from working.</span>
             <button className="ghost-button" onClick={regenerate} disabled={busy}><RefreshCw size={14} /> RESET LINK</button>

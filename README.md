@@ -3,7 +3,7 @@
 A responsive darts scorer for 2–8 players, with two independent editions:
 
 - **[Standalone](https://ricsam.github.io/dart-scorer/)** — frontend-only GitHub Pages app. No account, backend or database required. Scores stay on the device for the current game.
-- **[Online](https://darts-v7rm7qivt07h.r5d.app/)** — the same scorer plus Google accounts, persistent rooms, invites, live scoring and room leaderboards. Signed-out visitors can still play the standalone game; signed-in users can use **Quick game** without recording a result.
+- **[Online](https://darts-v7rm7qivt07h.r5d.app/)** — the same scorer plus Google accounts, persistent leagues, invites, live scoring and league leaderboards. Signed-out visitors can still play the standalone game; signed-in users can use **Quick game** without recording a result.
 
 ## Scoring
 
@@ -14,22 +14,22 @@ Type `T20`, `D18`, `25`, `BULL` or `MISS`; separate darts with spaces. Numeric s
 ## Online edition
 
 - Google sign-in using authorization code + PKCE; no Google access/refresh tokens retained.
-- Choose a dart nickname from **Account menu → Edit dart nickname** (also on **My stats**). Names are 1–24 characters and stay saved across sign-ins without changing your Google account. Rooms, leaderboards and new matches use your nickname; existing matches keep the name recorded when they started.
-- Create persistent rooms, share an invite link or QR code, rotate invite links, rename rooms, remove members or leave.
-- Invite visitors can **Join as a guest** with a display name or connect to an existing unclaimed guest slot. Room members can add the same kind of guest from Members or New match for shared-device play; guests persist in the room roster and are always unranked.
-- Select room players, choose throw order, format and first-to-1–11 legs. A guest on their own device can score when selected, just like an account player.
+- Choose a dart nickname from **Account menu → Edit dart nickname** (also on **My stats**). Names are 1–24 characters and stay saved across sign-ins without changing your Google account. Leagues, leaderboards and new matches use your nickname; existing matches keep the name recorded when they started.
+- Create persistent leagues, share an invite link or QR code, rotate invite links, rename leagues, remove members or leave.
+- Invite visitors can **Join as a guest** with a display name or connect to an existing unclaimed guest slot. League members can add the same kind of guest from Members or New match for shared-device play; guests persist in the league roster and are always unranked.
+- Select league players, choose throw order, format and first-to-1–11 legs. A guest on their own device can score when selected, just like an account player.
 - Invite one of six fictional **house bots** from New match, from Rookie Rue (novice) to The Maximum (pro-level). Bots throw automatically, one dart at a time, with distinct accuracy and checkout skills. The bot picker is collapsed by default. All bot games, including historical ones, are training-only for everyone: no competition wins/losses, form, head-to-head, averages or rating impact. Practice statistics are retained separately; rematches keep the same characters.
-- Guest identities are scoped to one room and kept by a browser session cookie. Claimed slots cannot be taken over by name, including after sign-out or expiry. Signing in starts a separate account identity; it does not merge or retroactively rank guest matches. Share invites only with trusted players: invite holders can see and claim unclaimed guest names.
-- Score from a shared device or follow live from another phone. Players, the match creator and the room host can score; other room members can watch.
+- Guest identities are scoped to one league and kept by a browser session cookie. Claimed slots cannot be taken over by name, including after sign-out or expiry. Signing in starts a separate account identity; it does not merge or retroactively rank guest matches. Share invites only with trusted players: invite holders can see and claim unclaimed guest names.
+- Score from a shared device or follow live from another phone. Players, the match creator and the league host can score; other league members can watch.
 - Live matches persist after reload and server restart. Conflicting entries from two devices are rejected rather than silently overwriting each other.
 - Save the result after the final leg to update the leaderboard; Undo is available before saving. Saved matches are immutable; hosts can delete erroneous results and ratings are recalculated.
-- Per-room Elo ratings, win/loss records, form, 3-dart averages, first-nine averages, checkout rates, 180s, high checkouts, best legs, player rating history and head-to-head records.
+- Per-league Elo ratings, win/loss records, form, 3-dart averages, first-nine averages, checkout rates, 180s, high checkouts, best legs, player rating history and head-to-head records.
 - All-time / 30-day / 7-day stats, sortable leaderboards, match history, rematches and a personal career page. Competition and Training tabs include separate monthly dart-weighted average charts and tables.
-- **Training arena** at `/training`: launch bot practice in a room, or play **Around the clock** (hit 1–20 in order, any ring, within 60 darts) and **Nine-dart challenge** (highest score from nine darts). Challenges work privately solo without a room or with 1–8 room players/guests. Three-dart turns, live undo, server-validated entries, automatic saving, reload recovery and cross-device refresh with version conflict protection.
-- Challenge personal bests, monthly averages and session history are separate per mode and never mixed with x01 averages or competitive results. The arena currently summarizes the latest 100 accessible challenge sessions. Challenges are immutable once complete; creators can delete mistakes. Room session links are visible only to current room members; only participants can score.
+- **Training arena** at `/training`: launch bot practice in a league, or play **Around the clock** (hit 1–20 in order, any ring, within 60 darts) and **Nine-dart challenge** (highest score from nine darts). Challenges work privately solo without a league or with 1–8 league players/guests. Three-dart turns, live undo, server-validated entries, automatic saving, reload recovery and cross-device refresh with version conflict protection.
+- Challenge personal bests, monthly averages and session history are separate per mode and never mixed with x01 averages or competitive results. The arena currently summarizes the latest 100 accessible challenge sessions. Challenges are immutable once complete; creators can delete mistakes. League session links are visible only to current league members; only participants can score.
 - Public **About & scoring** guide at `/about`, explaining the scoring rules, statistics, Elo formulas and leaderboard filters with worked examples. Available from the footer, account menu, stats views and Quick game settings.
 
-These are **casual, self-reported room leaderboards**, not verified competition results. Ratings only compare registered players in the same room; guests are never rated opponents, and matches containing bots never change ratings. Game formats share the room leaderboard, so agree on a format for a league. K=32, initial rating=1000, multiplayer results compare every ranked pair with simultaneous updates. Checkout rate measures darts thrown when a one-dart finish was possible, not declared intent. First-nine stats use actual darts (busts score zero); short legs use their actual dart count.
+These are **casual, self-reported league leaderboards**, not verified competition results. Ratings only compare registered players in the same league; guests are never rated opponents, and matches containing bots never change ratings. Game formats share the league leaderboard, so agree on a format for a league. K=32, initial rating=1000, multiplayer results compare every ranked pair with simultaneous updates. Checkout rate measures darts thrown when a one-dart finish was possible, not declared intent. First-nine stats use actual darts (busts score zero); short legs use their actual dart count.
 
 ## Development
 
@@ -61,7 +61,7 @@ Playwright uses ports 4173, 4180 and 8790 and creates a unique throwaway databas
 - `src/game/` — shared scoring reducer, entry parsing, checkout routes and statistics.
 - `src/ui/` — scorer components shared by both editions.
 - `src/standalone/` — casual local game.
-- `src/online/` — rooms, accounts, live matches and leaderboard UI.
+- `src/online/` — leagues, accounts, live matches and leaderboard UI.
 - `src/shared/api.ts` — typed HTTP contract.
 - `server/` — Hono API, built-in Node SQLite, Google OAuth and SSE; see [server details](server/README.md).
 

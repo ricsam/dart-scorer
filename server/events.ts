@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import type { MatchEvent, RoomEvent } from '../src/shared/api'
+import type { MatchEvent, LeagueEvent } from '../src/shared/api'
 import type { Services } from './context'
 import { loadMatchView, matchDetail, matchSummary } from './data'
 import { rateLimited } from './http'
@@ -19,9 +19,9 @@ export function openEventStream(c: Context, services: Services, userId: string, 
     // Runs synchronously up to the first await, so the subscription is counted before we return.
     const sessionHash = c.get('sessionHash') as string
     const subscription = new Subscription(userId, channel, stream, sessionHash, () => !!services.db.get(
-      `SELECT 1 FROM sessions s JOIN room_members m ON m.user_id = s.user_id
-       WHERE s.token_hash = ? AND s.user_id = ? AND s.expires_at > ? AND m.room_id = ?`,
-      sessionHash, userId, services.now().toISOString(), channel.roomId,
+      `SELECT 1 FROM sessions s JOIN league_members m ON m.user_id = s.user_id
+       WHERE s.token_hash = ? AND s.user_id = ? AND s.expires_at > ? AND m.league_id = ?`,
+      sessionHash, userId, services.now().toISOString(), channel.leagueId,
     ))
     hub.add(subscription)
     stream.onAbort(() => subscription.close())
@@ -38,7 +38,7 @@ export function openEventStream(c: Context, services: Services, userId: string, 
   })
 }
 
-/** Pushes the current match to its viewers (per-viewer permissions) and its summary to the room. */
+/** Pushes the current match to its viewers (per-viewer permissions) and its summary to the league. */
 export function publishMatch(services: Services, matchId: string) {
   services.bots.schedule(matchId)
   const { db, hub } = services
@@ -48,24 +48,24 @@ export function publishMatch(services: Services, matchId: string) {
     const event: MatchEvent = { match: matchDetail(view, subscription.userId) }
     subscription.send('match', event)
   }
-  const roomSubscribers = hub.roomSubscribers(view.row.room_id)
-  if (roomSubscribers.length) {
-    const event: RoomEvent = { type: 'match', match: matchSummary(view) }
-    for (const subscription of roomSubscribers) subscription.send('room', event)
+  const leagueSubscribers = hub.leagueSubscribers(view.row.league_id)
+  if (leagueSubscribers.length) {
+    const event: LeagueEvent = { type: 'match', match: matchSummary(view) }
+    for (const subscription of leagueSubscribers) subscription.send('league', event)
   }
 }
 
-/** Tells room viewers a match is gone and ends streams watching it (they reconnect into a 404). */
-export function publishMatchDeleted(services: Services, matchId: string, roomId: string) {
+/** Tells league viewers a match is gone and ends streams watching it (they reconnect into a 404). */
+export function publishMatchDeleted(services: Services, matchId: string, leagueId: string) {
   services.bots.cancel(matchId)
   const { hub } = services
   for (const subscription of hub.matchSubscribers(matchId)) subscription.send('match-deleted', { matchId })
   hub.closeMatch(matchId)
-  const event: RoomEvent = { type: 'match-deleted', matchId }
-  for (const subscription of hub.roomSubscribers(roomId)) subscription.send('room', event)
+  const event: LeagueEvent = { type: 'match-deleted', matchId }
+  for (const subscription of hub.leagueSubscribers(leagueId)) subscription.send('league', event)
 }
 
-export function publishRoomRefresh(services: Services, roomId: string) {
-  const event: RoomEvent = { type: 'refresh' }
-  for (const subscription of services.hub.roomSubscribers(roomId)) subscription.send('room', event)
+export function publishLeagueRefresh(services: Services, leagueId: string) {
+  const event: LeagueEvent = { type: 'refresh' }
+  for (const subscription of services.hub.leagueSubscribers(leagueId)) subscription.send('league', event)
 }

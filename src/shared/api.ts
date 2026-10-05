@@ -18,7 +18,7 @@ export type User = {
   /** Display name, editable by the user (defaults to the Google given name). */
   name: string
   email: string
-  /** A room-scoped player without an account; never ranked. */
+  /** A league-scoped player without an account; never ranked. */
   guest: boolean
   avatarUrl: string | null
   createdAt: string
@@ -58,7 +58,7 @@ export type MatchPlayer = {
   slot: number
   /** `null` for guests and bots, who are not ranked. */
   userId: string | null
-  /** Room guest identity; null for registered players and unlinked legacy guests. */
+  /** League guest identity; null for registered players and unlinked legacy guests. */
   guestId: string | null
   /** House bot identity; null for human players. Bots cannot sign in or claim guest slots. */
   botId: string | null
@@ -77,7 +77,7 @@ export type MatchPlayerSummary = MatchPlayer & {
 
 export type MatchSummary = {
   id: string
-  roomId: string
+  leagueId: string
   status: MatchStatus
   settings: MatchSettings
   players: MatchPlayerSummary[]
@@ -97,15 +97,15 @@ export type MatchResult = {
   placing: number
   won: boolean
   stats: PlayerStats
-  /** Room rating before/after this match (ranked user players only). */
+  /** League rating before/after this match (ranked user players only). */
   ratingBefore: number | null
   ratingAfter: number | null
 }
 
 export type MatchDetail = {
   id: string
-  roomId: string
-  roomName: string
+  leagueId: string
+  leagueName: string
   status: MatchStatus
   settings: MatchSettings
   players: MatchPlayer[]
@@ -116,9 +116,9 @@ export type MatchDetail = {
   createdAt: string
   updatedAt: string
   completedAt: string | null
-  /** Viewer may enter darts / undo / finish (match players, the creator and the room owner). */
+  /** Viewer may enter darts / undo / finish (match players, the creator and the league owner). */
   canScore: boolean
-  /** Viewer may delete: live matches by creator or room owner; completed matches by the room owner. */
+  /** Viewer may delete: live matches by creator or league owner; completed matches by the league owner. */
   canDelete: boolean
   /** Present once completed. */
   results: MatchResult[] | null
@@ -126,9 +126,9 @@ export type MatchDetail = {
 
 export type MatchResponse = { match: MatchDetail }
 
-/** POST /api/rooms/:roomId/matches */
+/** POST /api/leagues/:leagueId/matches */
 export type CreateMatchRequest = {
-  /** 2–8 players in throwing order, including at least one human. Named guests create/reuse a room guest. Matches with bots are unranked. */
+  /** 2–8 players in throwing order, including at least one human. Named guests create/reuse a league guest. Matches with bots are unranked. */
   players: ({ userId: string } | { guestId: string } | { guestName: string } | { botId: string })[]
   settings: MatchSettings
 }
@@ -149,11 +149,11 @@ export type FinishMatchRequest = { baseVersion: number }
 /** Server-sent event payload on GET /api/matches/:matchId/events (event name `match`). */
 export type MatchEvent = { match: MatchDetail }
 
-// ── Rooms ───────────────────────────────────────────────────────────────────
+// ── Leagues ───────────────────────────────────────────────────────────────────
 
 export type MemberRole = 'owner' | 'member'
 
-export type RoomMember = UserRef & {
+export type LeagueMember = UserRef & {
   guest: boolean
   /** Whether a guest has been connected to a device; always true for accounts. */
   claimed: boolean
@@ -163,7 +163,7 @@ export type RoomMember = UserRef & {
   matches: number
 }
 
-export type RoomSummary = {
+export type LeagueSummary = {
   id: string
   name: string
   role: MemberRole
@@ -178,7 +178,7 @@ export type RoomSummary = {
   lastActivityAt: string
 }
 
-export type RoomDetail = {
+export type LeagueDetail = {
   id: string
   name: string
   role: MemberRole
@@ -186,7 +186,7 @@ export type RoomDetail = {
   createdAt: string
   /** Any member can share the invite link: `${origin}/join/${inviteCode}`. */
   inviteCode: string
-  members: RoomMember[]
+  members: LeagueMember[]
   liveMatches: MatchSummary[]
   /** Latest 10 completed matches. */
   recentMatches: MatchSummary[]
@@ -194,17 +194,17 @@ export type RoomDetail = {
   defaults: MatchSettings
 }
 
-export type RoomsResponse = { rooms: RoomSummary[] }
-export type RoomResponse = { room: RoomDetail }
-/** POST /api/rooms, PATCH /api/rooms/:roomId */
-export type RoomNameRequest = { name: string }
-/** POST /api/rooms/:roomId/invite — regenerates the invite code (owner only). */
+export type LeaguesResponse = { leagues: LeagueSummary[] }
+export type LeagueResponse = { league: LeagueDetail }
+/** POST /api/leagues, PATCH /api/leagues/:leagueId */
+export type LeagueNameRequest = { name: string }
+/** POST /api/leagues/:leagueId/invite — regenerates the invite code (owner only). */
 export type InviteCodeResponse = { inviteCode: string }
-/** GET /api/rooms/:roomId/matches?before=<completedAt ISO>&limit=<1-50> — completed matches, newest first. */
+/** GET /api/leagues/:leagueId/matches?before=<completedAt ISO>&limit=<1-50> — completed matches, newest first. */
 export type MatchesResponse = { matches: MatchSummary[]; hasMore: boolean }
 
-/** Server-sent event payload on GET /api/rooms/:roomId/events (event name `room`). */
-export type RoomEvent =
+/** Server-sent event payload on GET /api/leagues/:leagueId/events (event name `league`). */
+export type LeagueEvent =
   | { type: 'match'; match: MatchSummary }
   | { type: 'match-deleted'; matchId: string }
   | { type: 'refresh' }
@@ -213,27 +213,27 @@ export type RoomEvent =
 
 /** GET /api/invites/:code (sign-in optional) */
 export type InvitePreview = {
-  room: { id: string; name: string; memberCount: number; owner: UserRef }
+  league: { id: string; name: string; memberCount: number; owner: UserRef }
   /** True when the signed-in viewer is already a member. */
   member: boolean
-  /** Only unclaimed room guests can be connected to a new device. */
+  /** Only unclaimed league guests can be connected to a new device. */
   guests: { id: string; name: string }[]
 }
 /** POST /api/invites/:code/guest — create or explicitly claim a guest and start a session. */
 export type JoinGuestRequest = { name: string } | { guestId: string }
-/** POST /api/rooms/:roomId/guests */
-export type AddGuestResponse = { guest: RoomMember }
+/** POST /api/leagues/:leagueId/guests */
+export type AddGuestResponse = { guest: LeagueMember }
 /** POST /api/invites/:code/join */
-export type JoinResponse = { roomId: string }
+export type JoinResponse = { leagueId: string }
 
 // ── Leaderboards & statistics ───────────────────────────────────────────────
 
 export type LeaderboardPeriod = 'all' | '30d' | '7d'
 
 export type LeaderboardEntry = UserRef & {
-  /** Elo-style room rating (starts at 1000, all-time regardless of period). */
+  /** Elo-style league rating (starts at 1000, all-time regardless of period). */
   rating: number
-  /** Rating change from the player's most recent match in the room. */
+  /** Rating change from the player's most recent match in the league. */
   ratingChange: number | null
   matches: number
   wins: number
@@ -256,12 +256,12 @@ export type LeaderboardEntry = UserRef & {
   lastPlayedAt: string | null
 }
 
-/** GET /api/rooms/:roomId/leaderboard?period=all|30d|7d — every current member, sorted by rating. */
+/** GET /api/leagues/:leagueId/leaderboard?period=all|30d|7d — every current member, sorted by rating. */
 export type LeaderboardResponse = { period: LeaderboardPeriod; entries: LeaderboardEntry[] }
 
-/** GET /api/rooms/:roomId/players/:userId */
-export type PlayerRoomStatsResponse = {
-  player: RoomMember
+/** GET /api/leagues/:leagueId/players/:userId */
+export type PlayerLeagueStatsResponse = {
+  player: LeagueMember
   entry: LeaderboardEntry
   history: StatsHistoryPoint[]
   training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; recentMatches: MatchSummary[] }
@@ -278,12 +278,12 @@ export type TrainingMatchTotals = Omit<CareerTotals, 'wins' | 'losses' | 'winRat
 /** UTC calendar month (first day at midnight), oldest first; dart-weighted average. */
 export type StatsHistoryPoint = { at: string; average: number | null; matches: number }
 
-/** GET /api/me/stats — the signed-in user's statistics across all their rooms. */
+/** GET /api/me/stats — the signed-in user's statistics across all their leagues. */
 export type CareerStatsResponse = {
   user: User
   totals: CareerTotals
   history: StatsHistoryPoint[]
-  training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; recentMatches: (MatchSummary & { roomName: string })[] }
-  rooms: { id: string; name: string; rating: number; rank: number | null; matches: number }[]
-  recentMatches: (MatchSummary & { roomName: string })[]
+  training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; recentMatches: (MatchSummary & { leagueName: string })[] }
+  leagues: { id: string; name: string; rating: number; rank: number | null; matches: number }[]
+  recentMatches: (MatchSummary & { leagueName: string })[]
 }

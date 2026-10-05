@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateOnlineEntry } from '../../src/game'
 import { RateLimiter } from '../../server/security'
-import { Client, createMatch, createRoom, devLogin, joinRoom, setup } from './helpers'
+import { Client, createMatch, createLeague, devLogin, joinLeague, setup } from './helpers'
 
 async function drainInitial(response: Response) {
   const reader = response.body!.getReader()
   let text = ''
-  while (!text.includes('event: room')) text += new TextDecoder().decode((await reader.read()).value)
+  while (!text.includes('event: league')) text += new TextDecoder().decode((await reader.read()).value)
   return reader
 }
 
@@ -14,17 +14,17 @@ describe('hardening regressions', () => {
   it('rejects inherited period keys', async () => {
     const { app } = setup()
     const user = await devLogin(app, 'Sam')
-    const room = await createRoom(user)
+    const league = await createLeague(user)
     for (const period of ['toString', 'constructor', '__proto__', 'hasOwnProperty']) {
-      await user.json('GET', `/api/rooms/${room.id}/leaderboard?period=${period}`, 400)
+      await user.json('GET', `/api/leagues/${league.id}/leaderboard?period=${period}`, 400)
     }
   })
 
   it('rejects impossible darts before changing state or version', async () => {
     const { app } = setup()
     const user = await devLogin(app, 'Sam')
-    const room = await createRoom(user)
-    const match = await createMatch(user, room.id, [{ userId: user.userId! }, { guestName: 'Guest' }])
+    const league = await createLeague(user)
+    const match = await createMatch(user, league.id, [{ userId: user.userId! }, { guestName: 'Guest' }])
     for (const entry of ['501', '999', '61', '41', '59', 'T21', 'banana', '20 20 20 20']) {
       const error = await user.json('POST', `/api/matches/${match.id}/actions`, 400, { baseVersion: 1, action: { type: 'submit', entry } })
       expect(error.message).toBe(evaluateOnlineEntry(entry, 0).error)
@@ -42,13 +42,13 @@ describe('hardening regressions', () => {
     const { app } = setup()
     const user = await devLogin(app, 'Sam')
     const otherSession = await devLogin(app, 'Sam')
-    const room = await createRoom(user)
-    const a = await drainInitial(await user.get(`/api/rooms/${room.id}/events`))
-    const b = await drainInitial(await otherSession.get(`/api/rooms/${room.id}/events`))
+    const league = await createLeague(user)
+    const a = await drainInitial(await user.get(`/api/leagues/${league.id}/events`))
+    const b = await drainInitial(await otherSession.get(`/api/leagues/${league.id}/events`))
     await user.json('POST', '/auth/logout', 204)
     expect((await a.read()).done).toBe(true)
     expect(app.services.hub.countForUser(otherSession.userId!)).toBe(1)
-    await otherSession.json('PATCH', `/api/rooms/${room.id}`, 200, { name: 'Still connected' })
+    await otherSession.json('PATCH', `/api/leagues/${league.id}`, 200, { name: 'Still connected' })
     expect(new TextDecoder().decode((await b.read()).value)).toContain('refresh')
     await b.cancel()
   })
@@ -56,23 +56,23 @@ describe('hardening regressions', () => {
   it.each(['expiry', 'revocation', 'membership'])('heartbeat terminates a stream after %s', async (reason) => {
     const { app, db, clock } = setup({ limits: { heartbeatMs: 10 } })
     const user = await devLogin(app, 'Sam')
-    const room = await createRoom(user)
-    const reader = await drainInitial(await user.get(`/api/rooms/${room.id}/events`))
+    const league = await createLeague(user)
+    const reader = await drainInitial(await user.get(`/api/leagues/${league.id}/events`))
     if (reason === 'expiry') clock.advanceDays(61)
     else if (reason === 'revocation') db.run('DELETE FROM sessions')
-    else db.run('DELETE FROM room_members WHERE room_id = ?', room.id)
+    else db.run('DELETE FROM league_members WHERE league_id = ?', league.id)
     expect((await reader.read()).done).toBe(true)
   })
 
-  it('immediately closes removed members, with no later room events', async () => {
+  it('immediately closes removed members, with no later league events', async () => {
     const { app } = setup()
     const owner = await devLogin(app, 'Owner')
     const member = await devLogin(app, 'Member')
-    const room = await createRoom(owner)
-    await joinRoom(member, room.inviteCode)
-    const reader = await drainInitial(await member.get(`/api/rooms/${room.id}/events`))
-    await owner.json('DELETE', `/api/rooms/${room.id}/members/${member.userId}`, 204)
-    await owner.json('PATCH', `/api/rooms/${room.id}`, 200, { name: 'Private now' })
+    const league = await createLeague(owner)
+    await joinLeague(member, league.inviteCode)
+    const reader = await drainInitial(await member.get(`/api/leagues/${league.id}/events`))
+    await owner.json('DELETE', `/api/leagues/${league.id}/members/${member.userId}`, 204)
+    await owner.json('PATCH', `/api/leagues/${league.id}`, 200, { name: 'Private now' })
     expect((await reader.read()).done).toBe(true)
   })
 
@@ -81,13 +81,13 @@ describe('hardening regressions', () => {
     const logger = { info: (...args: unknown[]) => logs.push(args.join(' ')), warn: () => {}, error: () => {} }
     const { app, clock } = setup({ deps: { accessLog: true, logger } })
     const user = await devLogin(app, 'Sam')
-    const room = await createRoom(user)
+    const league = await createLeague(user)
     const anonymous = new Client(app)
-    for (let i = 0; i < 60; i++) await anonymous.json('GET', `/api/invites/${room.inviteCode}`, 200)
-    await anonymous.json('GET', `/api/invites/${room.inviteCode}`, 429)
-    expect(logs.join('\n')).not.toContain(room.inviteCode)
+    for (let i = 0; i < 60; i++) await anonymous.json('GET', `/api/invites/${league.inviteCode}`, 200)
+    await anonymous.json('GET', `/api/invites/${league.inviteCode}`, 429)
+    expect(logs.join('\n')).not.toContain(league.inviteCode)
     clock.advance(61_000)
-    await anonymous.json('GET', `/api/invites/${room.inviteCode}`, 200)
+    await anonymous.json('GET', `/api/invites/${league.inviteCode}`, 200)
   })
 
   it('does not log callback codes or provider exception contents', async () => {

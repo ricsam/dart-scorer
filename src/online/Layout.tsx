@@ -10,17 +10,17 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 export function SignInAction() {
   return (
-    <Link to="/login" className="icon-button account-button" aria-label="Sign in for rooms and leaderboards">
+    <Link to="/login" className="icon-button account-button" aria-label="Sign in for leagues and leaderboards">
       <LogIn size={17} /><span>SIGN IN</span>
     </Link>
   )
 }
 
-export function RoomsAction() {
+export function LeaguesAction() {
   const { user } = useSession()
   return (
-    <Link to="/" className="icon-button account-button signed-in" aria-label="Back to your rooms">
-      {user && <Avatar user={user} size={20} />}<span>ROOMS</span>
+    <Link to="/" className="icon-button account-button signed-in" aria-label="Back to your leagues">
+      {user && <Avatar user={user} size={20} />}<span>LEAGUES</span>
     </Link>
   )
 }
@@ -30,7 +30,7 @@ export function OnlineInvite({ onSignIn }: { onSignIn: () => void }) {
     <div className="settings-section online-invite">
       <div className="settings-copy">
         <strong><Users size={14} /> Play with your crew</strong>
-        <span>Sign in with Google to create rooms, invite friends, score matches live and keep leaderboards.</span>
+        <span>Sign in with Google to create leagues, invite friends, score matches live and keep leaderboards.</span>
       </div>
       <button className="add-player" onClick={onSignIn}><LogIn size={16} /> SIGN IN</button>
     </div>
@@ -50,7 +50,7 @@ export function ScoringInfo() {
     <div className="settings-section online-info">
       <div className="settings-copy">
         <strong><Info size={14} /> About & scoring</strong>
-        <span>Learn how scoring, averages, checkout rates and room ratings work.</span>
+        <span>Learn how scoring, averages, checkout rates and league ratings work.</span>
       </div>
       <a href="/about" target="_blank" rel="noreferrer">READ THE GUIDE <span>(opens in a new tab)</span></a>
     </div>
@@ -68,7 +68,7 @@ export function OnlineLayout({ children, bare = false }: { children: ReactNode; 
         <Link to="/" className="brand-link" aria-label="Oche home"><Brand /></Link>
         {user && !bare ? (
           <nav className="online-nav" aria-label="Main">
-            <Link to="/" className={path === '/' || path.startsWith('/rooms') ? 'active' : ''}><Users size={15} /> ROOMS</Link>
+            <Link to="/" className={path === '/' || path.startsWith('/leagues') ? 'active' : ''}><Users size={15} /> LEAGUES</Link>
             <Link to="/training" className={path.startsWith('/training') ? 'active' : ''}><Target size={15} /> TRAINING</Link>
             <Link to="/play">QUICK GAME</Link>
             {!user.guest && <Link to="/me" className={path === '/me' ? 'active' : ''}><BarChart3 size={15} /> MY STATS</Link>}
@@ -136,7 +136,7 @@ function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme
             <strong>{user.name}</strong>
             <small>{user.guest ? 'Guest · unranked' : user.email}</small>
           </div>
-          <button role="menuitem" onClick={() => go('/')}><Users size={15} /> Rooms</button>
+          <button role="menuitem" onClick={() => go('/')}><Users size={15} /> Leagues</button>
           <button role="menuitem" onClick={() => go('/training')}><Target size={15} /> Training arena</button>
           <button role="menuitem" onClick={() => go('/play')}><Target size={15} /> Quick game</button>
           {user.guest
@@ -154,7 +154,7 @@ function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme
         </div>
       )}
       {confirmSignOut && <ConfirmDialog icon={<LogOut size={30} />} eyebrow="GUEST SESSION" title="End your guest session?" titleId="guest-signout-title" confirmLabel="END SESSION" onCancel={() => setConfirmSignOut(false)} onConfirm={leaveSession}>
-        You cannot recover this guest identity by name after signing out. Your matches will stay in the room’s history.
+        You cannot recover this guest identity by name after signing out. Your matches will stay in the league’s history.
         {error && <p role="alert">{error}</p>}
       </ConfirmDialog>}
     </div>

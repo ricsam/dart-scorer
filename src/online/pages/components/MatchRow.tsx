@@ -5,8 +5,8 @@ import { Link } from '../../router'
 import { BotAvatar, BotBadge } from '../../BotAvatar'
 import { Avatar } from '../../ui'
 
-/** Compact match line used in room histories, profiles and the home page. */
-export function MatchRow({ match, roomName, highlightUserId }: { match: MatchSummary; roomName?: string; highlightUserId?: string }) {
+/** Compact match line used in league histories, profiles and the home page. */
+export function MatchRow({ match, leagueName, highlightUserId }: { match: MatchSummary; leagueName?: string; highlightUserId?: string }) {
   const live = match.status === 'live'
   const me = highlightUserId ? match.players.find((player) => player.userId === highlightUserId) : undefined
   const training = match.players.some((player) => player.botId)
@@ -31,7 +31,7 @@ export function MatchRow({ match, roomName, highlightUserId }: { match: MatchSum
         {live ? (
           <span className="live-pill"><Radio size={11} /> {match.awaitingConfirmation ? 'RESULT PENDING' : 'LIVE'}</span>
         ) : outcome ? <span className={`outcome ${outcome}`}>{outcome === 'win' ? 'WON' : 'LOST'}</span> : null}
-        <small>{roomName ? `${roomName} · ` : ''}{shortFormat(match.settings)}</small>
+        <small>{leagueName ? `${leagueName} · ` : ''}{shortFormat(match.settings)}</small>
         <small>{relativeTime(match.completedAt ?? match.updatedAt)}</small>
       </div>
     </Link>

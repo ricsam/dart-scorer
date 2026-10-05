@@ -16,7 +16,7 @@ The private `ghcr.io/ricsam/dart-scorer` package grants **Write** to `ricsam/dar
 1. Run lint, typecheck, unit/API tests and Playwright locally.
 2. Build/publish an immutable image (the manual `Publish online image` workflow publishes a SHA tag).
 3. Review the live deployment and a scoped server dry-run/diff. Substitute the image digest in the manifest; apply only this application's resources.
-4. Wait for rollout, check `/readyz` and `/api/me` (`auth.google=true`, `auth.dev=false`), and check a room from an existing signed-in session.
+4. Wait for rollout, check `/readyz` and `/api/me` (`auth.google=true`, `auth.dev=false`), and check a league from an existing signed-in session.
 
 Use `kubectl --context ricsam` with the existing account credential. The account gateway profile has owner-approved cluster access; pinned SSH to `hetzner` and `k3s kubectl` remains an independent administrative route. Do not broaden workflow trust or RBAC merely to deploy.
 
@@ -29,8 +29,8 @@ For a stopped, quiescent application, copying the entire data directory includin
 ## Security / limitations
 
 - Google authentication requests basic identity only; no access/refresh tokens are retained. Sessions are random opaque HttpOnly/SameSite cookies whose hashes are stored in SQLite.
-- Room/match reads are membership-scoped. Invite links are bearer capabilities to join; hosts can rotate them.
+- League/match reads are membership-scoped. Invite links are bearer capabilities to join; hosts can rotate them.
 - Changes require same-origin JSON and use per-user limits. Proxy IP headers must be trustworthy when `TRUST_PROXY=true`.
 - Recorded matches are self-reported. This is not an anti-cheat or tournament certification service.
-- Account erasure is currently an operator operation: account references in rooms/matches must be handled deliberately, not by blindly deleting a user row. No automatic retention/erasure policy is implemented.
+- Account erasure is currently an operator operation: account references in leagues/matches must be handled deliberately, not by blindly deleting a user row. No automatic retention/erasure policy is implemented.
 - Google may show the authorized domain (`r5d.app`) rather than the app name on its consent screen until branding verification is completed. Basic sign-in works without sensitive scopes.

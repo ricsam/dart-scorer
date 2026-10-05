@@ -5,7 +5,7 @@ async function signIn(page: Page, name: string) {
   await page.getByLabel('Name', { exact: true }).fill(name)
   await page.getByLabel('Email').fill(`training-${name}-${Date.now()}-${Math.random()}@example.com`)
   await page.getByRole('button', { name: 'SIGN IN (DEV)' }).click()
-  await expect(page.getByRole('button', { name: 'NEW ROOM' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'NEW LEAGUE' })).toBeVisible()
 }
 async function dart(page: Page, entry: string) {
   await page.getByLabel('Enter dart hits').fill(entry)
@@ -146,22 +146,22 @@ test('batch controls pause while saving and keep the entry after a rejected save
   await expect(page.locator('.training-player > strong')).toHaveText('240')
 })
 
-test('room players train together across devices and clock progress stays separate', async ({ page, browser }, info) => {
+test('league players train together across devices and clock progress stays separate', async ({ page, browser }, info) => {
   await signIn(page, 'Host')
-  const roomResponse = await page.request.post('/api/rooms', { data: { name: 'Practice crew' } })
-  expect(roomResponse.status()).toBe(201)
-  const { room } = await roomResponse.json()
+  const leagueResponse = await page.request.post('/api/leagues', { data: { name: 'Practice crew' } })
+  expect(leagueResponse.status()).toBe(201)
+  const { league } = await leagueResponse.json()
   const otherContext = await browser.newContext()
   const other = await otherContext.newPage()
-  // Separate signed-in identity, connected through the room invite.
+  // Separate signed-in identity, connected through the league invite.
   await other.goto(`${new URL(page.url()).origin}/login`)
   await other.getByLabel('Name', { exact: true }).fill('Partner')
   await other.getByLabel('Email').fill(`partner-${Date.now()}@example.com`)
   await other.getByRole('button', { name: 'SIGN IN (DEV)' }).click()
-  await expect(other.getByRole('button', { name: 'NEW ROOM' })).toBeVisible()
-  expect((await other.request.post(`/api/invites/${room.inviteCode}/join`, { data: {} })).ok()).toBe(true)
+  await expect(other.getByRole('button', { name: 'NEW LEAGUE' })).toBeVisible()
+  expect((await other.request.post(`/api/invites/${league.inviteCode}/join`, { data: {} })).ok()).toBe(true)
   await page.goto('/training')
-  await page.getByLabel('Play space').selectOption(room.id)
+  await page.getByLabel('Play space').selectOption(league.id)
   await page.getByRole('button', { name: 'Partner', exact: true }).click()
   await page.getByRole('button', { name: 'START AROUND THE CLOCK' }).click()
   await expect(page.getByRole('heading', { name: 'Around the clock' })).toBeVisible()
@@ -199,7 +199,7 @@ test('room players train together across devices and clock progress stays separa
   await expect(page.locator('.stat-tile').filter({ hasText: 'QUICKEST FULL CLOCK' })).toContainText('20 darts')
   await page.getByLabel('Progress challenge').selectOption('nine-dart')
   await expect(page.locator('.stat-tile').filter({ hasText: 'SESSIONS' })).toContainText('0')
-  await page.getByLabel('Play space').selectOption(room.id)
+  await page.getByLabel('Play space').selectOption(league.id)
   await page.getByRole('button', { name: 'PLAY BOTS' }).click()
   await expect(page.getByRole('button', { name: 'Add Rookie Rue, level 1, Novice' })).toBeVisible()
   const dialog = page.getByRole('dialog')

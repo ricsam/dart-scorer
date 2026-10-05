@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { History } from 'lucide-react'
-import type { MatchSummary, RoomDetail } from '../../../shared/api'
+import type { MatchSummary, LeagueDetail } from '../../../shared/api'
 import { api, errorMessage } from '../../api'
 import { useResource } from '../../hooks'
 import { useSession } from '../../session'
 import { EmptyState, ErrorState, Loading } from '../../ui'
 import { MatchRow } from '../components/MatchRow'
 
-export function MatchHistory({ room, refreshKey }: { room: RoomDetail; refreshKey: number }) {
+export function MatchHistory({ league, refreshKey }: { league: LeagueDetail; refreshKey: number }) {
   const { user } = useSession()
-  const first = useResource(`matches:${room.id}:${refreshKey}`, () => api.roomMatches(room.id))
+  const first = useResource(`matches:${league.id}:${refreshKey}`, () => api.leagueMatches(league.id))
   const [more, setMore] = useState<{ key: string; matches: MatchSummary[]; hasMore: boolean }>({ key: '', matches: [], hasMore: true })
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -18,7 +18,7 @@ export function MatchHistory({ room, refreshKey }: { room: RoomDetail; refreshKe
   if (first.error) return <section className="panel"><ErrorState message={first.error.message} onRetry={first.reload} /></section>
   if (!first.data) return null
 
-  const key = `${room.id}:${refreshKey}`
+  const key = `${league.id}:${refreshKey}`
   const extra = more.key === key ? more.matches : []
   const matches = [...first.data.matches, ...extra]
   const hasMore = more.key === key ? more.hasMore : first.data.hasMore
@@ -29,7 +29,7 @@ export function MatchHistory({ room, refreshKey }: { room: RoomDetail; refreshKe
     setLoadingMore(true)
     setError(null)
     try {
-      const page = await api.roomMatches(room.id, last.completedAt)
+      const page = await api.leagueMatches(league.id, last.completedAt)
       setMore({ key, matches: [...extra, ...page.matches], hasMore: page.hasMore })
     } catch (caught) {
       setError(errorMessage(caught))

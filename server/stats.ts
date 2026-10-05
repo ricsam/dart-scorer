@@ -6,15 +6,15 @@ import type {
   LeaderboardEntry,
   LeaderboardPeriod,
   LeaderboardResponse,
-  PlayerRoomStatsResponse,
+  PlayerLeagueStatsResponse,
   UserRef,
 } from '../src/shared/api'
 import { requireUser } from './auth'
 import type { AppEnv, Services } from './context'
-import { memberRows, requireRoom, roomMembers, summarize, type MatchRow, type ResultRow } from './data'
+import { memberRows, requireLeague, leagueMembers, summarize, type MatchRow, type ResultRow } from './data'
 import type { Db } from './db'
 import { badRequest, notFound } from './http'
-import { displayRating, INITIAL_RATING, roomRatings } from './ratings'
+import { displayRating, INITIAL_RATING, leagueRatings } from './ratings'
 import { toUserRef } from './users'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -103,14 +103,14 @@ export function resultsHistory(rows: ResultRow[]): StatsHistoryPoint[] {
   })
 }
 
-/** Result rows for users in a room since `since` (inclusive), most recent first. */
-function roomResults(db: Db, roomId: string, since: string | null, training = false) {
+/** Result rows for users in a league since `since` (inclusive), most recent first. */
+function leagueResults(db: Db, leagueId: string, since: string | null, training = false) {
   return db.all<ResultRow>(
     `SELECT * FROM match_results
-     WHERE room_id = ? AND user_id IS NOT NULL AND (? IS NULL OR completed_at >= ?)
+     WHERE league_id = ? AND user_id IS NOT NULL AND (? IS NULL OR completed_at >= ?)
        AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = match_results.match_id AND bp.bot_id IS NOT NULL)
      ORDER BY completed_at DESC, match_id DESC`,
-    roomId, since, since,
+    leagueId, since, since,
   )
 }
 
@@ -126,8 +126,8 @@ function groupByUser(rows: ResultRow[]) {
 }
 
 /** Leaderboard entries for `users`; `periodRows` filter the stats, `allRows` give the rating change. */
-function buildEntries(db: Db, roomId: string, users: UserRef[], periodRows: ResultRow[], allRows: ResultRow[]): LeaderboardEntry[] {
-  const ratings = roomRatings(db, roomId)
+function buildEntries(db: Db, leagueId: string, users: UserRef[], periodRows: ResultRow[], allRows: ResultRow[]): LeaderboardEntry[] {
+  const ratings = leagueRatings(db, leagueId)
   const inPeriod = groupByUser(periodRows)
   const allTime = groupByUser(allRows)
   return users.map((user) => {
@@ -151,29 +151,29 @@ export function statsRoutes(services: Services) {
   const { db } = services
   const app = new Hono<AppEnv>()
 
-  app.get('/rooms/:roomId/leaderboard', (c) => {
+  app.get('/leagues/:leagueId/leaderboard', (c) => {
     const user = requireUser(c)
-    const room = requireRoom(db, c.req.param('roomId'), user.id)
+    const league = requireLeague(db, c.req.param('leagueId'), user.id)
     const period = parsePeriod(c.req.query('period'))
     const span = PERIODS[period]
     const since = span === null ? null : new Date(services.now().getTime() - span).toISOString()
-    const allRows = roomResults(db, room.id, null)
+    const allRows = leagueResults(db, league.id, null)
     const periodRows = since === null ? allRows : allRows.filter((row) => row.completed_at >= since)
-    const members = memberRows(db, room.id).filter((member) => !member.is_guest).map(toUserRef)
-    const entries = sortEntries(buildEntries(db, room.id, members, periodRows, allRows))
+    const members = memberRows(db, league.id).filter((member) => !member.is_guest).map(toUserRef)
+    const entries = sortEntries(buildEntries(db, league.id, members, periodRows, allRows))
     return c.json<LeaderboardResponse>({ period, entries })
   })
 
-  app.get('/rooms/:roomId/players/:userId', (c) => {
+  app.get('/leagues/:leagueId/players/:userId', (c) => {
     const user = requireUser(c)
-    const room = requireRoom(db, c.req.param('roomId'), user.id)
+    const league = requireLeague(db, c.req.param('leagueId'), user.id)
     const targetId = c.req.param('userId')
-    const player = roomMembers(db, room.id).find((member) => member.id === targetId)
-    if (!player || player.guest) throw notFound('Player not found in this room.')
+    const player = leagueMembers(db, league.id).find((member) => member.id === targetId)
+    if (!player || player.guest) throw notFound('Player not found in this league.')
 
-    const allRows = roomResults(db, room.id, null)
+    const allRows = leagueResults(db, league.id, null)
     const ref: UserRef = { id: player.id, name: player.name, avatarUrl: player.avatarUrl }
-    const [entry] = buildEntries(db, room.id, [ref], allRows, allRows)
+    const [entry] = buildEntries(db, league.id, [ref], allRows, allRows)
 
     const ratingHistory = allRows
       .filter((row) => row.user_id === player.id && row.rating_after !== null)
@@ -185,9 +185,9 @@ export function statsRoutes(services: Services) {
        FROM match_results me
        JOIN match_results opp ON opp.match_id = me.match_id AND opp.slot != me.slot
        JOIN users u ON u.id = opp.user_id
-       WHERE me.room_id = ? AND me.user_id = ? AND opp.user_id IS NOT NULL AND opp.user_id != me.user_id
+       WHERE me.league_id = ? AND me.user_id = ? AND opp.user_id IS NOT NULL AND opp.user_id != me.user_id
          AND NOT EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = me.match_id AND bp.bot_id IS NOT NULL)`,
-      room.id, player.id,
+      league.id, player.id,
     )
     const headToHead = new Map<string, { opponent: UserRef; wins: number; losses: number }>()
     for (const pair of pairs) {
@@ -199,15 +199,15 @@ export function statsRoutes(services: Services) {
 
     const recent = (training = false) => db.all<MatchRow>(
       `SELECT m.* FROM matches m
-       WHERE m.room_id = ? AND m.status = 'completed'
+       WHERE m.league_id = ? AND m.status = 'completed'
          AND EXISTS (SELECT 1 FROM match_players p WHERE p.match_id = m.id AND p.user_id = ?)
          AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = m.id AND bp.bot_id IS NOT NULL)
        ORDER BY m.completed_at DESC, m.id DESC LIMIT 10`,
-      room.id, player.id,
+      league.id, player.id,
     )
 
-    const trainingRows = roomResults(db, room.id, null, true).filter((row) => row.user_id === player.id)
-    return c.json<PlayerRoomStatsResponse>({
+    const trainingRows = leagueResults(db, league.id, null, true).filter((row) => row.user_id === player.id)
+    return c.json<PlayerLeagueStatsResponse>({
       player,
       entry,
       ratingHistory,
