@@ -9,6 +9,7 @@ function main() {
 
   const db = openDatabase(config.databasePath)
   const app = createApp({ db, config, accessLog: true })
+  app.services.janitor.start()
 
   const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host }, (info) => {
     console.log(`[oche] listening on http://${info.address}:${info.port} (public URL ${config.publicUrl})`)
@@ -21,6 +22,7 @@ function main() {
     stopping = true
     console.log(`[oche] ${signal} received, shutting down`)
     app.services.bots.stop()
+    app.services.janitor.stop()
     app.services.hub.closeAll()
     const force = setTimeout(() => {
       console.warn('[oche] forcing shutdown after timeout')

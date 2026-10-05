@@ -4,65 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import type { MatchEvent, LeagueEvent } from '../../src/shared/api'
 import { CONTENT_SECURITY_POLICY } from '../../server/security'
-import { act, CHECKOUT_101, Client, createMatch, createLeague, devLogin, finish, joinLeague, play, setup } from './helpers'
-
-type Frame = { event?: string; data?: string; retry?: string; comments: string[] }
-
-/** Minimal SSE parser over a fetch Response body. */
-class SseReader {
-  private buffer = ''
-  private readonly decoder = new TextDecoder()
-  private readonly reader: ReadableStreamDefaultReader<Uint8Array>
-
-  constructor(response: Response) {
-    expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toContain('text/event-stream')
-    this.reader = response.body!.getReader()
-  }
-
-  /** Next frame, or null when the stream ends. */
-  async next(timeoutMs = 2000): Promise<Frame | null> {
-    for (;;) {
-      const end = this.buffer.indexOf('\n\n')
-      if (end !== -1) {
-        const raw = this.buffer.slice(0, end)
-        this.buffer = this.buffer.slice(end + 2)
-        const frame: Frame = { comments: [] }
-        for (const line of raw.split('\n')) {
-          if (line.startsWith(':')) frame.comments.push(line.slice(1).trim())
-          else if (line.startsWith('event: ')) frame.event = line.slice(7)
-          else if (line.startsWith('data: ')) frame.data = frame.data === undefined ? line.slice(6) : `${frame.data}\n${line.slice(6)}`
-          else if (line.startsWith('retry: ')) frame.retry = line.slice(7)
-        }
-        return frame
-      }
-      let timer: ReturnType<typeof setTimeout> | undefined
-      const chunk = await Promise.race([
-        this.reader.read(),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(new Error('timed out waiting for an SSE frame')), timeoutMs)
-        }),
-      ]).finally(() => clearTimeout(timer))
-      if (chunk.done) return null
-      this.buffer += this.decoder.decode(chunk.value, { stream: true })
-    }
-  }
-
-  /** Next frame with an `event:` (skipping retry/heartbeat frames). */
-  async nextEvent<T>(name: string): Promise<T> {
-    for (;;) {
-      const frame = await this.next()
-      if (!frame) throw new Error('stream ended')
-      if (frame.event === undefined) continue
-      expect(frame.event).toBe(name)
-      return JSON.parse(frame.data!) as T
-    }
-  }
-
-  cancel() {
-    return this.reader.cancel()
-  }
-}
+import { act, CHECKOUT_101, Client, createMatch, createLeague, devLogin, finish, joinLeague, play, setup, SseReader } from './helpers'
 
 describe('live match events', () => {
   it('sends retry and the current match, then updates with per-viewer permissions', async () => {

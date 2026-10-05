@@ -106,11 +106,10 @@ export function resultsHistory(rows: ResultRow[]): StatsHistoryPoint[] {
 /** Result rows for users in a league since `since` (inclusive), most recent first. */
 function leagueResults(db: Db, leagueId: string, since: string | null, training = false) {
   return db.all<ResultRow>(
-    `SELECT * FROM match_results
-     WHERE league_id = ? AND user_id IS NOT NULL AND (? IS NULL OR completed_at >= ?)
-       AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = match_results.match_id AND bp.bot_id IS NOT NULL)
-     ORDER BY completed_at DESC, match_id DESC`,
-    leagueId, since, since,
+    `SELECT r.* FROM match_results r JOIN matches m ON m.id = r.match_id
+     WHERE r.league_id = ? AND r.user_id IS NOT NULL AND (? IS NULL OR r.completed_at >= ?) AND m.practice = ?
+     ORDER BY r.completed_at DESC, r.match_id DESC`,
+    leagueId, since, since, training ? 1 : 0,
   )
 }
 
@@ -186,7 +185,7 @@ export function statsRoutes(services: Services) {
        JOIN match_results opp ON opp.match_id = me.match_id AND opp.slot != me.slot
        JOIN users u ON u.id = opp.user_id
        WHERE me.league_id = ? AND me.user_id = ? AND opp.user_id IS NOT NULL AND opp.user_id != me.user_id
-         AND NOT EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = me.match_id AND bp.bot_id IS NOT NULL)`,
+         AND NOT EXISTS (SELECT 1 FROM matches pm WHERE pm.id = me.match_id AND pm.practice = 1)`,
       league.id, player.id,
     )
     const headToHead = new Map<string, { opponent: UserRef; wins: number; losses: number }>()
@@ -199,11 +198,10 @@ export function statsRoutes(services: Services) {
 
     const recent = (training = false) => db.all<MatchRow>(
       `SELECT m.* FROM matches m
-       WHERE m.league_id = ? AND m.status = 'completed'
+       WHERE m.league_id = ? AND m.status = 'completed' AND m.practice = ?
          AND EXISTS (SELECT 1 FROM match_players p WHERE p.match_id = m.id AND p.user_id = ?)
-         AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = m.id AND bp.bot_id IS NOT NULL)
        ORDER BY m.completed_at DESC, m.id DESC LIMIT 10`,
-      league.id, player.id,
+      league.id, training ? 1 : 0, player.id,
     )
 
     const trainingRows = leagueResults(db, league.id, null, true).filter((row) => row.user_id === player.id)

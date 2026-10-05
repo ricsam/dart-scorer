@@ -1,4 +1,5 @@
 import type { BotRunner } from './bots'
+import type { Janitor } from './janitor'
 import type { Config } from './config'
 import type { Db } from './db'
 import type { GoogleClient } from './google'
@@ -22,6 +23,8 @@ export type Limits = {
   streamsPerUser: number
   /** Interval between SSE heartbeat comments (Cloudflare drops streams idle for 100 s). */
   heartbeatMs: number
+  /** Chat messages per user per minute. */
+  chatPerMinute: number
 }
 
 export const DEFAULT_LIMITS: Limits = {
@@ -29,6 +32,7 @@ export const DEFAULT_LIMITS: Limits = {
   mutationsPerMinute: 300,
   streamsPerUser: 20,
   heartbeatMs: 25_000,
+  chatPerMinute: 20,
 }
 
 export type UserRow = {
@@ -43,6 +47,8 @@ export type UserRow = {
   avatar_url: string | null
   created_at: string
   last_login_at: string
+  /** Last lobby format and seat count, reused for the next lobby (JSON). */
+  play_settings?: string | null
 }
 
 /** Everything a route needs, resolved once per app. */
@@ -54,9 +60,12 @@ export type Services = {
   logger: Logger
   hub: LiveHub
   bots: BotRunner
+  janitor: Janitor
   limits: Limits
   authLimiter: RateLimiter
   mutationLimiter: RateLimiter
+  /** Chat messages per user per minute. */
+  chatLimiter: RateLimiter
 }
 
 export type AppEnv = {

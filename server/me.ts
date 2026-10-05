@@ -1,12 +1,31 @@
 import { Hono } from 'hono'
-import type { CareerStatsResponse, MeResponse, UpdateMeResponse } from '../src/shared/api'
+import type { CareerStatsResponse, GlobalRating, MeResponse, TrendPoint, UpdateMeResponse } from '../src/shared/api'
 import { requireUser } from './auth'
 import type { AppEnv, Services } from './context'
 import { buildMatchView, matchSummary, memberRows, type MatchRow, type ResultRow, type LeagueRow } from './data'
+import type { Db } from './db'
 import { expectObject, expectText, readJson, forbidden } from './http'
-import { displayRating, INITIAL_RATING, rankIn, leagueRatings } from './ratings'
+import { displayRating, globalRank, INITIAL_RATING, rankIn, leagueRatings } from './ratings'
 import { aggregateResults, aggregateTrainingResults, resultsHistory } from './stats'
 import { toUser, USER_NAME_MAX_LENGTH } from './users'
+
+/** The user's global rating, rank and rating after each ranked match. */
+export function globalRatingFor(db: Db, userId: string): GlobalRating {
+  const row = db.get<{ rating: number; matches: number; wins: number }>('SELECT rating, matches, wins FROM global_ratings WHERE user_id = ?', userId)
+  const history = db.all<{ completed_at: string; rating_after: number }>(
+    `SELECT r.completed_at, r.rating_after FROM match_results r JOIN matches m ON m.id = r.match_id
+     WHERE m.ranked = 1 AND r.user_id = ? AND r.rating_after IS NOT NULL ORDER BY r.completed_at, r.match_id`,
+    userId,
+  )
+  return {
+    rating: displayRating(row?.rating ?? INITIAL_RATING),
+    rank: globalRank(db, userId),
+    matches: row?.matches ?? 0,
+    wins: row?.wins ?? 0,
+    losses: (row?.matches ?? 0) - (row?.wins ?? 0),
+    history: history.map((point) => ({ at: point.completed_at, rating: displayRating(point.rating_after) })),
+  }
+}
 
 export function meRoutes(services: Services) {
   const { db, config } = services
@@ -33,13 +52,12 @@ export function meRoutes(services: Services) {
     const user = requireUser(c)
     if (user.is_guest) throw forbidden('Guests do not have career statistics.')
     // Totals cover every result the user ever recorded (their own numbers), including leagues they left.
-    const resultRows = (training: boolean) => db.all<ResultRow>(
-      `SELECT * FROM match_results WHERE user_id = ?
-       AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = match_results.match_id AND bp.bot_id IS NOT NULL)
-       ORDER BY completed_at DESC, match_id DESC`, user.id,
+    const allRows = db.all<ResultRow & { practice: number; ranked: number }>(
+      `SELECT r.*, m.practice, m.ranked FROM match_results r JOIN matches m ON m.id = r.match_id
+       WHERE r.user_id = ? ORDER BY r.completed_at DESC, r.match_id DESC`, user.id,
     )
-    const results = resultRows(false)
-    const trainingRows = resultRows(true)
+    const results = allRows.filter((row) => !row.practice)
+    const trainingRows = allRows.filter((row) => row.practice)
 
     const leagues = db.all<LeagueRow>(
       'SELECT r.* FROM league_members m JOIN leagues r ON r.id = m.league_id WHERE m.user_id = ? ORDER BY m.joined_at, r.id',
@@ -56,17 +74,24 @@ export function meRoutes(services: Services) {
       }
     })
 
-    // Match details are only shown for leagues the user can still see.
-    const recent = (training: boolean) => db.all<MatchRow & { league_name: string }>(
+    // Match details are only shown for leagues the user can still see; lobby games are always theirs.
+    const recent = (training: boolean) => db.all<MatchRow & { league_name: string | null }>(
       `SELECT m.*, r.name AS league_name FROM matches m
-       JOIN leagues r ON r.id = m.league_id
-       JOIN league_members rm ON rm.league_id = m.league_id AND rm.user_id = ?
-       WHERE m.status = 'completed'
+       LEFT JOIN leagues r ON r.id = m.league_id
+       WHERE m.status = 'completed' AND m.practice = ?
          AND EXISTS (SELECT 1 FROM match_players p WHERE p.match_id = m.id AND p.user_id = ?)
-         AND ${training ? '' : 'NOT'} EXISTS (SELECT 1 FROM match_players bp WHERE bp.match_id = m.id AND bp.bot_id IS NOT NULL)
+         AND (m.league_id IS NULL OR EXISTS (SELECT 1 FROM league_members rm WHERE rm.league_id = m.league_id AND rm.user_id = ?))
        ORDER BY m.completed_at DESC, m.id DESC LIMIT 10`,
-      user.id, user.id,
+      training ? 1 : 0, user.id, user.id,
     ).map(({ league_name: leagueName, ...row }) => ({ ...matchSummary(buildMatchView(db, row)), leagueName }))
+
+    const trend = allRows.slice(0, 50).reverse().map((row): TrendPoint => ({
+      matchId: row.match_id,
+      at: row.completed_at,
+      average: row.darts ? (row.points / row.darts) * 3 : null,
+      practice: row.practice === 1,
+      ranked: row.ranked === 1,
+    }))
 
     return c.json<CareerStatsResponse>({
       user: toUser(user),
@@ -79,6 +104,9 @@ export function meRoutes(services: Services) {
         history: resultsHistory(trainingRows),
         recentMatches: recent(true),
       },
+      all: { totals: aggregateTrainingResults(allRows), history: resultsHistory(allRows) },
+      trend,
+      global: globalRatingFor(db, user.id),
     })
   })
 

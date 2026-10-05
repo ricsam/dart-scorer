@@ -34,12 +34,15 @@ export const BODY_LIMIT_BYTES = 64 * 1024
 
 const tooLarge = () => new ApiException(413, 'bad_request', 'Request body is too large.')
 
-/** Reads and parses a JSON request body with a size limit. */
-export async function readJson(c: Context): Promise<unknown> {
+/** Reads and parses a JSON request body with a size limit. `optional` reads a missing/empty body as `{}`. */
+export async function readJson(c: Context, options: { optional?: boolean } = {}): Promise<unknown> {
   const declared = c.req.header('content-length')
   if (declared !== undefined && Number(declared) > BODY_LIMIT_BYTES) throw tooLarge()
   const body = c.req.raw.body
-  if (!body) throw badRequest('A JSON request body is required.')
+  if (!body) {
+    if (options.optional) return {}
+    throw badRequest('A JSON request body is required.')
+  }
 
   const reader = body.getReader()
   const chunks: Uint8Array[] = []
@@ -60,7 +63,10 @@ export async function readJson(c: Context): Promise<unknown> {
   } catch {
     throw badRequest('Request body is not valid UTF-8.')
   }
-  if (!text.trim()) throw badRequest('A JSON request body is required.')
+  if (!text.trim()) {
+    if (options.optional) return {}
+    throw badRequest('A JSON request body is required.')
+  }
   try {
     return JSON.parse(text)
   } catch {

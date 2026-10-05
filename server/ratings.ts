@@ -27,29 +27,18 @@ export function displayRating(value: number) {
   return Math.round(value)
 }
 
-type ResultKey = { match_id: string; slot: number; user_id: string | null; placing: number }
+type ResultKey = { match_id: string; slot: number; user_id: string | null; placing: number; practice: number }
 
-/**
- * Replays a league's completed matches in order (completed_at, id) and rewrites every
- * result's rating_before/rating_after. Call inside the transaction that changed the results.
- */
-export function recomputeLeagueRatings(db: Db, leagueId: string) {
-  const rows = db.all<ResultKey>(
-    'SELECT match_id, slot, user_id, placing FROM match_results WHERE league_id = ? ORDER BY completed_at, match_id, slot',
-    leagueId,
-  )
-  const botMatches = new Set(db.all<{ match_id: string }>(
-    'SELECT DISTINCT p.match_id FROM match_players p JOIN matches m ON m.id = p.match_id WHERE m.league_id = ? AND p.bot_id IS NOT NULL', leagueId,
-  ).map((row) => row.match_id))
+/** Replays result rows (ordered by completion) and rewrites each row's rating_before/rating_after. */
+function replayRatings(db: Db, rows: ResultKey[]) {
   const ratings = new Map<string, number>()
   const current = (userId: string) => ratings.get(userId) ?? INITIAL_RATING
-
   db.transaction(() => {
     for (let start = 0; start < rows.length;) {
       let end = start
       while (end < rows.length && rows[end].match_id === rows[start].match_id) end += 1
       const group = rows.slice(start, end)
-      if (botMatches.has(rows[start].match_id)) {
+      if (rows[start].practice) {
         db.run('UPDATE match_results SET rating_before = NULL, rating_after = NULL WHERE match_id = ?', rows[start].match_id)
         start = end
         continue
@@ -70,6 +59,85 @@ export function recomputeLeagueRatings(db: Db, leagueId: string) {
     }
   })
   return ratings
+}
+
+/**
+ * Replays a league's completed matches in order (completed_at, id) and rewrites every
+ * result's rating_before/rating_after. Practice (bot) matches never carry a rating.
+ * Call inside the transaction that changed the results.
+ */
+export function recomputeLeagueRatings(db: Db, leagueId: string) {
+  return replayRatings(db, db.all<ResultKey>(
+    `SELECT r.match_id, r.slot, r.user_id, r.placing, m.practice FROM match_results r JOIN matches m ON m.id = r.match_id
+     WHERE r.league_id = ? ORDER BY r.completed_at, r.match_id, r.slot`,
+    leagueId,
+  ))
+}
+
+/**
+ * Replays every ranked lobby match into the global rating (same Elo as leagues) and rebuilds
+ * the `global_ratings` table used by rankings. Call inside the transaction that changed results.
+ */
+export function recomputeGlobalRatings(db: Db, now: string) {
+  return db.transaction(() => {
+    const ratings = replayRatings(db, db.all<ResultKey>(
+      `SELECT r.match_id, r.slot, r.user_id, r.placing, 0 AS practice FROM match_results r JOIN matches m ON m.id = r.match_id
+       WHERE m.ranked = 1 ORDER BY r.completed_at, r.match_id, r.slot`,
+    ))
+    const counts = new Map(db.all<{ user_id: string; matches: number; wins: number }>(
+      `SELECT r.user_id, COUNT(*) AS matches, SUM(r.won) AS wins FROM match_results r JOIN matches m ON m.id = r.match_id
+       WHERE m.ranked = 1 AND r.user_id IS NOT NULL GROUP BY r.user_id`,
+    ).map((row) => [row.user_id, row]))
+    db.run('DELETE FROM global_ratings')
+    for (const [userId, rating] of ratings) {
+      const count = counts.get(userId)
+      db.run('INSERT INTO global_ratings (user_id, rating, matches, wins, updated_at) VALUES (?, ?, ?, ?, ?)', userId, rating, count?.matches ?? 0, count?.wins ?? 0, now)
+    }
+    return ratings
+  })
+}
+
+export type GlobalRatingRow = { user_id: string; rating: number; matches: number; wins: number }
+
+/**
+ * Applies one newly saved ranked match on top of the current global ratings (results are saved
+ * one at a time, so this equals a replay in save order). Call inside the saving transaction.
+ */
+export function applyGlobalRatings(db: Db, matchId: string, now: string) {
+  const rows = db.all<{ slot: number; user_id: string; placing: number; won: number }>(
+    'SELECT slot, user_id, placing, won FROM match_results WHERE match_id = ? AND user_id IS NOT NULL ORDER BY slot', matchId,
+  )
+  if (rows.length < 2) return
+  const current = globalRatingsFor(db, rows.map((row) => row.user_id))
+  const before = rows.map((row) => current.get(row.user_id)?.rating ?? INITIAL_RATING)
+  const deltas = eloDeltas(before, rows.map((row) => row.placing))
+  rows.forEach((row, index) => {
+    const after = before[index] + deltas[index]
+    db.run('UPDATE match_results SET rating_before = ?, rating_after = ? WHERE match_id = ? AND slot = ?', before[index], after, matchId, row.slot)
+    db.run(
+      `INSERT INTO global_ratings (user_id, rating, matches, wins, updated_at) VALUES (?, ?, 1, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET rating = excluded.rating, matches = matches + 1, wins = wins + excluded.wins, updated_at = excluded.updated_at`,
+      row.user_id, after, row.won, now,
+    )
+  })
+}
+
+/** Current global rating rows for the given users (missing users have no ranked result yet). */
+export function globalRatingsFor(db: Db, userIds: string[]) {
+  const map = new Map<string, GlobalRatingRow>()
+  for (const userId of new Set(userIds)) {
+    const row = db.get<GlobalRatingRow>('SELECT user_id, rating, matches, wins FROM global_ratings WHERE user_id = ?', userId)
+    if (row) map.set(userId, row)
+  }
+  return map
+}
+
+/** 1-based global rank by rounded rating, or null before the first ranked result. */
+export function globalRank(db: Db, userId: string) {
+  const mine = db.get<{ rating: number }>('SELECT rating FROM global_ratings WHERE user_id = ?', userId)
+  if (!mine) return null
+  const above = db.get<{ count: number }>('SELECT COUNT(*) AS count FROM global_ratings WHERE ROUND(rating) > ROUND(?)', mine.rating)?.count ?? 0
+  return above + 1
 }
 
 /** Current (full precision) rating and rated-match count for every user with ranked results in a league. */

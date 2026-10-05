@@ -189,9 +189,10 @@ describe('training and progress', () => {
     const roster = [{ userId: human.userId! }, { userId: owner.userId! }, { guestName: 'Historical bot' }]
     const first = await finish(human, await play(human, await createMatch(owner, league.id, roster), CHECKOUT_101))
     const second = await finish(human, await play(human, await createMatch(owner, league.id, roster), 'T20 M M', 'M M M', 'M M M', '9 D16'))
-    // Simulate already-persisted historical bot games, even with stale rating fields.
+    // Simulate already-persisted historical bot games, even with stale rating fields (schema v5 marks them practice).
     for (const match of [first, second]) {
       ctx.db.run("UPDATE match_players SET guest_id = NULL, bot_id = 'the-maximum' WHERE match_id = ? AND slot = 2", match.id)
+      ctx.db.run('UPDATE matches SET practice = 1 WHERE id = ?', match.id)
       ctx.db.run("UPDATE match_results SET completed_at = '2025-01-15T12:00:00.000Z' WHERE match_id = ?", match.id)
     }
     const career = await human.json<CareerStatsResponse>('GET', '/api/me/stats', 200)

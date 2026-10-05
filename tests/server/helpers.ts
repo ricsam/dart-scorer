@@ -1,9 +1,90 @@
+import { expect } from 'vitest'
 import { createApp, type App, type AppDeps } from '../../server/app'
 import type { Config } from '../../server/config'
 import type { Limits } from '../../server/context'
 import { openDatabase, type Db } from '../../server/db'
 import type { GoogleClient, GoogleIdentity } from '../../server/google'
-import type { MatchDetail, MatchSettings } from '../../src/shared/api'
+import type { LobbyDetail, LobbyOptionsRequest, MatchDetail, MatchSettings } from '../../src/shared/api'
+
+export type Frame = { event?: string; data?: string; retry?: string; comments: string[] }
+
+/** Minimal SSE parser over a fetch Response body. */
+export class SseReader {
+  private buffer = ''
+  private readonly decoder = new TextDecoder()
+  private readonly reader: ReadableStreamDefaultReader<Uint8Array>
+
+  constructor(response: Response) {
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
+    this.reader = response.body!.getReader()
+  }
+
+  /** Next frame, or null when the stream ends. */
+  async next(timeoutMs = 2000): Promise<Frame | null> {
+    for (;;) {
+      const end = this.buffer.indexOf('\n\n')
+      if (end !== -1) {
+        const raw = this.buffer.slice(0, end)
+        this.buffer = this.buffer.slice(end + 2)
+        const frame: Frame = { comments: [] }
+        for (const line of raw.split('\n')) {
+          if (line.startsWith(':')) frame.comments.push(line.slice(1).trim())
+          else if (line.startsWith('event: ')) frame.event = line.slice(7)
+          else if (line.startsWith('data: ')) frame.data = frame.data === undefined ? line.slice(6) : `${frame.data}\n${line.slice(6)}`
+          else if (line.startsWith('retry: ')) frame.retry = line.slice(7)
+        }
+        return frame
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const chunk = await Promise.race([
+        this.reader.read(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('timed out waiting for an SSE frame')), timeoutMs)
+        }),
+      ]).finally(() => clearTimeout(timer))
+      if (chunk.done) return null
+      this.buffer += this.decoder.decode(chunk.value, { stream: true })
+    }
+  }
+
+  /** Next frame with an `event:` (skipping retry/heartbeat frames). */
+  async nextEvent<T>(name: string): Promise<T> {
+    for (;;) {
+      const frame = await this.next()
+      if (!frame) throw new Error('stream ended')
+      if (frame.event === undefined) continue
+      expect(frame.event).toBe(name)
+      return JSON.parse(frame.data!) as T
+    }
+  }
+
+  /** Skips frames until an event named `name` satisfies `predicate`. */
+  async waitFor<T>(name: string, predicate: (data: T) => boolean = () => true): Promise<T> {
+    for (;;) {
+      const frame = await this.next()
+      if (!frame) throw new Error(`stream ended before a matching ${name} event`)
+      if (frame.event !== name) continue
+      const data = JSON.parse(frame.data!) as T
+      if (predicate(data)) return data
+    }
+  }
+
+  /** Every event name until the stream goes quiet (or ends). */
+  async drain(timeoutMs = 150) {
+    const names: string[] = []
+    for (;;) {
+      let frame: Frame | null
+      try { frame = await this.next(timeoutMs) } catch { return names }
+      if (!frame) return names
+      if (frame.event) names.push(frame.event)
+    }
+  }
+
+  cancel() {
+    return this.reader.cancel()
+  }
+}
 
 export const ORIGIN = 'http://localhost:5173'
 
@@ -204,3 +285,22 @@ export async function finish(client: Client, match: MatchDetail, status = 200) {
 
 /** 101 double-out checkout in one visit: 60 + 9 + 32. */
 export const CHECKOUT_101 = 'T20 9 D16'
+
+/** Creates a lobby (default: private, unranked 101 first-to-1) led by `client`. */
+export async function createLobby(client: Client, options: LobbyOptionsRequest = {}) {
+  const { lobby } = await client.json<{ lobby: LobbyDetail }>('POST', '/api/lobbies', 201, { settings: DEFAULTS_101, ...options })
+  return lobby
+}
+
+export async function joinLobby(client: Client, lobby: Pick<LobbyDetail, 'id'>, code?: string | null, status = 200) {
+  return (await client.json<{ lobby: LobbyDetail }>('POST', `/api/lobbies/${lobby.id}/join`, status, code ? { code } : {})).lobby
+}
+
+export async function startLobby(client: Client, lobby: Pick<LobbyDetail, 'id'>) {
+  const { matchId } = await client.json<{ matchId: string }>('POST', `/api/lobbies/${lobby.id}/start`, 201)
+  return (await client.json<{ match: MatchDetail }>('GET', `/api/matches/${matchId}`, 200)).match
+}
+
+export async function current(client: Client, matchId: string) {
+  return (await client.json<{ match: MatchDetail }>('GET', `/api/matches/${matchId}`, 200)).match
+}

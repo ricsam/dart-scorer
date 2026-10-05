@@ -56,14 +56,15 @@ export type MatchStatus = 'live' | 'completed'
 export type MatchPlayer = {
   /** Index in `GameState.players`; fixed for the whole match. */
   slot: number
-  /** `null` for guests and bots, who are not ranked. */
+  /** `null` for guests, local players and bots, who are not ranked. */
   userId: string | null
-  /** League guest identity; null for registered players and unlinked legacy guests. */
+  /** League guest identity; null for registered players, lobby local players and unlinked legacy guests. */
   guestId: string | null
   /** House bot identity; null for human players. Bots cannot sign in or claim guest slots. */
   botId: string | null
   name: string
   avatarUrl: string | null
+  /** A human without an account in this match: a league guest or a lobby local player. */
   guest: boolean
 }
 
@@ -75,9 +76,23 @@ export type MatchPlayerSummary = MatchPlayer & {
   won: boolean
 }
 
-export type MatchSummary = {
+/**
+ * Where a match was played. League matches feed that league's leaderboard; lobby matches
+ * (including solo practice) have no league and, when `ranked`, update the global rating.
+ */
+export type MatchContext = {
+  leagueId: string | null
+  lobbyId: string | null
+  /** Counts toward the global rating (ranked lobby matches only). */
+  ranked: boolean
+  /** Solo or bot games: tracked as training, never wins, losses or ratings. */
+  practice: boolean
+  /** Set when the match ended because this slot conceded or was claimed for inactivity. */
+  forfeitSlot: number | null
+}
+
+export type MatchSummary = MatchContext & {
   id: string
-  leagueId: string
   status: MatchStatus
   settings: MatchSettings
   players: MatchPlayerSummary[]
@@ -93,19 +108,18 @@ export type MatchSummary = {
 
 export type MatchResult = {
   slot: number
-  /** 1 = match winner; others by legs won, ties share a placing. */
+  /** 1 = match winner; others by legs won, ties share a placing. A forfeited slot is last. */
   placing: number
   won: boolean
   stats: PlayerStats
-  /** League rating before/after this match (ranked user players only). */
+  /** League rating (league matches) or global rating (ranked lobby matches) before/after; account players only. */
   ratingBefore: number | null
   ratingAfter: number | null
 }
 
-export type MatchDetail = {
+export type MatchDetail = MatchContext & {
   id: string
-  leagueId: string
-  leagueName: string
+  leagueName: string | null
   status: MatchStatus
   settings: MatchSettings
   players: MatchPlayer[]
@@ -116,10 +130,28 @@ export type MatchDetail = {
   createdAt: string
   updatedAt: string
   completedAt: string | null
-  /** Viewer may enter darts / undo / finish (match players, the creator and the league owner). */
+  /** Viewer may enter darts for at least one slot, start legs and save the result. */
   canScore: boolean
-  /** Viewer may delete: live matches by creator or league owner; completed matches by the league owner. */
+  /**
+   * Slots the viewer enters darts for. League matches: every human slot for players, the creator
+   * and the league owner. Lobby matches: your own slot, plus local players for the lobby leader.
+   * Undo is limited to the latest human dart in one of these slots.
+   */
+  controlledSlots: number[]
+  /** Restart leg and visit rewind: league scorers, or lobby players who control every human slot. */
+  canResetLeg: boolean
+  /** Viewer may delete: live matches by creator or league owner; completed matches by the league owner. Ranked lobby matches cannot be abandoned. */
   canDelete: boolean
+  /** Lobby matches with two or more account players: the viewer may concede. */
+  canConcede: boolean
+  /** The active opponent can be claimed for inactivity from `at` (lobby matches with 2+ accounts). */
+  claim: { slot: number; at: string } | null
+  /** Lobby matches awaiting confirmation are saved automatically at this time. */
+  autoSaveAt: string | null
+  /** Account players currently connected to Oche. */
+  onlineUserIds: string[]
+  /** Viewer may read and post in this match's chat. */
+  canChat: boolean
   /** Present once completed. */
   results: MatchResult[] | null
 }
@@ -146,8 +178,17 @@ export type MatchConflictResponse = ApiError & { error: 'conflict'; match: Match
 /** POST /api/matches/:matchId/finish — saves the result once `state.matchWinner` is set. */
 export type FinishMatchRequest = { baseVersion: number }
 
-/** Server-sent event payload on GET /api/matches/:matchId/events (event name `match`). */
+/**
+ * POST /api/matches/:matchId/forfeit — concede your own slot, or claim the active opponent's slot
+ * once `claim.at` has passed. Saves the result immediately: the forfeited slot places last.
+ */
+export type ForfeitMatchRequest = { baseVersion: number; slot: number }
+
+/** Server-sent event payloads on GET /api/matches/:matchId/events: `match`, `chat` and `lobby` (lobby matches). */
 export type MatchEvent = { match: MatchDetail }
+
+/** GET /api/me/matches?status=live — the viewer's own unfinished matches, newest first. */
+export type MyMatchesResponse = { matches: (MatchSummary & { leagueName: string | null })[] }
 
 // ── Leagues ───────────────────────────────────────────────────────────────────
 
@@ -278,12 +319,162 @@ export type TrainingMatchTotals = Omit<CareerTotals, 'wins' | 'losses' | 'winRat
 /** UTC calendar month (first day at midnight), oldest first; dart-weighted average. */
 export type StatsHistoryPoint = { at: string; average: number | null; matches: number }
 
-/** GET /api/me/stats — the signed-in user's statistics across all their leagues. */
+/** One completed game in the per-game progress chart (oldest first). */
+export type TrendPoint = { matchId: string; at: string; average: number | null; practice: boolean; ranked: boolean }
+
+export type GlobalRating = {
+  /** Global Elo from ranked lobby matches (starts at 1000). */
+  rating: number
+  /** 1-based position among players with a ranked result, or null before the first one. */
+  rank: number | null
+  matches: number
+  wins: number
+  losses: number
+  /** Oldest first, one point per ranked match. */
+  history: { at: string; rating: number }[]
+}
+
+/** GET /api/me/stats — the signed-in user's statistics across leagues, lobbies and practice. */
 export type CareerStatsResponse = {
   user: User
+  /** Competition: saved matches against at least one other human, without bots. */
   totals: CareerTotals
   history: StatsHistoryPoint[]
-  training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; recentMatches: (MatchSummary & { leagueName: string })[] }
+  /** Training: solo and bot games. No wins, losses or ratings. */
+  training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; recentMatches: (MatchSummary & { leagueName: string | null })[] }
+  /** Every saved game, competition and training combined. */
+  all: { totals: TrainingMatchTotals; history: StatsHistoryPoint[] }
+  /** Latest 50 saved games, oldest first. */
+  trend: TrendPoint[]
+  global: GlobalRating
   leagues: { id: string; name: string; rating: number; rank: number | null; matches: number }[]
-  recentMatches: (MatchSummary & { leagueName: string })[]
+  recentMatches: (MatchSummary & { leagueName: string | null })[]
 }
+
+// ── Global rankings ───────────────────────────────────────────────────────────────────────────
+
+export type RankingEntry = UserRef & {
+  rank: number
+  rating: number
+  /** Ranked matches played. Fewer than 5 is shown as provisional. */
+  matches: number
+  wins: number
+  losses: number
+  /** 3-dart average across ranked matches. */
+  average: number | null
+  lastPlayedAt: string | null
+}
+
+/** GET /api/rankings — top 100 by global rating, plus the viewer's own entry. */
+export type RankingsResponse = { entries: RankingEntry[]; me: RankingEntry | null; totalPlayers: number }
+
+// ── Lobbies ─────────────────────────────────────────────────────────────────────────────────
+
+/** Public lobbies are listed for everyone; private lobbies need the invite link or a direct invite. */
+export type LobbyVisibility = 'public' | 'private'
+
+export type LobbySeat = {
+  id: string
+  /** Account player, house bot, or a local player scored on the leader's device. */
+  kind: 'user' | 'bot' | 'local'
+  userId: string | null
+  botId: string | null
+  name: string
+  avatarUrl: string | null
+  leader: boolean
+  /** Bots and local players are always available; accounts are online with Oche open. */
+  online: boolean
+  /** Global rating for account players. */
+  rating: number | null
+  rankedMatches: number
+}
+
+export type LobbyDetail = {
+  id: string
+  leader: UserRef
+  visibility: LobbyVisibility
+  ranked: boolean
+  /** Maximum seats, including bots and local players (1–8). */
+  capacity: number
+  settings: MatchSettings
+  /** Throw order for the next game. The first seat rotates to the end after each start. */
+  seats: LobbySeat[]
+  /** The viewer's relation. Visitors see a preview and may join when `canJoin`. */
+  role: 'leader' | 'member' | 'visitor'
+  canJoin: boolean
+  /** Why a visitor cannot join (full, private…), when `canJoin` is false. */
+  joinBlockedReason: string | null
+  /** Members only: `${origin}/lobbies/${id}?code=${inviteCode}`. */
+  inviteCode: string | null
+  /** Leader only: pending direct invites. */
+  invited: UserRef[]
+  /** The game in progress, if any. */
+  match: MatchSummary | null
+  lastMatch: MatchSummary | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type LobbySummary = {
+  id: string
+  leader: UserRef & { rating: number | null }
+  visibility: LobbyVisibility
+  ranked: boolean
+  capacity: number
+  settings: MatchSettings
+  seats: { name: string; avatarUrl: string | null; userId: string | null; botId: string | null }[]
+  playing: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** POST /api/lobbies body (all optional) and PATCH /api/lobbies/:id body (leader only). */
+export type LobbyOptionsRequest = Partial<{ visibility: LobbyVisibility; ranked: boolean; capacity: number; settings: MatchSettings }>
+export type LobbyResponse = { lobby: LobbyDetail }
+/** GET /api/lobbies/current — the lobby the viewer sits in (one at a time). */
+export type CurrentLobbyResponse = { lobby: LobbyDetail | null }
+/** GET /api/lobbies — joinable public lobbies whose leader is online. */
+export type LobbiesResponse = { lobbies: LobbySummary[] }
+/** POST /api/lobbies/:id/join — `code` is required for private lobbies without a direct invite. Leaves any other lobby. */
+export type JoinLobbyRequest = { code?: string }
+/** POST /api/lobbies/:id/seats (leader) — add a bot (unranked lobbies) or a local player on the leader's device. */
+export type AddSeatRequest = { botId: string } | { localName: string }
+/** POST /api/lobbies/:id/order (leader) — a permutation of every seat id. */
+export type ReorderSeatsRequest = { seatIds: string[] }
+/** POST /api/lobbies/:id/start (leader) */
+export type StartLobbyResponse = { matchId: string }
+
+/** Server-sent events on GET /api/lobbies/:id/events (event `lobby`) and forwarded to its matches. */
+export type LobbyEvent =
+  | { type: 'lobby'; lobby: LobbyDetail }
+  | { type: 'started'; matchId: string }
+  /** You were removed by the leader, or the lobby closed. */
+  | { type: 'removed' }
+  | { type: 'closed' }
+
+export type LobbyInvite = { lobby: LobbySummary; invitedBy: UserRef; createdAt: string }
+/** GET /api/me/invites — pending invites to private lobbies; DELETE /api/me/invites/:lobbyId declines. */
+export type InvitesResponse = { invites: LobbyInvite[] }
+/** People you know: league members and recent lobby opponents. */
+export type InviteCandidate = UserRef & { online: boolean; invited: boolean; member: boolean; via: string }
+export type InviteCandidatesResponse = { candidates: InviteCandidate[] }
+
+/** Server-sent events on GET /api/me/events (event `user`). */
+export type UserEvent =
+  | { type: 'invite'; invite: LobbyInvite }
+  | { type: 'invite-removed'; lobbyId: string }
+
+// ── Chat ───────────────────────────────────────────────────────────────────────────────────
+
+export const CHAT_MAX_LENGTH = 280
+
+/** `system` messages are complete sentences about lobby events; `user` is who caused them. */
+export type ChatMessage = { id: string; user: UserRef; kind: 'text' | 'system'; body: string; createdAt: string }
+/**
+ * GET/POST /api/lobbies/:id/chat and /api/matches/:id/chat. A lobby match shares its lobby's
+ * chat while the lobby exists. Responses list the latest 100 messages, oldest first.
+ */
+export type ChatResponse = { messages: ChatMessage[] }
+export type ChatPostResponse = { message: ChatMessage }
+/** Server-sent `chat` event on lobby and match streams. */
+export type ChatEvent = { message: ChatMessage }

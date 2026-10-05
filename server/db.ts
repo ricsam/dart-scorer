@@ -212,7 +212,8 @@ const MIGRATIONS: string[] = [
   CREATE TABLE matches_v5 (
     id TEXT PRIMARY KEY,
     league_id TEXT REFERENCES leagues(id) ON DELETE CASCADE,
-    lobby_id TEXT,
+    lobby_id TEXT REFERENCES lobbies(id) ON DELETE SET NULL,
+    visibility TEXT NOT NULL CHECK (visibility IN ('league', 'public', 'private')),
     created_by TEXT NOT NULL REFERENCES users(id),
     status TEXT NOT NULL CHECK (status IN ('live', 'completed')),
     ranked INTEGER NOT NULL DEFAULT 0 CHECK (ranked IN (0, 1)),
@@ -224,10 +225,10 @@ const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     completed_at TEXT,
-    CHECK (league_id IS NOT NULL OR lobby_id IS NOT NULL)
+    CHECK ((league_id IS NULL) = (visibility <> 'league'))
   );
-  INSERT INTO matches_v5 (id, league_id, lobby_id, created_by, status, ranked, practice, forfeit_slot, settings, state, version, created_at, updated_at, completed_at)
-    SELECT m.id, m.room_id, NULL, m.created_by, m.status, 0,
+  INSERT INTO matches_v5 (id, league_id, lobby_id, visibility, created_by, status, ranked, practice, forfeit_slot, settings, state, version, created_at, updated_at, completed_at)
+    SELECT m.id, m.room_id, NULL, 'league', m.created_by, m.status, 0,
       EXISTS (SELECT 1 FROM match_players p WHERE p.match_id = m.id AND p.bot_id IS NOT NULL),
       NULL, m.settings, m.state, m.version, m.created_at, m.updated_at, m.completed_at
     FROM matches m;
@@ -235,8 +236,10 @@ const MIGRATIONS: string[] = [
   ALTER TABLE matches_v5 RENAME TO matches;
   CREATE INDEX matches_league_status_completed ON matches(league_id, status, completed_at);
   CREATE INDEX matches_league_created ON matches(league_id, created_at);
-  CREATE INDEX matches_lobby ON matches(lobby_id);
+  CREATE INDEX matches_lobby ON matches(lobby_id, status);
   CREATE INDEX matches_status_updated ON matches(status, updated_at);
+  -- Who may enter darts for a slot in a lobby match: the player, or the leader for local players.
+  ALTER TABLE match_players ADD COLUMN controller_id TEXT REFERENCES users(id);
 
   CREATE TABLE match_results_v5 (
     match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
@@ -286,8 +289,6 @@ const MIGRATIONS: string[] = [
     capacity INTEGER NOT NULL CHECK (capacity BETWEEN 1 AND 8),
     settings TEXT NOT NULL,
     invite_code TEXT NOT NULL UNIQUE,
-    match_id TEXT,
-    last_match_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -316,6 +317,23 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (lobby_id, user_id)
   );
   CREATE INDEX lobby_invites_user ON lobby_invites(user_id, created_at);
+
+  -- Removed players cannot rejoin by link or listing; a direct invite from the leader lifts it.
+  CREATE TABLE lobby_bans (
+    lobby_id TEXT NOT NULL REFERENCES lobbies(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (lobby_id, user_id)
+  );
+
+  -- Global Elo from ranked lobby matches; per-match values live in match_results.
+  CREATE TABLE global_ratings (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    rating REAL NOT NULL,
+    matches INTEGER NOT NULL,
+    wins INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX global_ratings_rating ON global_ratings(rating DESC);
 
   CREATE TABLE chat_messages (
     id TEXT PRIMARY KEY,

@@ -3,15 +3,21 @@ import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { authRoutes, sessionMiddleware } from './auth'
 import { BotRunner } from './bots'
+import { chatRoutes } from './chat'
 import type { Config } from './config'
 import { DEFAULT_LIMITS, type AppEnv, type Clock, type Limits, type Logger, type Services } from './context'
 import type { Db } from './db'
+import { broadcastMatch, publishLobby } from './events'
 import { createGoogleClient, type GoogleClient } from './google'
 import { ApiException, errorResponse, type ApiErrorCode } from './http'
+import { Janitor } from './janitor'
 import { LiveHub } from './live'
+import { lobbyRoutes } from './lobbies'
+import { currentLobbyFor } from './lobby-data'
 import { matchRoutes } from './matches'
 import { meRoutes } from './me'
 import { leagueRoutes } from './leagues'
+import { rankingRoutes } from './rankings'
 import { assertRateLimit, clientIp, isMutating, originGuard, RateLimiter, securityHeaders } from './security'
 import { mountStatic } from './static'
 import { statsRoutes } from './stats'
@@ -67,8 +73,25 @@ export function createApp(deps: AppDeps): App {
     hub: deps.hub ?? new LiveHub(),
     limits,
     bots: new BotRunner(() => services, deps.botRandom),
+    janitor: new Janitor(() => services),
     authLimiter: new RateLimiter(limits.authPerMinute, 60_000, now),
     mutationLimiter: new RateLimiter(limits.mutationsPerMinute, 60_000, now),
+    chatLimiter: new RateLimiter(limits.chatPerMinute, 60_000, now),
+  }
+
+  // Seats and scoreboards show who is connected: refresh them when someone comes or goes.
+  services.hub.onPresence = (userId) => {
+    if (!db.raw.isOpen) return
+    try {
+      const lobby = currentLobbyFor(db, userId)
+      if (lobby) publishLobby(services, lobby.id)
+      for (const row of db.all<{ id: string }>(
+        "SELECT DISTINCT m.id FROM matches m JOIN match_players p ON p.match_id = m.id WHERE m.status = 'live' AND m.visibility <> 'league' AND p.user_id = ?",
+        userId,
+      )) broadcastMatch(services, row.id)
+    } catch {
+      logger.warn('Unable to publish a presence change.')
+    }
   }
 
   const inviteLimiter = new RateLimiter(60, 60_000, now)
@@ -118,8 +141,11 @@ export function createApp(deps: AppDeps): App {
   const api = new Hono<AppEnv>()
   api.route('/', meRoutes(services))
   api.route('/', leagueRoutes(services))
+  api.route('/', lobbyRoutes(services))
   api.route('/', matchRoutes(services))
+  api.route('/', chatRoutes(services))
   api.route('/', statsRoutes(services))
+  api.route('/', rankingRoutes(services))
   api.route('/', trainingRoutes(services))
   app.route('/api', api)
   app.all('/api/*', (c) => errorResponse(c, 404, 'not_found', 'Unknown API endpoint.'))
