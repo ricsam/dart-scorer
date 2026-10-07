@@ -1,5 +1,8 @@
 /* Oche online edition — builds on the scorer's visual language in ../styles.css. */
 
+/* Keep page chrome aligned when navigation or live content toggles the viewport scrollbar. */
+html { scrollbar-gutter: stable; }
+
 /* Fictional practice rivals */
 .bot-avatar { width: var(--bot-size); height: var(--bot-size); flex: none; display: inline-grid; place-items: center; border: 1px solid var(--bot-color); border-radius: 32%; background: radial-gradient(circle at 35% 20%, color-mix(in srgb, var(--bot-color) 35%, transparent), transparent 80%), #152019; font-size: calc(var(--bot-size) * .58); box-shadow: inset 0 -3px 8px #0002; vertical-align: middle; }
 .bot-badge { display: inline-flex; align-items: center; width: fit-content; padding: 3px 5px; border: 1px solid #547463; border-radius: 4px; color: #b6ddc5; font-size: 8px; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
