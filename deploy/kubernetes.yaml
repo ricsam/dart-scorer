@@ -46,7 +46,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: app
-          image: ghcr.io/ricsam/dart-scorer@sha256:b0645b1f507a722391608ec67e0582cd9aff5bc45d7974df2e29a97239cdfa2d
+          image: ghcr.io/ricsam/dart-scorer@sha256:fe58387a7344ae99f2af72b9920800e6cc45c511a26abeb2c39649287e333cae
           ports:
             - name: http
               containerPort: 8080
