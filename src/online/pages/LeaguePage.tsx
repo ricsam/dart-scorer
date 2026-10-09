@@ -67,12 +67,12 @@ export function LeaguePage({ leagueId }: { leagueId: string }) {
       <div className="page-head">
         <div>
           <span className="eyebrow">
-            <Link to="/leagues" className="crumb">LEAGUES</Link> / {detail.role === 'owner' ? 'YOUR LEAGUE' : `HOSTED BY ${detail.owner.name.toUpperCase()}`}
+            <Link to="/leagues" className="crumb">LEAGUES</Link> / {detail.role === 'owner' ? 'YOUR LEAGUE' : detail.role === 'cohost' ? 'YOU CO-HOST THIS LEAGUE' : `HOSTED BY ${detail.owner.name.toUpperCase()}`}
             {stream === 'open' && <span className="stream-dot" title="Live updates connected" />}
           </span>
           <h1 className="league-title">
             {detail.name}
-            {detail.role === 'owner' && <button className="inline-icon" onClick={() => setRenameOpen(true)} aria-label="Rename league"><Pencil size={15} /></button>}
+            {(detail.role === 'owner' || detail.role === 'cohost') && <button className="inline-icon" onClick={() => setRenameOpen(true)} aria-label="Rename league"><Pencil size={15} /></button>}
           </h1>
           <div className="league-meta">
             <AvatarStack users={detail.members} max={6} size={22} />

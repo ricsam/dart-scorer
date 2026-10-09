@@ -356,10 +356,25 @@ const MIGRATIONS: string[] = [
     image BLOB
   );
   `,
+  // 7 — co-host membership; retain rowids because they break joined_at ties in member order.
+  `
+  CREATE TABLE league_members_v7 (
+    league_id TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('owner', 'cohost', 'member')),
+    joined_at TEXT NOT NULL,
+    PRIMARY KEY (league_id, user_id)
+  );
+  INSERT INTO league_members_v7 (rowid, league_id, user_id, role, joined_at)
+    SELECT rowid, league_id, user_id, role, joined_at FROM league_members;
+  DROP TABLE league_members;
+  ALTER TABLE league_members_v7 RENAME TO league_members;
+  CREATE INDEX league_members_user ON league_members(user_id);
+  `,
 ]
 
 /** Migrations that rebuild tables run with foreign keys disabled (SQLite's documented procedure). */
-const REBUILDS = new Set([4])
+const REBUILDS = new Set([4, 6])
 
 export const SCHEMA_VERSION = MIGRATIONS.length
 

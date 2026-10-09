@@ -257,7 +257,7 @@ function LiveMatchView({ live, match, state, chat, open: chatOpen, setOpen: setC
                   </span>
                 </div>
               ) : (
-                <div className="spectator-note"><Eye size={16} /><span><b>Watching live.</b> {match.leagueId ? 'Only the match’s players, its creator and the league host can score.' : 'Each player enters their own darts.'}</span></div>
+                <div className="spectator-note"><Eye size={16} /><span><b>Watching live.</b> {match.leagueId ? 'Only the match’s players, its creator and the league hosts can score.' : 'Each player enters their own darts.'}</span></div>
               )}
             </div>
           )}

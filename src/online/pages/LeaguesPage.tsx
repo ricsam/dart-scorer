@@ -76,7 +76,7 @@ function LeagueCard({ league, guest = false }: { league: LeagueSummary; guest?: 
         <span><small>RANK</small><b>{!guest && league.myRank ? `#${league.myRank}` : '—'}</b></span>
         <span><small>MATCHES</small><b>{league.completedMatches}</b></span>
       </div>
-      <small className="league-card-foot"><Trophy size={11} /> {guest ? 'Guest' : league.role === 'owner' ? 'You host this league' : 'Member'} · active {relativeTime(league.lastActivityAt)}</small>
+      <small className="league-card-foot"><Trophy size={11} /> {guest ? 'Guest' : league.role === 'owner' ? 'You host this league' : league.role === 'cohost' ? 'You co-host this league' : 'Member'} · active {relativeTime(league.lastActivityAt)}</small>
     </Link>
   )
 }

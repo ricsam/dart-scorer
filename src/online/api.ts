@@ -30,6 +30,7 @@ import type {
   LeaguesResponse,
   StartLobbyResponse,
   UpdateMeResponse,
+  UpdateMemberRoleRequest,
   User,
 } from '../shared/api'
 
@@ -91,6 +92,8 @@ export const api = {
   deleteLeague: (leagueId: string) => request<void>('DELETE', `/api/leagues/${encode(leagueId)}`),
   regenerateInvite: (leagueId: string) => request<InviteCodeResponse>('POST', `/api/leagues/${encode(leagueId)}/invite`),
   removeMember: (leagueId: string, userId: string) => request<void>('DELETE', `/api/leagues/${encode(leagueId)}/members/${encode(userId)}`),
+  updateMemberRole: (leagueId: string, userId: string, role: UpdateMemberRoleRequest['role']) =>
+    request<LeagueResponse>('PATCH', `/api/leagues/${encode(leagueId)}/members/${encode(userId)}`, { role }),
   leaderboard: (leagueId: string, period: LeaderboardPeriod) => request<LeaderboardResponse>('GET', `/api/leagues/${encode(leagueId)}/leaderboard?period=${period}`),
   playerStats: (leagueId: string, userId: string) => request<PlayerLeagueStatsResponse>('GET', `/api/leagues/${encode(leagueId)}/players/${encode(userId)}`),
   leagueMatches: (leagueId: string, before?: string, limit = 20) =>

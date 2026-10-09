@@ -156,6 +156,8 @@ export type MatchView = {
   createdBy: UserRef
   leagueName: string | null
   leagueOwnerId: string | null
+  /** Current owner and co-hosts; never inferred from historical match participants. */
+  leagueHostIds: Set<string>
   /** Current members of the lobby the match was started from, if it still exists. */
   lobbyMemberIds: Set<string>
   results: MatchResult[] | null
@@ -222,6 +224,9 @@ export function buildMatchView(db: Db, row: MatchRow): MatchView {
     createdBy: userRef(db, row.created_by),
     leagueName: league?.name ?? null,
     leagueOwnerId: league?.owner_id ?? null,
+    leagueHostIds: new Set(row.league_id
+      ? db.all<{ user_id: string }>("SELECT user_id FROM league_members WHERE league_id = ? AND role IN ('owner', 'cohost')", row.league_id).map((member) => member.user_id)
+      : []),
     lobbyMemberIds,
     results,
   }
@@ -235,11 +240,11 @@ export function loadMatchView(db: Db, matchId: string): MatchView | undefined {
 const isLobbyMatch = (view: MatchView) => view.row.visibility !== 'league'
 const humanSlots = (view: MatchView) => view.players.filter((player) => !player.botId).map((player) => player.slot)
 
-/** League scorers: the match's players, its creator and the league owner (trusted friends). */
+/** League scorers: the match's players, its creator and the current league hosts (trusted friends). */
 function isLeagueScorer(view: MatchView, viewerId: string) {
   return view.players.some((player) => player.userId === viewerId || player.guestId === viewerId)
     || view.row.created_by === viewerId
-    || view.leagueOwnerId === viewerId
+    || view.leagueHostIds.has(viewerId)
 }
 
 /** Slots the viewer may enter darts for while the match is live. */
@@ -298,8 +303,8 @@ export function canDelete(view: MatchView, viewerId: string) {
     return view.row.created_by === viewerId && (view.row.status === 'live' ? view.row.ranked === 0 : view.row.practice === 1)
   }
   return view.row.status === 'live'
-    ? view.row.created_by === viewerId || view.leagueOwnerId === viewerId
-    : view.leagueOwnerId === viewerId
+    ? view.row.created_by === viewerId || view.leagueHostIds.has(viewerId)
+    : view.leagueHostIds.has(viewerId)
 }
 
 /** League members chat in a league match; lobby matches use the lobby chat (players and lobby members). */

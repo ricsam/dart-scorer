@@ -62,7 +62,7 @@ export function InviteDialog({ league, onClose, onRegenerated }: { league: Leagu
           <button className="primary-button" onClick={copy}>{copied ? <><Check size={15} /> COPIED</> : <><Copy size={15} /> COPY</>}</button>
         </div>
         {canShare && <button className="ghost-button full" onClick={share}><Share2 size={15} /> SHARE…</button>}
-        {league.role === 'owner' && (
+        {(league.role === 'owner' || league.role === 'cohost') && (
           <div className="invite-reset">
             <span>Shared the link too widely? Resetting it stops the old link from working.</span>
             <button className="ghost-button" onClick={regenerate} disabled={busy}><RefreshCw size={14} /> RESET LINK</button>

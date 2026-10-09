@@ -27,7 +27,7 @@ import {
   type LeagueRow,
 } from './data'
 import type { Db } from './db'
-import { openEventStream, publishLeagueRefresh } from './events'
+import { broadcastMatch, openEventStream, publishLeagueRefresh } from './events'
 import { badRequest, expectObject, expectText, forbidden, notFound, queryInteger, readJson, validId } from './http'
 import { normalizeInviteCode, randomId, randomInviteCode } from './ids'
 import { displayRating, INITIAL_RATING, rankIn, leagueRatings } from './ratings'
@@ -107,6 +107,10 @@ function requireOwner(league: LeagueAccess) {
   if (league.role !== 'owner') throw forbidden('Only the league owner can do that.')
 }
 
+function requireHost(league: LeagueAccess) {
+  if (league.role !== 'owner' && league.role !== 'cohost') throw forbidden('Only league hosts can do that.')
+}
+
 export function leagueRoutes(services: Services) {
   const { db, hub } = services
   const app = new Hono<AppEnv>()
@@ -144,12 +148,12 @@ export function leagueRoutes(services: Services) {
 
   app.patch('/leagues/:leagueId', async (c) => {
     const user = requireUser(c)
-    requireOwner(requireLeague(db, c.req.param('leagueId'), user.id))
+    requireHost(requireLeague(db, c.req.param('leagueId'), user.id))
     const body = expectObject(await readJson(c))
     const name = expectText(body.name, 'League name', 1, LEAGUE_NAME_MAX_LENGTH)
     // Re-check synchronously: the league may have changed while the body was read.
     const league = requireLeague(db, c.req.param('leagueId'), user.id)
-    requireOwner(league)
+    requireHost(league)
     const now = nowIso(services)
     db.run('UPDATE leagues SET name = ?, updated_at = ? WHERE id = ?', name, now, league.id)
     publishLeagueRefresh(services, league.id)
@@ -173,7 +177,7 @@ export function leagueRoutes(services: Services) {
   app.post('/leagues/:leagueId/invite', (c) => {
     const user = requireUser(c)
     const league = requireLeague(db, c.req.param('leagueId'), user.id)
-    requireOwner(league)
+    requireHost(league)
     const inviteCode = db.transaction(() => {
       const code = uniqueInviteCode(db)
       db.run('UPDATE leagues SET invite_code = ? WHERE id = ?', code, league.id)
@@ -183,6 +187,36 @@ export function leagueRoutes(services: Services) {
     return c.json<InviteCodeResponse>({ inviteCode })
   })
 
+  app.patch('/leagues/:leagueId/members/:userId', async (c) => {
+    const user = requireUser(c)
+    const leagueId = c.req.param('leagueId')
+    requireHost(requireLeague(db, leagueId, user.id))
+    const body = expectObject(await readJson(c))
+    if (body.role !== 'cohost' && body.role !== 'member') throw badRequest('Role must be cohost or member.')
+    // No await after this point: actor membership/role and target are checked against current data.
+    const league = requireLeague(db, leagueId, user.id)
+    requireHost(league)
+    const targetId = c.req.param('userId')
+    const target = validId(targetId) ? db.get<{ role: LeagueAccess['role']; is_guest: number }>(
+      'SELECT m.role, u.is_guest FROM league_members m JOIN users u ON u.id = m.user_id WHERE m.league_id = ? AND m.user_id = ?',
+      league.id, targetId,
+    ) : undefined
+    if (!target) throw notFound('Member not found.')
+    if (target.role === 'owner' || targetId === league.owner_id) throw forbidden('The owner role cannot be changed.')
+    if (target.is_guest) throw badRequest('Guests cannot be co-hosts.')
+    if (league.role !== 'owner' && (targetId === user.id || body.role === 'member')) throw forbidden('Only the league owner can demote co-hosts.')
+    db.transaction(() => {
+      db.run('UPDATE league_members SET role = ? WHERE league_id = ? AND user_id = ?', body.role as string, league.id, targetId)
+      db.run('UPDATE leagues SET updated_at = ? WHERE id = ?', nowIso(services), league.id)
+    })
+    // Completed matches can still have viewers, and their delete permissions changed too.
+    for (const match of db.all<{ id: string }>('SELECT id FROM matches WHERE league_id = ?', league.id)) {
+      if (hub.matchSubscribers(match.id).length) broadcastMatch(services, match.id)
+    }
+    publishLeagueRefresh(services, league.id)
+    return c.json<LeagueResponse>({ league: leagueDetail(db, requireLeague(db, league.id, user.id)) })
+  })
+
   app.delete('/leagues/:leagueId/members/:userId', (c) => {
     const user = requireUser(c)
     const league = requireLeague(db, c.req.param('leagueId'), user.id)
@@ -190,10 +224,11 @@ export function leagueRoutes(services: Services) {
     if (targetId === user.id) {
       if (league.role === 'owner') throw badRequest('The owner cannot leave the league. Delete it instead.')
     } else {
-      requireOwner(league)
-      if (!validId(targetId) || !db.get('SELECT 1 FROM league_members WHERE league_id = ? AND user_id = ?', league.id, targetId)) {
-        throw notFound('Member not found.')
-      }
+      requireHost(league)
+      const target = validId(targetId) ? db.get<{ role: LeagueAccess['role'] }>('SELECT role FROM league_members WHERE league_id = ? AND user_id = ?', league.id, targetId) : undefined
+      if (!target) throw notFound('Member not found.')
+      if (target.role === 'owner' || targetId === league.owner_id) throw forbidden('The owner cannot be removed.')
+      if (target.role === 'cohost' && league.role !== 'owner') throw forbidden('Only the league owner can remove co-hosts.')
     }
     db.transaction(() => {
       db.run('DELETE FROM league_members WHERE league_id = ? AND user_id = ?', league.id, targetId)

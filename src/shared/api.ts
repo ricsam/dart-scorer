@@ -134,13 +134,13 @@ export type MatchDetail = MatchContext & {
   canScore: boolean
   /**
    * Slots the viewer enters darts for. League matches: every human slot for players, the creator
-   * and the league owner. Lobby matches: your own slot, plus local players for the lobby leader.
+   * and the league hosts. Lobby matches: your own slot, plus local players for the lobby leader.
    * Undo is limited to the latest human dart in one of these slots.
    */
   controlledSlots: number[]
   /** Restart leg and visit rewind: league scorers, or lobby players who control every human slot. */
   canResetLeg: boolean
-  /** Viewer may delete: live matches by creator or league owner; completed matches by the league owner. Ranked lobby matches cannot be abandoned. */
+  /** Viewer may delete: live matches by creator or league hosts; completed matches by league hosts. Ranked lobby matches cannot be abandoned. */
   canDelete: boolean
   /** Lobby matches with two or more account players: the viewer may concede. */
   canConcede: boolean
@@ -192,7 +192,8 @@ export type MyMatchesResponse = { matches: (MatchSummary & { leagueName: string 
 
 // ── Leagues ───────────────────────────────────────────────────────────────────
 
-export type MemberRole = 'owner' | 'member'
+/** The original host remains the owner; co-hosts help manage the league. */
+export type MemberRole = 'owner' | 'cohost' | 'member'
 
 export type LeagueMember = UserRef & {
   guest: boolean
@@ -239,7 +240,9 @@ export type LeaguesResponse = { leagues: LeagueSummary[] }
 export type LeagueResponse = { league: LeagueDetail }
 /** POST /api/leagues, PATCH /api/leagues/:leagueId */
 export type LeagueNameRequest = { name: string }
-/** POST /api/leagues/:leagueId/invite — regenerates the invite code (owner only). */
+/** PATCH /api/leagues/:leagueId/members/:userId — hosts promote account members; only the owner can demote co-hosts. */
+export type UpdateMemberRoleRequest = { role: 'cohost' | 'member' }
+/** POST /api/leagues/:leagueId/invite — regenerates the invite code (owner or co-host). */
 export type InviteCodeResponse = { inviteCode: string }
 /** GET /api/leagues/:leagueId/matches?before=<completedAt ISO>&limit=<1-50> — completed matches, newest first. */
 export type MatchesResponse = { matches: MatchSummary[]; hasMore: boolean }

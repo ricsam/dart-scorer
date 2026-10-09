@@ -76,6 +76,13 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
 - Leagues and matches the viewer can't see are 404. Limits: league names 1–40 characters, 20 owned
   leagues per user, 100 members per league, 10 live matches per league; guest names 1–18, display
   names 1–24 characters.
+- League roles (schema v7): `owner`, `cohost`, `member`. `PATCH /api/leagues/:id/members/:userId`
+  with `{role: 'cohost' | 'member'}` returns `{league}`. Owners/co-hosts may promote current account
+  members; only owners may demote or remove co-hosts. Guests and the owner cannot have their roles
+  changed. Co-hosts can rename, rotate invites, remove ordinary members, and score/delete league
+  matches; only owners can delete the league. Leaving and rejoining resets a co-host to member.
+  Role changes refresh league views and subscribed match permissions immediately. Migration v7
+  preserves membership rows, their order and foreign keys; existing leagues keep their owner.
 - Matches: only `submit`, `undo`, `resetLeg`, `nextLeg` and `rewind` actions. Every accepted
   change (including finishing) increments `version`; a stale `baseVersion` gets 409 with the
   current match, a no-op action returns 200 with the version unchanged. Submit entries use

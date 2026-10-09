@@ -254,7 +254,7 @@ export function matchRoutes(services: Services) {
     const view = buildMatchView(db, match)
     if (!isScorer(view, userId)) {
       throw forbidden(match.visibility === 'league'
-        ? 'Only the players, the match creator and the league owner can score this match.'
+        ? 'Only the players, the match creator and the league hosts can score this match.'
         : 'Only the players in this match can score it.')
     }
     if (baseVersion !== match.version) throw matchConflict(view, userId, isOnline)
@@ -342,8 +342,8 @@ export function matchRoutes(services: Services) {
       throw forbidden(match.visibility !== 'league'
         ? match.ranked ? 'Ranked games cannot be abandoned. Concede, or claim the win if your opponent stops playing.' : 'Only the lobby leader can abandon this game.'
         : match.status === 'live'
-          ? 'Only the match creator or the league owner can delete a live match.'
-          : 'Only the league owner can delete a completed match.')
+          ? 'Only the match creator or the league hosts can delete a live match.'
+          : 'Only the league hosts can delete a completed match.')
     }
     db.transaction(() => {
       db.run('DELETE FROM matches WHERE id = ?', match.id)

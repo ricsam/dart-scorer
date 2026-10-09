@@ -30,10 +30,11 @@ Type `T20`, `D18`, `25`, `BULL` or `MISS`; separate darts with spaces. Numeric s
 ### Leagues
 
 - Create persistent leagues (formerly “rooms”; old `/rooms/:id` links redirect), share an invite link or QR code, rotate invite links, rename leagues, remove members or leave.
+- Hosts can appoint account members as **co-hosts** from **Members**. Co-hosts can rename the league, manage ordinary members and invites, score/delete matches, and appoint more co-hosts. Only the original host can revoke co-host access, remove co-hosts, or delete the league. Co-hosts can leave; guests cannot become hosts.
 - Invite visitors can **Join as a guest** with a display name or connect to an existing unclaimed guest slot. League members can add the same kind of guest from Members or New match for shared-device play; guests persist in the league roster and are always unranked.
 - Select league players, choose throw order, format and first-to-1–11 legs. A guest on their own device can score when selected, just like an account player.
 - Guest identities are scoped to one league and kept by a browser session cookie. Claimed slots cannot be taken over by name, including after sign-out or expiry. Signing in starts a separate account identity; it does not merge or retroactively rank guest matches. Share invites only with trusted players: invite holders can see and claim unclaimed guest names.
-- Score from a shared device or follow live from another phone. In league matches the players, the match creator and the league host can score any player; other league members can watch.
+- Score from a shared device or follow live from another phone. In league matches the players, the match creator and the league hosts can score any player; other league members can watch.
 - Save the result after the final leg to update the leaderboard; Undo is available before saving. Saved matches are immutable; hosts can delete erroneous results and ratings are recalculated.
 - Per-league Elo ratings, win/loss records, form, 3-dart averages, first-nine averages, checkout rates, 180s, high checkouts, best legs, player rating history and head-to-head records. All-time / 30-day / 7-day stats, sortable leaderboards, match history and rematches.
 
