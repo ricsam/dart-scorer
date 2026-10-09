@@ -29,14 +29,15 @@ export function defaultDisplayName(candidates: (string | null | undefined)[], em
 
 /**
  * Finds or creates the user for an external identity. New users get `name`; returning users
- * keep their chosen name but have email/avatar refreshed.
+ * keep their chosen name and local avatar choice; untouched Google avatars refresh.
  */
 export function upsertIdentity(db: Db, input: { subject: string; email: string; name: string; avatarUrl: string | null; now: string }): UserRow {
   return db.transaction(() => {
     const existing = db.get<UserRow>('SELECT * FROM users WHERE google_sub = ?', input.subject)
     if (existing) {
-      db.run('UPDATE users SET email = ?, avatar_url = ?, last_login_at = ? WHERE id = ?', input.email, input.avatarUrl, input.now, existing.id)
-      return { ...existing, email: input.email, avatar_url: input.avatarUrl, last_login_at: input.now }
+      const avatarUrl = db.get('SELECT 1 FROM user_avatars WHERE user_id = ?', existing.id) ? existing.avatar_url : input.avatarUrl
+      db.run('UPDATE users SET email = ?, avatar_url = ?, last_login_at = ? WHERE id = ?', input.email, avatarUrl, input.now, existing.id)
+      return { ...existing, email: input.email, avatar_url: avatarUrl, last_login_at: input.now }
     }
     const row: UserRow = {
       id: randomId(),

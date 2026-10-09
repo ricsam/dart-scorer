@@ -7,7 +7,7 @@ import type {
   MatchesResponse,
   PlayerLeagueStatsResponse,
 } from '../../src/shared/api'
-import { resultsHistory } from '../../server/stats'
+import { progressStats, resultsHistory, resultsTrend } from '../../server/stats'
 import type { ResultRow } from '../../server/data'
 import { CHECKOUT_101, Client, createMatch, createLeague, devLogin, finish, joinLeague, play, setup } from './helpers'
 
@@ -35,6 +35,14 @@ async function seedLeague() {
   ctx.clock.advanceDays(1)
   return { ctx, olivia, max, nora, zed, outsider, league, m1, m2, m3 }
 }
+
+const resultRow = (overrides: Partial<ResultRow> = {}): ResultRow => ({
+  match_id: 'match', league_id: null, slot: 0, user_id: 'user', placing: 1, won: 0,
+  legs_won: 0, legs_played: 1, darts: 0, points: 0, visits: 0, first9_points: 0, first9_darts: 0,
+  checkouts: 0, checkout_attempts: 0, highest_checkout: 0, best_leg_darts: null,
+  scores_180: 0, scores_140: 0, scores_100: 0, rating_before: null, rating_after: null,
+  completed_at: '2026-01-01T12:00:00.000Z', ...overrides,
+})
 
 const byName = (entries: LeaderboardEntry[], name: string) => entries.find((entry) => entry.name === name)!
 
@@ -136,7 +144,7 @@ describe('player statistics', () => {
       { at: m2.completedAt, rating: 999 },
       { at: m3.completedAt, rating: 1015 },
     ])
-    expect(stats.history).toEqual([{ at: `${m1.completedAt!.slice(0, 7)}-01T00:00:00.000Z`, average: (202 / 9) * 3, matches: 3 }])
+    expect(stats.history).toMatchObject([{ at: `${m1.completedAt!.slice(0, 7)}-01T00:00:00.000Z`, average: (202 / 9) * 3, matches: 3, first9Average: (202 / 9) * 3, checkouts: 2, checkoutAttempts: 2, checkoutRate: 1, highestCheckout: 101, bestLegDarts: 3, scores100: 2 }])
     expect(stats.training).toMatchObject({ totals: { matches: 0, average: null }, history: [], recentMatches: [] })
     expect(stats.headToHead).toEqual([{ opponent: { id: expect.any(String), name: 'Nora', avatarUrl: null }, wins: 2, losses: 1 }])
     expect(stats.recentMatches.map((match) => match.id)).toEqual([m3.id, m2.id, m1.id])
@@ -167,17 +175,43 @@ describe('player statistics', () => {
 
 describe('training and progress', () => {
   it('buckets UTC months oldest first with dart-weighted averages and null for no darts', () => {
-    const row = (completed_at: string, points: number, darts: number) => ({ completed_at, points, darts }) as ResultRow
+    const row = (completed_at: string, points: number, darts: number) => resultRow({ completed_at, points, darts })
     expect(resultsHistory([
       row('2026-03-01T00:00:00Z', 0, 0),
       row('2026-02-01T00:30:00+01:00', 90, 3),
       row('2026-01-15T12:00:00Z', 30, 9),
       row('2026-02-10T00:00:00Z', 60, 3),
-    ])).toEqual([
+    ])).toMatchObject([
       { at: '2026-01-01T00:00:00.000Z', average: 30, matches: 2 },
       { at: '2026-02-01T00:00:00.000Z', average: 60, matches: 1 },
       { at: '2026-03-01T00:00:00.000Z', average: null, matches: 1 },
     ])
+  })
+
+  it('weights checkout and first-nine rates, preserves missing values and aggregates records', () => {
+    const rows = [
+      resultRow({ checkouts: 1, checkout_attempts: 1, first9_points: 90, first9_darts: 3, highest_checkout: 101, best_leg_darts: 9, scores_180: 1, scores_140: 2, scores_100: 3 }),
+      resultRow({ checkouts: 1, checkout_attempts: 9, first9_points: 30, first9_darts: 9, highest_checkout: 40, best_leg_darts: 18, scores_100: 2 }),
+    ]
+    expect(resultsHistory(rows)).toEqual([{
+      at: '2026-01-01T00:00:00.000Z', matches: 2, average: null, first9Average: 30,
+      checkoutRate: 0.2, checkouts: 2, checkoutAttempts: 10, highestCheckout: 101, bestLegDarts: 9,
+      scores180: 1, scores140: 2, scores100: 5, points: 0, darts: 0, first9Points: 120, first9Darts: 12,
+    }])
+    expect(progressStats([resultRow()])).toMatchObject({ average: null, first9Average: null, checkoutRate: null, bestLegDarts: null, highestCheckout: 0 })
+    expect(progressStats([resultRow({ checkout_attempts: 3 })]).checkoutRate).toBe(0)
+  })
+
+  it('returns the latest 50 games oldest first, without dropping games lacking darts or attempts', () => {
+    const rows = Array.from({ length: 55 }, (_, index) => ({
+      ...resultRow({ match_id: `game-${index}`, completed_at: new Date(Date.UTC(2026, 0, 55 - index)).toISOString() }),
+      practice: index % 2, ranked: index % 2 ? 0 : 1,
+    }))
+    const trend = resultsTrend(rows)
+    expect(trend).toHaveLength(50)
+    expect(trend[0]).toEqual({ ...progressStats([rows[49]]), matchId: 'game-49', at: rows[49].completed_at, practice: true, ranked: false })
+    expect(trend[49]).toMatchObject({ matchId: 'game-0', checkoutRate: null, practice: false, ranked: true })
+    expect(resultsTrend(rows.filter((row) => row.practice === 0))).toHaveLength(28)
   })
 
   it('classifies historical stored bot participants without rewriting results; recomputes on deletion and protects left leagues', async () => {
@@ -200,14 +234,18 @@ describe('training and progress', () => {
     expect(career.history).toEqual([])
     expect(career.recentMatches).toEqual([])
     expect(career.training.totals.average).toBeCloseTo(202 / 8 * 3)
-    expect(career.training.history).toEqual([{ at: '2025-01-01T00:00:00.000Z', average: 202 / 8 * 3, matches: 2 }])
+    expect(career.competitionTrend).toEqual([])
+    expect(career.trend).toEqual(career.training.trend)
+    expect(career.training.trend).toHaveLength(2)
+    expect(career.training.trend.every((point) => point.practice && point.checkoutRate === 1)).toBe(true)
+    expect(career.training.history).toMatchObject([{ at: '2025-01-01T00:00:00.000Z', average: 202 / 8 * 3, matches: 2 }])
     const player = await human.json<PlayerLeagueStatsResponse>('GET', `/api/leagues/${league.id}/players/${human.userId}`, 200)
     expect(player).toMatchObject({ entry: { matches: 0, form: [] }, history: [], ratingHistory: [], headToHead: [], recentMatches: [] })
     expect(player.training.history).toEqual(career.training.history)
     await owner.json('DELETE', `/api/matches/${second.id}`, 204)
     const after = await human.json<CareerStatsResponse>('GET', '/api/me/stats', 200)
     expect(after.training.totals).toMatchObject({ matches: 1, average: 101 })
-    expect(after.training.history).toEqual([{ at: '2025-01-01T00:00:00.000Z', average: 101, matches: 1 }])
+    expect(after.training.history).toMatchObject([{ at: '2025-01-01T00:00:00.000Z', average: 101, matches: 1 }])
     await human.json('DELETE', `/api/leagues/${league.id}/members/${human.userId}`, 204)
     const left = await human.json<CareerStatsResponse>('GET', '/api/me/stats', 200)
     expect(left.training.totals.matches).toBe(1)
@@ -231,6 +269,10 @@ describe('career statistics', () => {
     expect(career.user).toMatchObject({ id: max.userId, name: 'Max' })
     expect(career.totals).toMatchObject({ matches: 4, wins: 2, losses: 2, legsWon: 2, legsPlayed: 4, lastPlayedAt: office.completedAt })
     expect(career.totals.winRate).toBe(0.5)
+    expect(career.trend).toEqual(career.competitionTrend)
+    expect(career.training.trend).toEqual([])
+    expect(career.competitionTrend).toHaveLength(4)
+    expect(career.trend.every((point) => !point.practice)).toBe(true)
     expect(career.leagues).toEqual([
       { id: league.id, name: 'League', rating: 1015, rank: 1, matches: 3 },
       { id: other.id, name: 'Office', rating: 984, rank: 2, matches: 1 },

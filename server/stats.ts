@@ -3,6 +3,8 @@ import type {
   CareerTotals,
   TrainingMatchTotals,
   StatsHistoryPoint,
+  ProgressStats,
+  TrendPoint,
   LeaderboardEntry,
   LeaderboardPeriod,
   LeaderboardResponse,
@@ -89,6 +91,25 @@ export function aggregateTrainingResults(rows: ResultRow[]): TrainingMatchTotals
   return totals
 }
 
+export function progressStats(rows: ResultRow[]): ProgressStats {
+  const { average, first9Average, checkoutRate, checkouts, checkoutAttempts, highestCheckout, bestLegDarts, scores180, scores140, scores100 } = aggregateTrainingResults(rows)
+  return {
+    average, first9Average, checkoutRate, checkouts, checkoutAttempts, highestCheckout, bestLegDarts, scores180, scores140, scores100,
+    points: rows.reduce((sum, row) => sum + row.points, 0),
+    darts: rows.reduce((sum, row) => sum + row.darts, 0),
+    first9Points: rows.reduce((sum, row) => sum + row.first9_points, 0),
+    first9Darts: rows.reduce((sum, row) => sum + row.first9_darts, 0),
+  }
+}
+
+/** Input is newest first. Limit each category independently, including games without a checkout opportunity. */
+export function resultsTrend(rows: (ResultRow & { practice: number; ranked: number })[]): TrendPoint[] {
+  return rows.slice(0, 50).reverse().map((row) => ({
+    ...progressStats([row]), matchId: row.match_id, at: row.completed_at,
+    practice: row.practice === 1, ranked: row.ranked === 1,
+  }))
+}
+
 export function resultsHistory(rows: ResultRow[]): StatsHistoryPoint[] {
   const months = new Map<string, ResultRow[]>()
   for (const row of rows) {
@@ -98,8 +119,7 @@ export function resultsHistory(rows: ResultRow[]): StatsHistoryPoint[] {
     months.set(at, bucket)
   }
   return [...months].sort(([a], [b]) => a.localeCompare(b)).map(([at, bucket]) => {
-    const { average, matches } = aggregateTrainingResults(bucket)
-    return { at, average, matches }
+    return { at, matches: bucket.length, ...progressStats(bucket) }
   })
 }
 

@@ -7,15 +7,27 @@
 .progress-line { stroke: currentColor; stroke-width: 2; }
 .progress-dot { fill: currentColor; }
 .stats-progress-table { overflow-x: auto; }
-.stats-progress table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.stats-progress caption { text-align: left; padding: 8px 0; }
-.stats-progress th, .stats-progress td { text-align: left; padding: 10px 8px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+.stats-progress-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stats-progress-table caption { text-align: left; padding: 8px 0; }
+.stats-progress-table th, .stats-progress-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+.progress-charts { margin-top: 24px; min-width: 0; }
+.progress-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.progress-heading h3 { margin: 0; font-size: 16px; }
+.progress-metric { display: flex; align-items: center; gap: 10px; max-width: 100%; font-size: 12px; }
+.progress-metric select { min-width: 0; max-width: 100%; min-height: 44px; padding: 8px 30px 8px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); background: var(--panel, #132219); color: inherit; font: inherit; }
+.light .progress-metric select { background: #fff; }
+.progress-explanation { font-size: 12px; line-height: 1.6; }
+.progress-dates { display: flex; justify-content: space-between; gap: 12px; margin: 4px 0 10px; font-size: 11px; color: #8a998f; }
+.progress-results { margin-top: 14px; }
+.progress-results summary { cursor: pointer; padding: 8px 0; font-size: 12px; }
+.progress-results th, .progress-results td { white-space: nowrap; }
+.progress-results summary:focus-visible, .stats-progress-table:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 .bot-picker-disclosure { width: 100%; min-width: 0; margin-top: 16px; }
 .bot-picker-disclosure summary { cursor: pointer; padding: 14px 0; font-weight: 600; }
 .bot-picker-disclosure summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 .bot-picker-disclosure summary span { display: inline-block; margin-left: 12px; font-size: 12px; font-weight: 400; }
 
-/* Per-game average with a rolling five-game line */
+/* Per-game statistics with a weighted rolling five-game line */
 .trend-chart { margin: 24px 0; min-width: 0; }
 .trend-chart h3 { margin: 0; font-size: 14px; }
 .trend-summary { margin: 6px 0 0; color: #8a998f; font-size: 11px; }

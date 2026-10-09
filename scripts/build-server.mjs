@@ -5,6 +5,8 @@ await build({
   entryPoints: ['server/index.ts'],
   outfile: 'dist-server/index.mjs',
   bundle: true,
+  // Sharp loads platform-specific native binaries from its installed package.
+  external: ['sharp'],
   platform: 'node',
   format: 'esm',
   target: 'node22',

@@ -1,12 +1,12 @@
 import { Hono } from 'hono'
-import type { CareerStatsResponse, GlobalRating, MeResponse, TrendPoint, UpdateMeResponse } from '../src/shared/api'
+import type { CareerStatsResponse, GlobalRating, MeResponse, UpdateMeResponse } from '../src/shared/api'
 import { requireUser } from './auth'
 import type { AppEnv, Services } from './context'
 import { buildMatchView, matchSummary, memberRows, type MatchRow, type ResultRow, type LeagueRow } from './data'
 import type { Db } from './db'
 import { expectObject, expectText, readJson, forbidden } from './http'
 import { displayRating, globalRank, INITIAL_RATING, rankIn, leagueRatings } from './ratings'
-import { aggregateResults, aggregateTrainingResults, resultsHistory } from './stats'
+import { aggregateResults, aggregateTrainingResults, resultsHistory, resultsTrend } from './stats'
 import { toUser, USER_NAME_MAX_LENGTH } from './users'
 
 /** The user's global rating, rank and rating after each ranked match. */
@@ -85,14 +85,6 @@ export function meRoutes(services: Services) {
       training ? 1 : 0, user.id, user.id,
     ).map(({ league_name: leagueName, ...row }) => ({ ...matchSummary(buildMatchView(db, row)), leagueName }))
 
-    const trend = allRows.slice(0, 50).reverse().map((row): TrendPoint => ({
-      matchId: row.match_id,
-      at: row.completed_at,
-      average: row.darts ? (row.points / row.darts) * 3 : null,
-      practice: row.practice === 1,
-      ranked: row.ranked === 1,
-    }))
-
     return c.json<CareerStatsResponse>({
       user: toUser(user),
       totals: aggregateResults(results),
@@ -102,10 +94,12 @@ export function meRoutes(services: Services) {
       training: {
         totals: aggregateTrainingResults(trainingRows),
         history: resultsHistory(trainingRows),
+        trend: resultsTrend(trainingRows),
         recentMatches: recent(true),
       },
       all: { totals: aggregateTrainingResults(allRows), history: resultsHistory(allRows) },
-      trend,
+      trend: resultsTrend(allRows),
+      competitionTrend: resultsTrend(results),
       global: globalRatingFor(db, user.id),
     })
   })

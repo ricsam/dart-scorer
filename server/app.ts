@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { authRoutes, sessionMiddleware } from './auth'
 import { BotRunner } from './bots'
+import { avatarRoutes, avatarUploadGuard } from './avatar'
 import { chatRoutes } from './chat'
 import type { Config } from './config'
 import { DEFAULT_LIMITS, type AppEnv, type Clock, type Limits, type Logger, type Services } from './context'
@@ -118,7 +119,10 @@ export function createApp(deps: AppDeps): App {
     }
   })
 
-  app.use('/api/*', originGuard(config))
+  const standardOriginGuard = originGuard(config)
+  app.use('/api/*', (c, next) => c.req.method === 'PUT' && c.req.path === '/api/me/avatar'
+    ? avatarUploadGuard(config)(c, next)
+    : standardOriginGuard(c, next))
   app.use('/auth/*', originGuard(config))
   app.use('/auth/*', async (c, next) => {
     assertRateLimit(services.authLimiter, clientIp(c, config.trustProxy))
@@ -140,6 +144,7 @@ export function createApp(deps: AppDeps): App {
   app.route('/auth', authRoutes(services))
   const api = new Hono<AppEnv>()
   api.route('/', meRoutes(services))
+  api.route('/', avatarRoutes(services))
   api.route('/', leagueRoutes(services))
   api.route('/', lobbyRoutes(services))
   api.route('/', matchRoutes(services))

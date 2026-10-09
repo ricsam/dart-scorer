@@ -148,6 +148,7 @@ function UserMenu({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (theme
             : <>
               <button role="menuitem" onClick={() => go('/me')}><BarChart3 size={15} /> My stats</button>
               <button role="menuitem" onClick={() => go('/me#nickname')}><Pencil size={15} /> Edit dart nickname</button>
+              <button role="menuitem" onClick={() => go('/me#picture')}><Pencil size={15} /> Change profile picture</button>
             </>}
           <button role="menuitem" onClick={() => go('/about')}><Info size={15} /> About & scoring</button>
           <button role="menuitem" onClick={() => onTheme(theme === 'dark' ? 'light' : 'dark')}>

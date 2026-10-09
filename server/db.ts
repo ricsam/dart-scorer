@@ -348,6 +348,14 @@ const MIGRATIONS: string[] = [
   CREATE INDEX chat_lobby ON chat_messages(lobby_id, created_at);
   CREATE INDEX chat_match ON chat_messages(match_id, created_at);
   `,
+  // 6 — local avatars; a row with NULL image records an explicit removal.
+  `
+  CREATE TABLE user_avatars (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    version TEXT NOT NULL,
+    image BLOB
+  );
+  `,
 ]
 
 /** Migrations that rebuild tables run with foreign keys disabled (SQLite's documented procedure). */

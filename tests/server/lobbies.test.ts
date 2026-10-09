@@ -85,7 +85,9 @@ describe('lobbies', () => {
     expect(stats.totals.matches).toBe(0)
     expect(stats.training.totals).toMatchObject({ matches: 1, average: 101 / 5 * 3 })
     expect(stats.all.totals).toMatchObject({ matches: 1, average: 101 / 5 * 3 })
-    expect(stats.trend).toEqual([{ matchId: match.id, at: saved.completedAt, average: 101 / 5 * 3, practice: true, ranked: false }])
+    expect(stats.trend).toMatchObject([{ matchId: match.id, at: saved.completedAt, average: 101 / 5 * 3, practice: true, ranked: false, checkoutRate: 1, checkoutAttempts: 1, checkouts: 1, first9Average: 101 / 5 * 3, bestLegDarts: 5, highestCheckout: 41 }])
+    expect(stats.training.trend).toEqual(stats.trend)
+    expect(stats.competitionTrend).toEqual([])
     expect(stats.training.recentMatches.map((item) => [item.id, item.leagueName])).toEqual([[match.id, null]])
     expect(stats.global).toEqual({ rating: 1000, rank: null, matches: 0, wins: 0, losses: 0, history: [] })
 

@@ -1,0 +1,7 @@
+.profile-picture-editor { padding: 24px; margin-block: 24px; scroll-margin-top: 90px; }
+.profile-picture-editor:focus-visible { outline: 2px solid var(--accent, #b8d95b); outline-offset: 4px; }
+.profile-picture-editor p { max-width: 65ch; line-height: 1.6; }
+.profile-picture-preview { margin-block: 20px; }
+.profile-picture-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.profile-picture-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+@media (max-width: 480px) { .profile-picture-editor { padding: 16px; } }

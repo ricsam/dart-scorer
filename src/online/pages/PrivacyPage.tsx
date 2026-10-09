@@ -11,7 +11,7 @@ export function PrivacyPage() {
 
       <h2>What we store</h2>
       <ul>
-        <li><b>Your Google account basics:</b> the account identifier, name, email address and profile picture URL that Google shares when you sign in. Your display name can be changed on your profile.</li>
+        <li><b>Your Google account basics:</b> the account identifier, name, email address and profile picture URL that Google shares when you sign in. Your display name and picture can be changed on your profile. If you upload a picture, Oche stores a resized square image in its database, with image metadata removed. Replacing or removing it deletes the previous uploaded image; removing a picture switches to your initials and stays saved across sign-ins.</li>
         <li><b>Guest players:</b> a display name, league membership and match participation, whether added by a friend or joined from an invite. A session cookie connects a self-joining guest to their browser; no Google account or email is needed.</li>
         <li><b>What you create:</b> leagues, lobbies, matches, every dart entered in them, chat messages, lobby invitations, and the statistics and ratings derived from them. Your last lobby format is remembered for the next lobby.</li>
         <li><b>A session cookie</b> that keeps you signed in. The theme preference lives only in your browser’s local storage.</li>
@@ -20,6 +20,7 @@ export function PrivacyPage() {
       <h2>Who can see it</h2>
       <p>Your display name, picture, matches and statistics are visible to members of the leagues you join and to players in your lobbies. Whether you are connected is shown to players in your lobby and games. Your email address is only shown to you. Invite links let anyone who has them see a league’s name, host, player count and unclaimed guest names before joining, or a lobby’s players and format. Share invites only with people you trust.</p>
       <p>When you open a <b>public lobby</b>, signed-in players can see it with your name, picture and global rating, and can watch its games live. Lobby chat is visible only to its players. If you play <b>ranked</b> games, your name, picture, global rating and ranked record appear in the global rankings for signed-in players. League members and people you have played with can invite you to a lobby.</p>
+      <p>Uploaded pictures have public image URLs: anyone with the URL can view them. Replacing or removing a picture stops serving the old image, but previously cached copies can remain for up to a day.</p>
       <p>Chat messages are kept for the lobby or match they belong to (the latest 200 per conversation) and removed with it. Lobbies close automatically after they sit idle.</p>
 
       <h2>What we don’t do</h2>

@@ -6,7 +6,8 @@ The HTTP contract lives in [`src/shared/api.ts`](../src/shared/api.ts); the dart
 shared engine in [`src/game`](../src/game).
 
 - [Hono](https://hono.dev) on `@hono/node-server`, SQLite through Node's built-in `node:sqlite`
-  (Node 24+; no native modules), `jose` to verify Google ID tokens.
+  (Node 24+), `jose` to verify Google ID tokens, and native `sharp` to validate and resize uploaded pictures.
+  Sharp is external to the server bundle: install production dependencies on the target platform (`npm ci --omit=dev`). The Dockerfile does this automatically.
 - One process owns the database and the live-update hub (in-memory SSE fan-out and rate limits),
   so run a single replica.
 
@@ -47,6 +48,8 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
   `/login?error=<code>` with `access_denied`, `state_mismatch`, `state_expired`, `invalid_request`,
   `google_failed`, `email_unverified` or `google_unavailable`.
 - `POST /auth/logout` (204), `POST /auth/dev-login` (`{ user }`).
+- `PUT /api/me/avatar`: authenticated account only, raw JPEG/PNG/WebP body up to 10 MiB and 40 megapixels; requires a matching Origin. Returns `{ user }`. Sharp validates, strips metadata and centre-crops to 256×256 WebP. `DELETE /api/me/avatar` removes it to initials (also `{ user }`).
+- `GET /api/avatars/:userId/:version.webp`: public versioned image URL, cached for one day. Replacing/removing invalidates the previous URL on the server; already cached copies may remain until expiry.
 - `GET /healthz` (process up) and `GET /readyz` (database answers).
 - SSE: `GET /api/matches/:id/events` (event `match`; `chat` messages for the match or its lobby;
   `lobby` `{ type: 'started', matchId }` when its lobby starts the next game; and `match-deleted`
@@ -63,8 +66,10 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
 
 - Sessions: 32 random bytes in `__Host-oche_session` (https) or `oche_session`, HttpOnly,
   SameSite=Lax; only the SHA-256 is stored. 60-day lifetime, renewed when under 30 days remain.
-- Mutations (`POST`/`PATCH`/`DELETE` under `/api` and `/auth`) need a matching `Origin` (when sent)
+- Mutations (`POST`/`PUT`/`PATCH`/`DELETE` under `/api` and `/auth`) need a matching `Origin` (when sent)
   and `Content-Type: application/json` bodies of at most 64 KB (403 / 415 / 413).
+  The avatar PUT is the only binary-body exception and requires Origin even when other requests omit it.
+- Schema v6 adds `user_avatars`: one normalized image per account, or a NULL-image row marking explicit removal. Custom pictures/removal survive identity-provider sign-ins; untouched provider pictures still refresh. Avatar bytes are included in ordinary SQLite backups.
 - Rate limits (in memory): 30 `/auth` requests per IP per minute, 300 mutations per user per
   minute, 60 public invite previews per IP per minute, 20 concurrent SSE streams per user.
   Each rate-limit map is capped at 10,000 keys and fails closed for new keys until expiry.
@@ -107,7 +112,7 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
   The UI polls every two seconds. The list returns at most 100 latest accessible participant sessions.
 - Career totals (`/api/me/stats`) include results from leagues the user has since left; recent
   matches only list leagues the user can still see, plus the user's own lobby games. The response
-  also has `all` (competition + training), a 50-game `trend` and the `global` rating.
+  also has `all` (competition + training), 50-game `trend`, `competitionTrend` and `training.trend` (limited independently), and the `global` rating. Progress points include checkout/first-nine rates, records, scoring visit counts and raw denominators for weighted rolling values. Monthly histories cover all saved results, grouped by UTC month.
 
 ## Lobbies, chat and online rules (schema v5)
 

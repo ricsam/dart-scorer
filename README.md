@@ -14,6 +14,7 @@ Type `T20`, `D18`, `25`, `BULL` or `MISS`; separate darts with spaces. Numeric s
 ## Online edition
 
 - Google sign-in using authorization code + PKCE; no Google access/refresh tokens retained.
+- Change your profile picture from **Account menu → Change profile picture** or **My stats**. Upload a JPEG, PNG or WebP (up to 10 MiB), preview the square crop, then save; remove it to use your initials. Your choice stays saved across Google sign-ins without changing your Google profile.
 - Choose a dart nickname from **Account menu → Edit dart nickname** (also on **My stats**). Names are 1–24 characters and stay saved across sign-ins without changing your Google account. Lobbies, leagues, rankings and new matches use your nickname; existing matches keep the name recorded when they started.
 
 ### Play & lobbies
@@ -39,7 +40,7 @@ Type `T20`, `D18`, `25`, `BULL` or `MISS`; separate darts with spaces. Numeric s
 ### Practice, bots & stats
 
 - Solo games and every game with a **house bot** are **training**: full statistics, never wins, losses, form, head-to-head or ratings (including historical bot games). Six fictional bots, from Rookie Rue (novice) to The Maximum (pro-level), throw automatically one dart at a time with distinct accuracy and checkout skills; add them to a lobby or a league match.
-- **My stats** has **All games** (every saved game with a game-by-game 3-dart average chart and rolling five-game average), **Competition** (games against people) and **Training** (solo and bot games) views with monthly dart-weighted averages, plus your global rating, rank and rating history.
+- **My stats** has **All games**, **Competition** (games against people) and **Training** (solo and bot games) views. Choose a statistic to chart: 3-dart average, first-nine average, checkout rate, highest checkout, best leg, 180s, 140+ or 100+ visits. Each view shows its latest 50 games with a rolling five-game line, plus monthly progress and exact result tables. Averages are dart-weighted; checkout rates divide total finishes by total attempts (no attempts is **—**, not 0%). Records use the best value, scoring counts use totals. Global rating, rank and rating history remain separate.
 - **Training arena** at `/training`: **Around the clock** (hit 1–20 in order, any ring, within 60 darts) and **Nine-dart challenge** (highest score from nine darts), privately solo or with 1–8 league players/guests. Three-dart turns, live undo, server-validated entries, automatic saving, reload recovery and cross-device refresh with version conflict protection. Challenge personal bests, monthly averages and session history are separate per mode and never mixed with x01 averages or competitive results. The arena summarizes the latest 100 accessible challenge sessions.
 - Live matches persist after reload and server restart. Conflicting entries from two devices are rejected rather than silently overwriting each other.
 - Public **About & scoring** guide at `/about`, explaining the scoring rules, statistics, online rules, Elo formulas and leaderboard filters with worked examples.
@@ -82,7 +83,7 @@ Playwright uses ports 4173, 4180 and 8790 and creates a unique throwaway databas
 
 ## Self-hosting online
 
-Build the Dockerfile or run the server bundle alongside `dist-online/`. Use **one replica**, persistent local/block storage for SQLite, and HTTPS in front. The app serves both API and frontend on the same origin; no CORS or cross-site cookies are needed.
+Build the Dockerfile or run the server bundle alongside `dist-online/` and production dependencies (`npm ci --omit=dev` on the target platform; Sharp is a native runtime dependency). Use **one replica**, persistent local/block storage for SQLite, and HTTPS in front. The app serves both API and frontend on the same origin; no CORS or cross-site cookies are needed.
 
 ```sh
 docker build -t oche .

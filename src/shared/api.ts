@@ -316,11 +316,17 @@ export type CareerTotals = Omit<LeaderboardEntry, keyof UserRef | 'rating' | 'ra
 
 export type TrainingMatchTotals = Omit<CareerTotals, 'wins' | 'losses' | 'winRate'>
 
-/** UTC calendar month (first day at midnight), oldest first; dart-weighted average. */
-export type StatsHistoryPoint = { at: string; average: number | null; matches: number }
+/** Scoring progress, with raw counts for correctly weighted rolling averages and checkout rates. */
+export type ProgressStats = Pick<TrainingMatchTotals,
+  'average' | 'first9Average' | 'checkoutRate' | 'checkouts' | 'checkoutAttempts' |
+  'highestCheckout' | 'bestLegDarts' | 'scores180' | 'scores140' | 'scores100'
+> & { points: number; darts: number; first9Points: number; first9Darts: number }
+
+/** UTC calendar month (first day at midnight), oldest first. Rates use summed counts, not mean percentages. */
+export type StatsHistoryPoint = ProgressStats & { at: string; matches: number }
 
 /** One completed game in the per-game progress chart (oldest first). */
-export type TrendPoint = { matchId: string; at: string; average: number | null; practice: boolean; ranked: boolean }
+export type TrendPoint = ProgressStats & { matchId: string; at: string; practice: boolean; ranked: boolean }
 
 export type GlobalRating = {
   /** Global Elo from ranked lobby matches (starts at 1000). */
@@ -341,11 +347,12 @@ export type CareerStatsResponse = {
   totals: CareerTotals
   history: StatsHistoryPoint[]
   /** Training: solo and bot games. No wins, losses or ratings. */
-  training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; recentMatches: (MatchSummary & { leagueName: string | null })[] }
+  training: { totals: TrainingMatchTotals; history: StatsHistoryPoint[]; trend: TrendPoint[]; recentMatches: (MatchSummary & { leagueName: string | null })[] }
   /** Every saved game, competition and training combined. */
   all: { totals: TrainingMatchTotals; history: StatsHistoryPoint[] }
-  /** Latest 50 saved games, oldest first. */
+  /** Latest 50 saved games in each category, oldest first. */
   trend: TrendPoint[]
+  competitionTrend: TrendPoint[]
   global: GlobalRating
   leagues: { id: string; name: string; rating: number; rank: number | null; matches: number }[]
   recentMatches: (MatchSummary & { leagueName: string | null })[]

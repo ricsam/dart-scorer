@@ -7,9 +7,11 @@ import { useDocumentTitle, useResource } from '../hooks'
 import { Link, useRouter } from '../router'
 import { useSession } from '../session'
 import { Avatar, EmptyState, ErrorState, Loading, Segmented, StatTile } from '../ui'
-import { RatingChart, TrendChart } from './components/Charts'
+import { RatingChart } from './components/Charts'
+import { ProgressCharts } from './components/ProgressCharts'
+import { ProfilePictureEditor } from './components/ProfilePictureEditor'
 import { MatchRow } from './components/MatchRow'
-import { StatsProgress, TrainingTotals } from './components/StatsProgress'
+import { TrainingTotals } from './components/StatsProgress'
 
 type Mode = 'all' | 'competition' | 'training'
 
@@ -75,13 +77,15 @@ export function ProfilePage() {
             <div className="panel-head"><h2>Training</h2><span className="panel-sub">Solo games and bot games</span></div>
             <p className="stats-mode-note">Practice on your own or against house bots. Training never affects wins, losses or ratings. <Link to="/training">Training challenges & progress</Link></p>
             <TrainingTotals totals={stats.data.training.totals} />
-            <StatsProgress history={stats.data.training.history} title="Training monthly average" />
+            <ProgressCharts history={stats.data.training.history} trend={stats.data.training.trend} />
             <h3 className="section-label">RECENT TRAINING GAMES</h3>
             {stats.data.training.recentMatches.length === 0 ? <p className="muted-note">No training games yet. <Link to="/play">Start a solo game</Link> to begin.</p> : <div className="match-list">{stats.data.training.recentMatches.map((match) => <MatchRow key={match.id} match={match} leagueName={match.leagueName} highlightUserId={user.id} />)}</div>}
           </section>}
           {mode === 'competition' && <Competition data={stats.data} userId={user.id} />}
         </>
       )}
+
+      <ProfilePictureEditor />
 
       <section className="panel" id="nickname" aria-labelledby="nickname-heading">
         <div className="panel-head"><h2 id="nickname-heading">Your player name</h2></div>
@@ -146,8 +150,7 @@ function AllGames({ data }: { data: CareerStatsResponse }) {
             <StatTile label="BEST LEG" value={formatBestLeg(totals.bestLegDarts)} hint={totals.bestLegDarts ? 'darts' : undefined} />
             <StatTile label="180 / 140+ / 100+" value={`${totals.scores180} / ${totals.scores140} / ${totals.scores100}`} />
           </div>
-          <TrendChart points={data.trend} />
-          <StatsProgress history={data.all.history} title="Monthly average · all games" />
+          <ProgressCharts history={data.all.history} trend={data.trend} />
         </>
       )}
     </section>
@@ -176,7 +179,7 @@ function Competition({ data, userId }: { data: CareerStatsResponse; userId: stri
             <StatTile label="180 / 140+ / 100+" value={`${totals.scores180} / ${totals.scores140} / ${totals.scores100}`} />
           </div>
         )}
-        <StatsProgress history={data.history} title="Competition monthly average" />
+        <ProgressCharts history={data.history} trend={data.competitionTrend} />
       </section>
 
       {data.leagues.length > 0 && (

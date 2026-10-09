@@ -10,6 +10,11 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build:online && npm run build:server
 
+FROM node:24-alpine AS production-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
+
 FROM node:24-alpine AS runtime
 LABEL org.opencontainers.image.source="https://github.com/ricsam/dart-scorer" \
       org.opencontainers.image.description="Oche darts scorer — online edition with rooms and leaderboards"
@@ -19,6 +24,7 @@ ENV NODE_ENV=production \
     STATIC_DIR=/app/dist-online \
     DATABASE_PATH=/data/oche.db
 WORKDIR /app
+COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist-online ./dist-online
 COPY --from=build /app/dist-server ./dist-server
 RUN mkdir -p /data && chown node:node /data

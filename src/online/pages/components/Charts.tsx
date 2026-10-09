@@ -1,7 +1,8 @@
 import { useId } from 'react'
 import '../../stats-progress.css'
 import type { TrendPoint } from '../../../shared/api'
-import { formatAverage, formatDate, formatRating } from '../../format'
+import { formatDate, formatRating } from '../../format'
+import { formatProgress, metricInfo, progressScale, progressValue, rollingProgress, type ProgressMetric } from '../../progress'
 
 /** Rating after each rated match, starting from 1000. */
 export function RatingChart({ points, emptyText = 'The rating chart appears after two rated matches.' }: { points: { at: string; rating: number }[]; emptyText?: string }) {
@@ -28,47 +29,51 @@ export function RatingChart({ points, emptyText = 'The rating chart appears afte
   )
 }
 
-/**
- * 3-dart average of each recent game, oldest first, with a rolling five-game average so a trend
- * stands out from single good or bad nights. Training and competition games use different marks.
- */
-export function TrendChart({ points, title = 'Average per game' }: { points: TrendPoint[]; title?: string }) {
+/** Every saved game keeps its place, even without an applicable value. */
+export function TrendChart({ points, metric = 'average' }: { points: TrendPoint[]; metric?: ProgressMetric }) {
   const id = useId()
-  const values = points.filter((point): point is TrendPoint & { average: number } => point.average !== null)
-  if (values.length < 2) return <section className="trend-chart" aria-labelledby={id}><h3 id={id}>{title}</h3><p className="muted-note">Play a couple of games to see your average game by game.</p></section>
-  const width = 500
-  const height = 150
-  const pad = 22
-  const max = Math.max(...values.map((point) => point.average), 1)
-  const min = Math.min(...values.map((point) => point.average), max)
-  const top = max + Math.max(4, (max - min) * 0.15)
-  const bottom = Math.max(0, min - Math.max(4, (max - min) * 0.15))
-  const x = (index: number) => pad + (index / (values.length - 1)) * (width - pad * 2)
-  const y = (value: number) => height - pad - ((value - bottom) / (top - bottom || 1)) * (height - pad * 2)
-  const rolling = values.map((_, index) => {
-    const window = values.slice(Math.max(0, index - 4), index + 1)
-    return window.reduce((sum, point) => sum + point.average, 0) / window.length
-  })
-  const line = rolling.map((value, index) => `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(' ')
-  const recent = rolling[rolling.length - 1]
-  const earlier = rolling[Math.min(rolling.length - 1, 4)]
-  const change = recent - earlier
-  return (
-    <section className="trend-chart" aria-labelledby={id}>
-      <h3 id={id}>{title}</h3>
-      <p className="trend-summary">Last {values.length} games · 5-game average <b>{formatAverage(recent)}</b>{values.length > 5 && <> · <span className={change >= 0 ? 'up' : 'down'}>{change >= 0 ? '+' : '−'}{Math.abs(change).toFixed(1)}</span> since game 5</>}</p>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}: ${values.length} games, latest five-game average ${formatAverage(recent)}.`}>
-        <line x1={pad} x2={width - pad} y1={height - pad} y2={height - pad} className="progress-axis" />
-        <text x={pad} y={y(top) + 10} className="trend-label">{Math.round(top)}</text>
-        <text x={pad} y={height - pad - 4} className="trend-label">{Math.round(bottom)}</text>
-        <path d={line} className="trend-line" />
-        {values.map((point, index) => (
-          <circle key={point.matchId} cx={x(index)} cy={y(point.average)} r={point.ranked ? 4.5 : 3.5} className={`trend-dot ${point.practice ? 'practice' : point.ranked ? 'ranked' : ''}`}>
-            <title>{formatDate(point.at)}: {formatAverage(point.average)}{point.practice ? ' (training)' : point.ranked ? ' (ranked)' : ''}</title>
-          </circle>
-        ))}
-      </svg>
-      <p className="trend-legend"><span><i className="trend-dot-key" /> vs people</span><span><i className="trend-dot-key ranked" /> ranked</span><span><i className="trend-dot-key practice" /> training</span><span><i className="trend-line-key" /> 5-game average</span></p>
-    </section>
-  )
+  const info = metricInfo(metric)
+  const title = `${info.label} per game`
+  const values = points.map((point) => progressValue(point, metric))
+  const rolling = rollingProgress(points, metric)
+  const { min, max } = progressScale([...values, ...rolling], metric)
+  const x = (index: number) => points.length === 1 ? 265 : 44 + index / (points.length - 1) * 432
+  const y = (value: number) => 124 - (value - min) / (max - min) * 100
+  const line = rolling.map((value, index) => value === null ? '' : `${index === 0 || rolling[index - 1] === null ? 'M' : 'L'}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(' ')
+  const windowSize = Math.min(5, points.length)
+  const rollingLabel = `${windowSize}-game ${info.rolling}`
+  const hasValues = values.some((value) => value !== null)
+  return <section className="trend-chart" aria-labelledby={id}>
+    <h3 id={id}>{title}</h3>
+    {!points.length ? <p className="muted-note">Save a game to start tracking your progress.</p> : <>
+      <p className="trend-summary">Last {points.length} {points.length === 1 ? 'game' : 'games'} · {rollingLabel} <b>{formatProgress(rolling[rolling.length - 1], metric)}</b></p>
+      {!hasValues && <p className="muted-note">No {info.label.toLowerCase()} recorded in these games yet. Missing values are shown as —.</p>}
+      {hasValues && <>
+        <svg viewBox="0 0 500 150" role="img" aria-label={`${title}: ${points.length} games, latest ${rollingLabel} ${formatProgress(rolling[rolling.length - 1], metric)}. Exact results are in the game results table.`}>
+          <line x1="44" x2="476" y1="124" y2="124" className="progress-axis" />
+          <text x="4" y="28" className="trend-label">{metric === 'checkoutRate' ? '100%' : max}</text>
+          <text x="4" y="124" className="trend-label">{metric === 'checkoutRate' ? '0%' : min}</text>
+          <path d={line} className="trend-line" />
+          {points.map((point, index) => values[index] === null ? null : <circle key={point.matchId} cx={x(index)} cy={y(values[index]!)} r={point.ranked ? 4.5 : 3.5} className={`trend-dot ${point.practice ? 'practice' : point.ranked ? 'ranked' : ''}`}>
+            <title>{formatDate(point.at)}: {formatProgress(values[index], metric)}{metric === 'checkoutRate' ? ` (${point.checkouts}/${point.checkoutAttempts} darts)` : ''}</title>
+          </circle>)}
+        </svg>
+        <div className="progress-dates"><span>{formatDate(points[0].at)}</span><span>{formatDate(points[points.length - 1].at)}</span></div>
+        <p className="trend-legend"><span><i className="trend-dot-key" /> vs people</span><span><i className="trend-dot-key ranked" /> ranked</span><span><i className="trend-dot-key practice" /> training</span><span><i className="trend-line-key" /> Rolling 5-game {info.rolling}</span></p>
+      </>}
+      <p className="muted-note progress-explanation">Oldest to newest, up to 50 games. The rolling line uses up to five games, including games without a value.</p>
+      <details className="progress-results"><summary>View game results</summary>
+        <div className="stats-progress-table" tabIndex={0} role="region" aria-label="Game results table"><table>
+          <caption>{title} — game results</caption>
+          <thead><tr><th scope="col">Game / date</th><th scope="col">Category</th><th scope="col">{info.label}</th><th scope="col">Rolling {info.rolling}</th></tr></thead>
+          <tbody>{points.map((point, index) => <tr key={point.matchId}>
+            <th scope="row">{index + 1} · {formatDate(point.at)}</th>
+            <td>{point.practice ? 'Training' : point.ranked ? 'Ranked' : 'Competition'}</td>
+            <td>{formatProgress(values[index], metric)}{metric === 'checkoutRate' && <small> ({point.checkouts}/{point.checkoutAttempts})</small>}</td>
+            <td>{formatProgress(rolling[index], metric)}</td>
+          </tr>)}</tbody>
+        </table></div>
+      </details>
+    </>}
+  </section>
 }

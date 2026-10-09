@@ -54,8 +54,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     response = await fetch(path, {
       method,
       credentials: 'same-origin',
-      headers: payload === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: payload === undefined ? undefined : JSON.stringify(payload),
+      headers: payload === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': payload instanceof Blob ? payload.type : 'application/json' },
+      body: payload instanceof Blob ? payload : payload === undefined ? undefined : JSON.stringify(payload),
     })
   } catch {
     throw new ApiRequestError(0, null)
@@ -77,6 +77,8 @@ export const api = {
   deleteTraining: (id: string) => request<void>('DELETE', `/api/training/${encode(id)}`),
   me: () => request<MeResponse>('GET', '/api/me'),
   updateMe: (name: string) => request<UpdateMeResponse>('PATCH', '/api/me', { name }),
+  uploadAvatar: (image: Blob) => request<UpdateMeResponse>('PUT', '/api/me/avatar', image),
+  removeAvatar: () => request<UpdateMeResponse>('DELETE', '/api/me/avatar'),
   myStats: () => request<CareerStatsResponse>('GET', '/api/me/stats'),
   logout: () => request<void>('POST', '/auth/logout'),
   devLogin: (body: DevLoginRequest) => request<{ user: User }>('POST', '/auth/dev-login', body),
