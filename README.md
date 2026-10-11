@@ -3,7 +3,7 @@
 A responsive darts scorer and online darts game, with two independent editions:
 
 - **[Standalone](https://ricsam.github.io/dart-scorer/)** — frontend-only GitHub Pages app for 2–8 players. No account, backend or database required. Scores stay on the device for the current game.
-- **[Online](https://darts-v7rm7qivt07h.r5d.app/)** — the same scorer plus Google accounts: solo practice with progress tracking, lobbies with chat for friends and strangers, leagues with their own leaderboards, ranked games with a global rating, house bots and a training arena. Signed-out visitors can still keep score with the standalone scorer.
+- **[Online](https://oche.r5d.app/)** — the same scorer plus Google accounts: solo practice with progress tracking, lobbies with chat for friends and strangers, leagues with their own leaderboards, ranked games with a global rating, house bots and a training arena. Signed-out visitors can still keep score with the standalone scorer.
 
 ## Scoring
 

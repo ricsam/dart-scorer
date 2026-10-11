@@ -52,7 +52,7 @@ spec:
               containerPort: 8080
           env:
             - name: PUBLIC_URL
-              value: https://darts-v7rm7qivt07h.r5d.app
+              value: https://oche.r5d.app
             - name: TRUST_PROXY
               value: "true"
             - name: GOOGLE_CLIENT_ID
@@ -125,7 +125,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: darts-v7rm7qivt07h.r5d.app
+    - host: oche.r5d.app
       http:
         paths:
           - path: /

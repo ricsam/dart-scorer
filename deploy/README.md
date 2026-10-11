@@ -1,11 +1,11 @@
 # Hosted online edition
 
-Host: https://darts-v7rm7qivt07h.r5d.app — Cloudflare → Traefik → Oche.
+Host: https://oche.r5d.app — Cloudflare → Traefik → Oche.
 Namespace: `dart-scorer`; workload/service/ingress: `oche`; data PVC: `oche-data` (`rook-ceph-block`, RWO, 2 GiB).
 
 The application is a single Node 24 process, on `hetzner-kata-2`, UID 1000, read-only root filesystem. The SQLite database and WAL live on `/data`. Do not scale above one replica: SSE and rate limits are process-local. Never delete/recreate the PVC on upgrades.
 
-OAuth credentials are in Secret `oche-google` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`). It is intentionally absent from source. Registry credentials are supplied by the existing `ghcr-registry` reflection. No CI cluster credentials or widened RBAC are needed.
+OAuth credentials are in Secret `oche-google` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`). It is intentionally absent from source. The Google OAuth client uses `https://oche.r5d.app/auth/google/callback`; its branding homepage and privacy URL use the same origin. Keep these settings aligned with `PUBLIC_URL` and the Ingress host. Registry credentials are supplied by the existing `ghcr-registry` reflection. No CI cluster credentials or widened RBAC are needed.
 
 ## Image publishing access
 
