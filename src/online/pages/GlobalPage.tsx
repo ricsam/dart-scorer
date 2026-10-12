@@ -78,9 +78,9 @@ export function GlobalPage() {
               {listed.map((lobby) => (
                 <div className="lobby-card" key={lobby.id}>
                   <span className="lobby-card-copy">
-                    <b><Avatar user={lobby.leader} size={22} /> {lobby.leader.name} <small>{lobby.leader.rating}</small> <span className="lobby-badges">{lobby.ranked ? <span className="lobby-badge ranked"><Trophy size={9} /> RANKED</span> : <span className="lobby-badge">CASUAL</span>}{lobby.playing && <span className="lobby-badge"><Radio size={9} /> IN GAME</span>}</span></b>
+                    <b><Avatar user={lobby.leader} size={28} /> {lobby.leader.name} <small>{lobby.leader.rating}</small> <span className="lobby-badges">{lobby.ranked ? <span className="lobby-badge ranked"><Trophy size={9} /> RANKED</span> : <span className="lobby-badge">CASUAL</span>}{lobby.playing && <span className="lobby-badge"><Radio size={9} /> IN GAME</span>}</span></b>
                     <small>{shortFormat(lobby.settings)}</small>
-                    <span className="lobby-card-seats"><AvatarStack users={lobby.seats.map((seat) => ({ id: seat.userId ?? seat.name, name: seat.name, avatarUrl: seat.avatarUrl }))} size={20} /> {lobby.seats.length}/{lobby.capacity} players</span>
+                    <span className="lobby-card-seats"><AvatarStack users={lobby.seats.map((seat) => ({ id: seat.userId ?? seat.name, name: seat.name, avatarUrl: seat.avatarUrl }))} size={26} /> {lobby.seats.length}/{lobby.capacity} players</span>
                   </span>
                   {lobby.seats.some((seat) => seat.userId === user?.id)
                     ? <Link className="ghost-button" to={`/lobbies/${lobby.id}`}>OPEN</Link>
@@ -101,7 +101,7 @@ export function GlobalPage() {
                 <Link className="lobby-card" key={match.id} to={`/matches/${match.id}`}>
                   <span className="lobby-card-copy">
                     <b>{match.ranked ? <span className="lobby-badge ranked"><Trophy size={9} /> RANKED</span> : <span className="lobby-badge">CASUAL</span>} {shortFormat(match.settings)}</b>
-                    <span className="lobby-live-score">{match.players.map((player) => <span key={player.slot} className={match.active === player.slot ? 'at-oche' : ''}>{player.botId ? <BotAvatar botId={player.botId} size={16} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={16} />}<b>{player.name}</b><em>{player.legs}</em><strong>{player.score}</strong></span>)}</span>
+                    <span className="lobby-live-score">{match.players.map((player) => <span key={player.slot} className={match.active === player.slot ? 'at-oche' : ''}>{player.botId ? <BotAvatar botId={player.botId} size={22} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={22} />}<b>{player.name}</b><em>{player.legs}</em><strong>{player.score}</strong></span>)}</span>
                   </span>
                   <span className="live-card-cta"><Eye size={13} /> WATCH</span>
                 </Link>
@@ -139,7 +139,7 @@ function RankingsTable({ entries, meId, caption }: { entries: RankingEntry[]; me
           {entries.map((entry) => (
             <tr key={entry.id} className={entry.id === meId ? 'me' : ''}>
               <td className="rank-col"><span className={`rank rank-${entry.rank}`}>{entry.rank}</span></td>
-              <td className="player-col"><span className="player-cell"><Avatar user={entry} size={26} /><span><b>{entry.name}{entry.id === meId && ' (you)'}</b></span></span></td>
+              <td className="player-col"><span className="player-cell"><Avatar user={entry} size={36} /><span><b>{entry.name}{entry.id === meId && ' (you)'}</b></span></span></td>
               <td>{entry.rating}{entry.matches < PROVISIONAL && <span className="provisional" title="Fewer than five ranked games">NEW</span>}</td>
               <td>{entry.matches}</td>
               <td>{entry.wins}–{entry.losses}</td>

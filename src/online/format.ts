@@ -65,6 +65,18 @@ export function initials(name: string) {
   return (parts.length === 1 ? parts[0].slice(0, 2) : `${parts[0][0]}${parts[parts.length - 1][0]}`).toUpperCase()
 }
 
+/**
+ * Image URLs to try for a profile picture, best first. Google serves sign-in photos at the size in
+ * the URL suffix (`=s96-c`), which blurs at the sizes Oche shows pictures, so ask for a sharper copy
+ * and keep the original as a fallback. Uploaded pictures are stored large enough already.
+ */
+export function avatarSources(url: string | null | undefined): string[] {
+  if (!url) return []
+  if (!/^https:\/\/lh\d+\.googleusercontent\.com\//.test(url)) return [url]
+  const sharper = url.replace(/=s\d{1,4}(-c)?$/, '=s512-c')
+  return sharper === url ? [url] : [sharper, url]
+}
+
 export function hueFor(value: string) {
   let hash = 0
   for (const char of value) hash = (hash * 31 + char.charCodeAt(0)) % 360

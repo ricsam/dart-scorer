@@ -141,7 +141,7 @@ export function LobbyPage({ lobbyId, code }: { lobbyId: string; code: string | n
           <h1>{lobby.leader.name}’s lobby</h1>
           <p className="lobby-format">{shortFormat(lobby.settings)}</p>
           <div className="lobby-preview-seats">
-            {seats.map((seat) => <span key={seat.id}><SeatAvatar seat={seat} size={30} /><b>{seat.name}</b>{seat.rating !== null && <small>{seat.rating}</small>}</span>)}
+            {seats.map((seat) => <span key={seat.id}><SeatAvatar seat={seat} size={56} /><b>{seat.name}</b>{seat.rating !== null && <small>{seat.rating}</small>}</span>)}
             <em>{seats.length}/{lobby.capacity} seats</em>
           </div>
           {lobby.match && <p className="muted-note"><Radio size={12} /> A game is in progress. Join to play the next one.</p>}
@@ -193,7 +193,7 @@ export function LobbyPage({ lobbyId, code }: { lobbyId: string; code: string | n
               {seats.map((seat, index) => (
                 <li key={seat.id} className="seat">
                   <span className="order-number">{index + 1}</span>
-                  <SeatAvatar seat={seat} size={34} />
+                  <SeatAvatar seat={seat} size={48} />
                   <span className="seat-name">
                     <b>{seat.name}{seat.userId === user?.id && <em> (you)</em>}</b>
                     <small>{seatDetail(seat, lobby.leader.name)}</small>

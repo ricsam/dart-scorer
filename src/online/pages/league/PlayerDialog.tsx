@@ -26,7 +26,7 @@ export function PlayerDialog({ league, userId, onClose }: { league: LeagueDetail
             {stats.data.training.recentMatches.length === 0 ? <p className="muted-note">No completed training matches yet.</p> : <div className="match-list">{stats.data.training.recentMatches.map((match) => <MatchRow key={match.id} match={match} highlightUserId={userId} />)}</div>}
           </section> : <>
           <div className="player-dialog-head">
-            <Avatar user={stats.data.player} size={52} />
+            <Avatar user={stats.data.player} />
             <div>
               <strong>{formatRating(stats.data.entry.rating)}<small> RATING</small></strong>
               <span>
@@ -58,7 +58,7 @@ export function PlayerDialog({ league, userId, onClose }: { league: LeagueDetail
               <div className="h2h-list">
                 {stats.data.headToHead.map((row) => (
                   <div key={row.opponent.id} className="h2h-row">
-                    <Avatar user={row.opponent} size={22} />
+                    <Avatar user={row.opponent} size={28} />
                     <b>{row.opponent.name}</b>
                     <span className="h2h-bar" aria-hidden="true">
                       <i style={{ flexGrow: row.wins || 0.001 }} className="win" />

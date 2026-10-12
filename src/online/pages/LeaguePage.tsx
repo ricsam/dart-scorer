@@ -75,7 +75,7 @@ export function LeaguePage({ leagueId }: { leagueId: string }) {
             {(detail.role === 'owner' || detail.role === 'cohost') && <button className="inline-icon" onClick={() => setRenameOpen(true)} aria-label="Rename league"><Pencil size={15} /></button>}
           </h1>
           <div className="league-meta">
-            <AvatarStack users={detail.members} max={6} size={22} />
+            <AvatarStack users={detail.members} max={6} size={30} />
             <span>{detail.members.length} {detail.members.length === 1 ? 'member' : 'members'}</span>
           </div>
         </div>
@@ -126,7 +126,7 @@ function LiveMatchCard({ match }: { match: MatchSummary }) {
       <div className="live-card-players">
         {match.players.map((player) => (
           <div key={player.slot} className={match.active === player.slot && !match.awaitingConfirmation ? 'at-oche' : ''}>
-            {player.botId ? <BotAvatar botId={player.botId} size={24} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={24} />}
+            {player.botId ? <BotAvatar botId={player.botId} size={32} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={32} />}
             <span><b>{player.name} {player.botId && <BotBadge botId={player.botId} />}</b><small>AVG {formatAverage(player.average)}</small></span>
             <em>{player.legs}</em>
             <strong>{player.score}</strong>

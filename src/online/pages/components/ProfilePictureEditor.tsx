@@ -67,7 +67,7 @@ export function ProfilePictureEditor() {
     <h2 id="picture-title">Profile picture</h2>
     <p>Choose a JPG, PNG or WebP up to 10 MB. We centre-crop it to a square. Your picture is visible to other players.</p>
     <div className="profile-picture-preview" aria-label="Profile picture preview">
-      <Avatar user={{ ...user, avatarUrl: previewUrl }} size={112} />
+      <Avatar user={{ ...user, avatarUrl: previewUrl }} />
     </div>
     <input ref={fileInput} className="profile-picture-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose profile picture" onChange={(event) => void choose(event)} disabled={busy} />
     <div className="profile-picture-actions">

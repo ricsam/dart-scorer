@@ -59,7 +59,7 @@ export function ProfilePage() {
   return (
     <div className="page profile-page">
       <div className="profile-head panel">
-        <Avatar user={user} size={64} />
+        <Avatar user={user} />
         <div className="profile-identity">
           <h1>{user.name}</h1>
           <span>{user.email} · member since {formatDate(user.createdAt)}</span>

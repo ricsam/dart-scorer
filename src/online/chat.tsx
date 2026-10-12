@@ -170,7 +170,7 @@ export function ChatPanel({ chat, title = 'Chat', onClose, canPost = true, disab
           const mine = message.user.id === user?.id
           return (
             <li key={message.id} className={`chat-message ${mine ? 'mine' : ''} ${grouped ? 'grouped' : ''}`}>
-              {!grouped && <span className="chat-author"><Avatar user={message.user} size={18} /><b>{mine ? 'You' : message.user.name}</b><time dateTime={message.createdAt}>{timeFormat.format(new Date(message.createdAt))}</time></span>}
+              {!grouped && <span className="chat-author"><Avatar user={message.user} size={24} /><b>{mine ? 'You' : message.user.name}</b><time dateTime={message.createdAt}>{timeFormat.format(new Date(message.createdAt))}</time></span>}
               <p>{message.body}</p>
             </li>
           )

@@ -9,6 +9,8 @@ import { randomId } from './ids'
 import { getUser, toUser } from './users'
 
 export const AVATAR_MAX_BYTES = 10 * 1024 * 1024
+/** Stored square size: sharp in the largest avatars (profile, winner and scoreboard portraits) on high-density screens. */
+export const AVATAR_SIZE = 512
 const FORMATS: Record<string, string> = { 'image/jpeg': 'jpeg', 'image/png': 'png', 'image/webp': 'webp' }
 const tooLarge = () => new ApiException(413, 'bad_request', 'Choose a picture no larger than 10 MB.')
 
@@ -56,7 +58,7 @@ export function avatarRoutes({ db }: Services) {
         const metadata = await decoder.metadata()
         if (metadata.format !== format || (metadata.pages ?? 1) !== 1) throw new Error('Unsupported image')
         // Auto-orient before centre cropping, discard metadata, and re-encode all bytes.
-        image = await decoder.rotate().resize(256, 256, { fit: 'cover' }).webp({ quality: 85 }).toBuffer()
+        image = await decoder.rotate().resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover' }).webp({ quality: 85 }).toBuffer()
       } catch { throw badRequest('This picture could not be read. Choose a still JPG, PNG or WebP under 40 megapixels.') }
       const version = randomId()
       const avatarUrl = `/api/avatars/${encodeURIComponent(user.id)}/${version}.webp`

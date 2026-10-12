@@ -75,7 +75,7 @@ export function InviteSheet({ lobby, onClose, onLobby }: { lobby: LobbyDetail; o
                 : <div className="candidate-list">
                   {candidates.data.candidates.map((candidate) => (
                     <div className="candidate-row" key={candidate.id}>
-                      <span className="presence-avatar"><Avatar user={candidate} size={30} /><i className={candidate.online ? 'online' : ''} aria-hidden="true" /></span>
+                      <span className="presence-avatar"><Avatar user={candidate} size={38} /><i className={candidate.online ? 'online' : ''} aria-hidden="true" /></span>
                       <span className="candidate-name"><b>{candidate.name}</b><small>{candidate.online ? 'Online' : 'Offline'} · {candidate.via}</small></span>
                       {candidate.member
                         ? <span className="role-pill">IN LOBBY</span>

@@ -48,7 +48,7 @@ Everything in `src/shared/api.ts` and `src/shared/training.ts`, plus:
   `/login?error=<code>` with `access_denied`, `state_mismatch`, `state_expired`, `invalid_request`,
   `google_failed`, `email_unverified` or `google_unavailable`.
 - `POST /auth/logout` (204), `POST /auth/dev-login` (`{ user }`).
-- `PUT /api/me/avatar`: authenticated account only, raw JPEG/PNG/WebP body up to 10 MiB and 40 megapixels; requires a matching Origin. Returns `{ user }`. Sharp validates, strips metadata and centre-crops to 256×256 WebP. `DELETE /api/me/avatar` removes it to initials (also `{ user }`).
+- `PUT /api/me/avatar`: authenticated account only, raw JPEG/PNG/WebP body up to 10 MiB and 40 megapixels; requires a matching Origin. Returns `{ user }`. Sharp validates, strips metadata and centre-crops to 512×512 WebP (large enough for the biggest avatars on high-density screens). `DELETE /api/me/avatar` removes it to initials (also `{ user }`).
 - `GET /api/avatars/:userId/:version.webp`: public versioned image URL, cached for one day. Replacing/removing invalidates the previous URL on the server; already cached copies may remain until expiry.
 - `GET /healthz` (process up) and `GET /readyz` (database answers).
 - SSE: `GET /api/matches/:id/events` (event `match`; `chat` messages for the match or its lobby;

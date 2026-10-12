@@ -46,7 +46,7 @@ export function MatchStatsTable({ rows, showRatings = false, ratingLabel = 'Leag
             {rows.map((row) => (
               <th key={row.player.slot}>
                 <span className="stats-player">
-                  {row.player.botId ? <BotAvatar botId={row.player.botId} size={26} /> : <Avatar user={{ id: row.player.userId ?? `guest-${row.player.slot}`, name: row.player.name, avatarUrl: row.player.avatarUrl }} size={26} />}
+                  {row.player.botId ? <BotAvatar botId={row.player.botId} size={44} /> : <Avatar user={{ id: row.player.userId ?? `guest-${row.player.slot}`, name: row.player.name, avatarUrl: row.player.avatarUrl }} size={44} />}
                   <b>{row.player.name}</b>
                   {row.player.botId ? <BotBadge botId={row.player.botId} /> : row.player.guest && <small>GUEST</small>}
                 </span>

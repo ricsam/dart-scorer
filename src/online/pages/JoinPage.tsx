@@ -57,7 +57,7 @@ export function JoinPage({ code }: { code: string }) {
         <span className="eyebrow">LEAGUE INVITE</span>
         <h1>{league.name}</h1>
         <p className="lead join-meta">
-          <Avatar user={league.owner} size={22} /> Hosted by <b>{league.owner.name}</b> · <Users size={14} /> {league.memberCount} {league.memberCount === 1 ? 'player' : 'players'}
+          <Avatar user={league.owner} size={28} /> Hosted by <b>{league.owner.name}</b> · <Users size={14} /> {league.memberCount} {league.memberCount === 1 ? 'player' : 'players'}
         </p>
         {error && <div className="form-error" role="alert">{error}</div>}
         {!user ? (

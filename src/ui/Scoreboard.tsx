@@ -13,11 +13,13 @@ type ScoreboardProps = {
   /** Makes player names editable (standalone games). */
   onEditName?: (index: number) => void
   averages?: number[]
-  /** Optional decoration shown before a player's name, such as an avatar. */
+  /** Optional decoration shown before a player's name, such as a badge. */
   renderNameAdornment?: (index: number) => ReactNode
+  /** Optional portrait, such as a profile picture, shown beside each player's name. */
+  renderPortrait?: (index: number) => ReactNode
 }
 
-export function Scoreboard({ players, active, winner, currentVisit, doubleIn, doubleOut, onEditName, renderNameAdornment, averages }: ScoreboardProps) {
+export function Scoreboard({ players, active, winner, currentVisit, doubleIn, doubleOut, onEditName, renderNameAdornment, renderPortrait, averages }: ScoreboardProps) {
   return (
     <section className={`scoreboard ${players.length > 2 ? 'multi-player' : ''} ${players.length === 1 ? 'solo' : ''}`}>
       {players.map((player, index) => {
@@ -28,8 +30,9 @@ export function Scoreboard({ players, active, winner, currentVisit, doubleIn, do
         const average = averages?.[index] ?? (player.turns.length ? player.turns.reduce((sum, value) => sum + value, 0) / player.turns.length : 0)
         return (
           <article className={`player-card ${active === index && winner === null ? 'active' : ''}`} key={player.id}>
-            <div className="player-head">
-              <div>
+            <div className={renderPortrait ? 'player-head with-portrait' : 'player-head'}>
+              {renderPortrait && <div className="player-portrait">{renderPortrait(index)}</div>}
+              <div className={renderPortrait ? 'player-identity' : undefined}>
                 <span className="turn-label">{active === index && winner === null ? (doubleIn && !player.opened ? 'DOUBLE REQUIRED TO START' : 'AT THE OCHE') : 'WAITING'}</span>
                 {onEditName ? (
                   <button className="player-name" onClick={() => onEditName(index)}>
@@ -37,7 +40,7 @@ export function Scoreboard({ players, active, winner, currentVisit, doubleIn, do
                   </button>
                 ) : (
                   <span className="player-name static">
-                    {renderNameAdornment?.(index)}{player.name}
+                    {renderNameAdornment?.(index)}<span className="player-name-text">{player.name}</span>
                   </span>
                 )}
               </div>

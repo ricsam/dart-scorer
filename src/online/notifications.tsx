@@ -79,7 +79,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       {children}
       {toast && (
         <div className="invite-toast" role="status">
-          <Avatar user={toast.invitedBy} size={30} />
+          <Avatar user={toast.invitedBy} size={44} />
           <span><b>{toast.invitedBy.name}</b> invited you to play<small>{shortFormat(toast.lobby.settings)}{toast.lobby.ranked ? ' · RANKED' : ''}</small></span>
           <button className="primary-button" onClick={() => void accept(toast)}>JOIN</button>
           <button className="invite-toast-close" onClick={() => setToast(null)} aria-label="Dismiss invitation"><X size={14} /></button>
@@ -110,7 +110,7 @@ export function InvitesButton() {
           <strong>Invitations</strong>
           {invites.length === 0 ? <p className="muted-note">No invitations right now. Friends can invite you from their lobby.</p> : invites.map((invite) => (
             <div className="invite-row-item" key={invite.lobby.id}>
-              <Avatar user={invite.invitedBy} size={26} />
+              <Avatar user={invite.invitedBy} size={34} />
               <span><b>{invite.invitedBy.name}</b><small>{shortFormat(invite.lobby.settings)}{invite.lobby.ranked ? ' · RANKED' : ''} · {invite.lobby.seats.length}/{invite.lobby.capacity}</small></span>
               <button className="primary-button" onClick={() => { setOpen(false); void accept(invite) }}>JOIN</button>
               <button className="ghost-button" onClick={() => void decline(invite)} aria-label={`Decline ${invite.invitedBy.name}'s invitation`}><X size={14} /></button>

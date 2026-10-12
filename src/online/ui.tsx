@@ -1,18 +1,27 @@
-import { useEffect, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import type { UserRef } from '../shared/api'
-import { hueFor, initials } from './format'
+import { avatarSources, hueFor, initials } from './format'
 
-export function Avatar({ user, size = 28, className = '' }: { user: Pick<UserRef, 'name' | 'avatarUrl'> & { id?: string }; size?: number; className?: string }) {
-  const style = { '--avatar-size': `${size}px`, '--avatar-hue': hueFor(user.id ?? user.name) } as CSSProperties
+/**
+ * A player's picture, or their initials. `size` is in CSS pixels; omit it to size the avatar from a
+ * stylesheet (`--avatar-size`), for example to change it between phone and desktop layouts.
+ */
+export function Avatar({ user, size, className = '' }: { user: Pick<UserRef, 'name' | 'avatarUrl'> & { id?: string }; size?: number; className?: string }) {
+  const sources = avatarSources(user.avatarUrl)
+  // If a picture fails to load, try the next source and finally fall back to initials.
+  const [failure, setFailure] = useState({ url: user.avatarUrl, count: 0 })
+  const failed = failure.url === user.avatarUrl ? failure.count : 0
+  const src = sources[failed]
+  const style = { ...(size === undefined ? {} : { '--avatar-size': `${size}px` }), '--avatar-hue': hueFor(user.id ?? user.name) } as CSSProperties
   return (
     <span className={`avatar ${className}`} style={style} aria-hidden="true">
-      {user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" loading="lazy" /> : initials(user.name)}
+      {src ? <img src={src} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={() => setFailure({ url: user.avatarUrl, count: failed + 1 })} /> : initials(user.name)}
     </span>
   )
 }
 
-export function AvatarStack({ users, max = 5, size = 24 }: { users: (Pick<UserRef, 'name' | 'avatarUrl'> & { id?: string })[]; max?: number; size?: number }) {
+export function AvatarStack({ users, max = 5, size = 28 }: { users: (Pick<UserRef, 'name' | 'avatarUrl'> & { id?: string })[]; max?: number; size?: number }) {
   return (
     <span className="avatar-stack">
       {users.slice(0, max).map((user, index) => <Avatar key={user.id ?? `${user.name}-${index}`} user={user} size={size} />)}

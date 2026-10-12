@@ -105,7 +105,7 @@ export function Leaderboard({ league, refreshKey }: { league: LeagueDetail; refr
                   {icon}
                   <small>{label}</small>
                   <strong>{format(record.value)}</strong>
-                  <span><Avatar user={record.entry} size={16} /> {record.entry.name}</span>
+                  <span><Avatar user={record.entry} size={22} /> {record.entry.name}</span>
                 </button>
               ))}
             </div>
@@ -139,7 +139,7 @@ export function Leaderboard({ league, refreshKey }: { league: LeagueDetail; refr
                       <td className="rank-col"><span className={`rank rank-${index + 1}`}>{index + 1}</span></td>
                       <td className="player-col">
                         <span className="player-cell">
-                          <Avatar user={entry} size={26} />
+                          <Avatar user={entry} size={36} />
                           <span><b>{entry.name}</b><FormDots form={entry.form} /></span>
                         </span>
                       </td>
@@ -156,7 +156,7 @@ export function Leaderboard({ league, refreshKey }: { league: LeagueDetail; refr
                   {idle.map((entry) => (
                     <tr key={entry.id} className="idle" onClick={() => setSelected(entry.id)}>
                       <td className="rank-col">–</td>
-                      <td className="player-col"><span className="player-cell"><Avatar user={entry} size={26} /><span><b>{entry.name}</b><small>No matches{period === 'all' ? ' yet' : ' in this period'}</small></span></span></td>
+                      <td className="player-col"><span className="player-cell"><Avatar user={entry} size={36} /><span><b>{entry.name}</b><small>No matches{period === 'all' ? ' yet' : ' in this period'}</small></span></span></td>
                       {COLUMNS.map((item) => (
                         <td key={item.key} className={item.key === sortKey ? 'sorted' : ''}>
                           {item.key === 'rating' ? item.render(entry) : '—'}

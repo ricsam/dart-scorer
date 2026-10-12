@@ -1,7 +1,7 @@
 import sharp from 'sharp'
 import type { UpdateMeResponse } from '../../src/shared/api'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AVATAR_MAX_BYTES } from '../../server/avatar'
+import { AVATAR_MAX_BYTES, AVATAR_SIZE } from '../../server/avatar'
 import { upsertIdentity } from '../../server/users'
 import { Client, devLogin, ORIGIN, setup, type TestContext } from './helpers'
 
@@ -30,7 +30,8 @@ describe('profile pictures', () => {
     expect(image.headers.get('x-content-type-options')).toBe('nosniff')
     expect(image.headers.get('cache-control')).toContain('immutable')
     const metadata = await sharp(Buffer.from(await image.arrayBuffer())).metadata()
-    expect(metadata).toMatchObject({ width: 256, height: 256, format: 'webp' })
+    expect(AVATAR_SIZE).toBe(512)
+    expect(metadata).toMatchObject({ width: 512, height: 512, format: 'webp' })
     expect(metadata.exif).toBeUndefined()
     const replacement = await (await upload(alice, await picture())).json() as UpdateMeResponse
     expect(replacement.user.avatarUrl).not.toBe(user.avatarUrl)

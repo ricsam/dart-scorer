@@ -75,7 +75,7 @@ export function Members({ league, onChanged, onInvite, onRename }: { league: Lea
       <div className="member-list">
         {league.members.map((member) => (
           <div className="member-row" key={member.id}>
-            <Avatar user={member} size={34} />
+            <Avatar user={member} size={44} />
             <span className="member-name">
               <b>{member.name}{member.id === user?.id && <em> (you)</em>}</b>
               {member.role !== 'member' && <span className="role-pill"><Crown size={11} /> {member.role === 'owner' ? 'HOST' : 'CO-HOST'}</span>}

@@ -1,4 +1,6 @@
 export const PROFILE_PICTURE_MAX_BYTES = 10 * 1024 * 1024
+/** Matches the server's stored size: sharp in the largest places Oche shows a picture, even on high-density screens. */
+const PICTURE_SIZE = 512
 
 /** Local-only preview; never send a data URL to a list API or persist one. */
 export async function prepareProfilePicture(file: File): Promise<{ blob: Blob; preview: string }> {
@@ -8,11 +10,12 @@ export async function prepareProfilePicture(file: File): Promise<{ blob: Blob; p
   try {
     if (bitmap.width * bitmap.height > 40_000_000) throw new Error('Choose a picture under 40 megapixels.')
     const canvas = document.createElement('canvas')
-    canvas.width = canvas.height = 256
+    canvas.width = canvas.height = PICTURE_SIZE
     const context = canvas.getContext('2d')
     if (!context) throw new Error('Picture editing is not available in this browser.')
+    context.imageSmoothingQuality = 'high'
     const side = Math.min(bitmap.width, bitmap.height)
-    context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 256, 256)
+    context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, PICTURE_SIZE, PICTURE_SIZE)
     const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Could not prepare this picture.')), 'image/png'))
     return { blob, preview: canvas.toDataURL('image/png') }
   } finally { bitmap.close() }

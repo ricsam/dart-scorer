@@ -59,7 +59,7 @@ function PlayerHome() {
             {invites.map((invite) => (
               <div className="lobby-card" key={invite.lobby.id}>
                 <span className="lobby-card-copy">
-                  <b><Avatar user={invite.invitedBy} size={22} /> {invite.invitedBy.name} invited you {invite.lobby.ranked && <span className="lobby-badge ranked"><Trophy size={9} /> RANKED</span>}</b>
+                  <b><Avatar user={invite.invitedBy} size={28} /> {invite.invitedBy.name} invited you {invite.lobby.ranked && <span className="lobby-badge ranked"><Trophy size={9} /> RANKED</span>}</b>
                   <small>{shortFormat(invite.lobby.settings)} · {invite.lobby.seats.length}/{invite.lobby.capacity} players</small>
                 </span>
                 <span className="page-actions">
@@ -81,7 +81,7 @@ function PlayerHome() {
                 <span className="lobby-card-copy">
                   <b>{current.role === 'leader' ? 'Your lobby' : `${current.leader.name}’s lobby`} <span className="lobby-badges"><span className="lobby-badge">{current.visibility === 'public' ? 'PUBLIC' : 'PRIVATE'}</span>{current.ranked && <span className="lobby-badge ranked">RANKED</span>}{current.match && <span className="lobby-badge"><Radio size={9} /> IN GAME</span>}</span></b>
                   <small>{shortFormat(current.settings)}</small>
-                  <span className="lobby-card-seats"><AvatarStack users={current.seats.map((seat) => ({ id: seat.userId ?? seat.id, name: seat.name, avatarUrl: seat.avatarUrl }))} size={20} /> {current.seats.length}/{current.capacity}</span>
+                  <span className="lobby-card-seats"><AvatarStack users={current.seats.map((seat) => ({ id: seat.userId ?? seat.id, name: seat.name, avatarUrl: seat.avatarUrl }))} size={26} /> {current.seats.length}/{current.capacity}</span>
                 </span>
                 <span className="live-card-cta">OPEN →</span>
               </Link>

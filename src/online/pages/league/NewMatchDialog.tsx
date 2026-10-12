@@ -111,7 +111,7 @@ export function NewMatchDialog({ league, onClose, botsInitiallyOpen = false, req
               const order = slots.findIndex((slot) => slot.key === member.id)
               return (
                 <button type="button" key={member.id} className={order >= 0 ? 'picked' : ''} onClick={() => toggleMember(member)} disabled={order < 0 && full} aria-pressed={order >= 0}>
-                  <Avatar user={member} size={24} />
+                  <Avatar user={member} size={30} />
                   <span>{member.name}</span>
                   {member.guest && <small>GUEST</small>}
                   {order >= 0 && <b>{order + 1}</b>}
@@ -141,7 +141,7 @@ export function NewMatchDialog({ league, onClose, botsInitiallyOpen = false, req
               {slots.map((slot, index) => (
                 <li key={slot.key}>
                   <span className="order-number">{index + 1}</span>
-                  {slot.botId ? <BotAvatar botId={slot.botId} size={22} /> : <Avatar user={{ id: slot.userId ?? slot.key, name: slot.name, avatarUrl: slot.avatarUrl }} size={22} />}
+                  {slot.botId ? <BotAvatar botId={slot.botId} size={28} /> : <Avatar user={{ id: slot.userId ?? slot.key, name: slot.name, avatarUrl: slot.avatarUrl }} size={28} />}
                   <b>{slot.name}</b>
                   {slot.botId ? <BotBadge botId={slot.botId} /> : !slot.userId && <small>GUEST</small>}
                   <button type="button" onClick={() => moveUp(index)} disabled={index === 0} aria-label={`Move ${slot.name} earlier`}><ArrowUp size={14} /></button>

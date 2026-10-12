@@ -169,6 +169,12 @@ function LiveMatchView({ live, match, state, chat, open: chatOpen, setOpen: setC
   const nextStarter = players[(legStarter + 1) % players.length]
   const legScore = players.map((player) => player.legs).join(' – ')
   const matchPlayer = (index: number) => match.players[index]
+  /** Picture (or bot character) for a slot; sized by the stylesheet where it is shown. */
+  const portrait = (index: number) => {
+    const player = matchPlayer(index)
+    if (!player) return null
+    return player.botId ? <BotAvatar botId={player.botId} /> : <Avatar user={{ id: player.userId ?? `guest-${index}`, name: player.name, avatarUrl: player.avatarUrl }} />
+  }
   const streamLabel = live.stream === 'open' ? (live.syncing ? 'SYNCING' : 'LIVE') : live.stream === 'connecting' ? 'CONNECTING' : 'RECONNECTING'
   const solo = match.players.length === 1
   const activeOnline = activePlayer?.userId ? match.onlineUserIds.includes(activePlayer.userId) : true
@@ -211,12 +217,14 @@ function LiveMatchView({ live, match, state, chat, open: chatOpen, setOpen: setC
           currentVisit={currentVisit}
           doubleIn={doubleIn}
           doubleOut={doubleOut}
-          renderNameAdornment={(index) => {
+          renderPortrait={(index) => {
             const player = matchPlayer(index)
-            if (player?.botId) return <><BotAvatar botId={player.botId} size={18} className="name-avatar" /><BotBadge botId={player.botId} /></>
-            if (!player) return null
-            const offline = player.userId && match.lobbyId !== null && !match.onlineUserIds.includes(player.userId)
-            return <><Avatar user={{ id: player.userId ?? `guest-${index}`, name: player.name, avatarUrl: player.avatarUrl }} size={18} className="name-avatar" />{offline && <span className="offline-flag" title="Not connected"><WifiOff size={11} /></span>}</>
+            const offline = player?.userId && match.lobbyId !== null && !match.onlineUserIds.includes(player.userId)
+            return <>{portrait(index)}{offline && <span className="offline-flag" title="Not connected"><WifiOff size={11} /></span>}</>
+          }}
+          renderNameAdornment={(index) => {
+            const botId = matchPlayer(index)?.botId
+            return botId ? <BotBadge botId={botId} /> : null
           }}
         />
 
@@ -244,10 +252,10 @@ function LiveMatchView({ live, match, state, chat, open: chatOpen, setOpen: setC
                 <strong>{currentVisit.reduce((sum, hit) => sum + (hit.counts ? hit.value : 0), 0)}</strong>
               </div>
               {activeBot ? (
-                <div className="spectator-note bot-throwing-note" role="status"><BotAvatar botId={activeBot} size={48} /><span><b>{players[active]?.name}{winner !== null ? ' has finished.' : live.stream !== 'open' ? ' · reconnecting…' : ' is throwing…'}</b><br />{winner !== null ? 'Waiting for the next leg.' : 'Darts arrive automatically. Sit back and watch the visit unfold.'}</span></div>
+                <div className="spectator-note bot-throwing-note" role="status"><span className="spectator-portrait">{portrait(active)}</span><span><b>{players[active]?.name}{winner !== null ? ' has finished.' : live.stream !== 'open' ? ' · reconnecting…' : ' is throwing…'}</b><br />{winner !== null ? 'Waiting for the next leg.' : 'Darts arrive automatically. Sit back and watch the visit unfold.'}</span></div>
               ) : canScore ? (
                 <div className="spectator-note waiting-note" role="status">
-                  {activePlayer && <Avatar user={{ id: activePlayer.userId ?? `guest-${active}`, name: activePlayer.name, avatarUrl: activePlayer.avatarUrl }} size={44} />}
+                  {activePlayer && <span className="spectator-portrait">{portrait(active)}</span>}
                   <span>
                     <b>{winner !== null ? 'Leg finished.' : `${activePlayer?.name ?? 'Your opponent'} is at the oche.`}</b><br />
                     {winner !== null ? 'Waiting for the next leg to start.' : activeOnline ? 'Their darts appear here as they enter them on their device.' : `${activePlayer?.name} is not connected right now.`}
@@ -354,17 +362,21 @@ function LiveMatchView({ live, match, state, chat, open: chatOpen, setOpen: setC
       {showResultModal && winner !== null && (
         <div className="modal-backdrop winner-backdrop">
           <div className={`winner-modal ${matchWinner !== null ? 'match-complete' : ''}`}>
-            <Trophy size={38} />
-            <span>{matchWinner !== null ? (solo ? 'PRACTICE COMPLETE' : 'MATCH COMPLETE') : 'LEG COMPLETE'}</span>
-            <h2>{solo && matchWinner !== null ? `${players[0].name} played ${state.legsToWin} ${state.legsToWin === 1 ? 'leg' : 'legs'}` : `${players[winner].name} ${matchWinner !== null ? 'wins the match!' : 'wins!'}`}</h2>
-            {matchWinner !== null ? (
+            <div className="winner-head">
+              <div className="winner-portrait">{portrait(winner)}<Trophy size={17} aria-hidden="true" /></div>
+              <div className="winner-title">
+                <span>{matchWinner !== null ? (solo ? 'PRACTICE COMPLETE' : 'MATCH COMPLETE') : 'LEG COMPLETE'}</span>
+                <h2>{solo && matchWinner !== null ? `${players[0].name} played ${state.legsToWin} ${state.legsToWin === 1 ? 'leg' : 'legs'}` : `${players[winner].name} ${matchWinner !== null ? 'wins the match!' : 'wins!'}`}</h2>
+                <p>{matchWinner === null
+                  ? `Clean finish. Legs ${legScore}. ${solo ? 'On to the next one.' : `${nextStarter?.name} starts the next leg.`}`
+                  : solo ? `${state.legsToWin} ${state.legsToWin === 1 ? 'leg' : 'legs'} · 3-dart average ${formatAverage(computePlayerStats(state, { includeCurrentLeg: false })[0]?.average)}. Save it to your training stats.` : `Final score ${legScore}. ${hasBots ? 'Save this training result to keep your practice statistics. Wins, losses and ratings are unchanged.' : match.leagueId ? 'Save the result to update the league leaderboard.' : match.ranked ? 'Save the result to update global ratings.' : 'Save the result to your stats.'}`}</p>
+              </div>
+            </div>
+            {matchWinner !== null && (
               <>
-                <p>{solo ? `${state.legsToWin} ${state.legsToWin === 1 ? 'leg' : 'legs'} · 3-dart average ${formatAverage(computePlayerStats(state, { includeCurrentLeg: false })[0]?.average)}. Save it to your training stats.` : `Final score ${legScore}. ${hasBots ? 'Save this training result to keep your practice statistics. Wins, losses and ratings are unchanged.' : match.leagueId ? 'Save the result to update the league leaderboard.' : match.ranked ? 'Save the result to update global ratings.' : 'Save the result to your stats.'}`}</p>
                 <MatchStatsTable rows={statRows(match, state, false)} />
                 {autoSaveIn !== null && <p className="autosave-note"><Clock size={12} /> Saved automatically in {formatCountdown(autoSaveIn)} unless someone undoes the last darts.</p>}
               </>
-            ) : (
-              <p>Clean finish. Legs {legScore}. {solo ? 'On to the next one.' : `${nextStarter?.name} starts the next leg.`}</p>
             )}
             {canScore ? (
               <div className="winner-actions">

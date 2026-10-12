@@ -18,7 +18,7 @@ export function MatchRow({ match, leagueName, highlightUserId }: { match: MatchS
       <div className="match-row-players">
         {match.players.map((player) => (
           <span key={player.slot} className={`${player.won && !solo ? 'winner' : ''} ${match.active === player.slot && live ? 'at-oche' : ''}`}>
-            {player.botId ? <BotAvatar botId={player.botId} size={20} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={20} />}
+            {player.botId ? <BotAvatar botId={player.botId} size={26} /> : <Avatar user={{ id: player.userId ?? `guest-${player.slot}`, name: player.name, avatarUrl: player.avatarUrl }} size={26} />}
             <span className="match-row-player-name">
               <b>{player.name}</b>
               {player.botId && <BotBadge botId={player.botId} />}
