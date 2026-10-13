@@ -28,6 +28,7 @@ export function LobbyPage({ lobbyId, code }: { lobbyId: string; code: string | n
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sheet, setSheet] = useState<'invite' | 'bots' | null>(null)
+  const [startHintDismissed, setStartHintDismissed] = useState(false)
   const followed = useRef<string | null>(null)
   const member = lobby !== null && lobby.role !== 'visitor'
   useDocumentTitle(lobby ? `${lobby.role === 'leader' ? 'Your lobby' : `${lobby.leader.name}’s lobby`} — Oche` : 'Lobby — Oche')
@@ -43,6 +44,14 @@ export function LobbyPage({ lobbyId, code }: { lobbyId: string; code: string | n
   }, [lobbyId, code])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    const dismissStartHint = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setStartHintDismissed(true)
+    }
+    document.addEventListener('keydown', dismissStartHint)
+    return () => document.removeEventListener('keydown', dismissStartHint)
+  }, [])
 
   const follow = useCallback((matchId: string) => {
     if (followed.current === matchId) return
@@ -111,7 +120,7 @@ export function LobbyPage({ lobbyId, code }: { lobbyId: string; code: string | n
   const hasNonAccounts = seats.some((seat) => seat.kind !== 'user')
   const offline = seats.filter((seat) => seat.kind === 'user' && !seat.online && seat.userId !== user?.id)
   const startBlocked = lobby.match
-    ? 'A game is in progress.'
+    ? 'Your lobby already has an active game. Finish it before starting a new one.'
     : lobby.ranked && seats.length < 2
       ? 'Ranked games need at least two players.'
       : null
@@ -258,9 +267,21 @@ export function LobbyPage({ lobbyId, code }: { lobbyId: string; code: string | n
           <>
             <span className="lobby-start-summary">
               <b>{lobby.ranked ? `Ranked · ${seats.length} ${seats.length === 1 ? 'player' : 'players'}` : solo ? 'Solo practice' : `${seats.length} players`}</b>
-              <small>{startBlocked ?? (solo ? 'Track your averages over time. Add a bot or invite friends for a match.' : `${seats[0]?.name} throws first.`)}</small>
+              <small className={startBlocked ? 'lobby-start-blocked' : undefined}>{startBlocked ?? (solo ? 'Track your averages over time. Add a bot or invite friends for a match.' : `${seats[0]?.name} throws first.`)}</small>
             </span>
-            <button className="primary-button start-button" disabled={busy !== null || startBlocked !== null} onClick={start}><Play size={16} /> {busy === 'start' ? 'STARTING…' : lobby.ranked ? 'START RANKED GAME' : solo ? 'START SOLO GAME' : 'START GAME'}</button>
+            <span
+              className="start-button-hint"
+              tabIndex={startBlocked ? 0 : undefined}
+              role={startBlocked ? 'group' : undefined}
+              aria-label={startBlocked ? 'Start game unavailable' : undefined}
+              aria-describedby={startBlocked ? 'lobby-start-tooltip' : undefined}
+              data-dismissed={startHintDismissed || undefined}
+              onMouseEnter={() => setStartHintDismissed(false)}
+              onFocus={() => setStartHintDismissed(false)}
+            >
+              <button className="primary-button start-button" disabled={busy !== null || startBlocked !== null} aria-describedby={startBlocked ? 'lobby-start-tooltip' : undefined} onClick={start}><Play size={16} /> {busy === 'start' ? 'STARTING…' : lobby.ranked ? 'START RANKED GAME' : solo ? 'START SOLO GAME' : 'START GAME'}</button>
+              {startBlocked && <span id="lobby-start-tooltip" className="start-button-tooltip" role="tooltip">{startBlocked}</span>}
+            </span>
           </>
         ) : (
           <span className="lobby-start-summary"><b><Users size={14} /> Waiting for {lobby.leader.name}</b><small>The leader starts the game when everyone is ready. You will join automatically.</small></span>
